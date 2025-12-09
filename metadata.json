@@ -1,0 +1,7 @@
+{
+  "name": "Study Portal",
+  "description": "Study Portal - The best learning app for Class 10 students. Master Math, Science, and English with video lectures and notes.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

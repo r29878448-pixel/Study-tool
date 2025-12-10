@@ -14,6 +14,34 @@ import ExamMode from './components/ExamMode';
 import { Course, Chapter, Video, UserRole, Note, Banner, AppSettings } from './types';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
+// --- Theme Handler ---
+const ThemeHandler = () => {
+  const { settings } = useStore();
+  
+  useEffect(() => {
+    const root = document.documentElement;
+    const hex = settings.uiColor || '#0284C7';
+    
+    // Calculate Dark Variant (simple dimming)
+    // Basic hex to rgb
+    let r = parseInt(hex.substring(1, 3), 16);
+    let g = parseInt(hex.substring(3, 5), 16);
+    let b = parseInt(hex.substring(5, 7), 16);
+    
+    // Darken by 20%
+    const rDark = Math.floor(r * 0.8);
+    const gDark = Math.floor(g * 0.8);
+    const bDark = Math.floor(b * 0.8);
+    
+    const hexDark = `#${rDark.toString(16).padStart(2,'0')}${gDark.toString(16).padStart(2,'0')}${bDark.toString(16).padStart(2,'0')}`;
+    
+    root.style.setProperty('--color-brand', hex);
+    root.style.setProperty('--color-brand-dark', hexDark);
+  }, [settings.uiColor]);
+
+  return null;
+};
+
 // --- Helper for Razorpay ---
 const loadRazorpay = () => {
   return new Promise((resolve) => {
@@ -31,20 +59,23 @@ const loadRazorpay = () => {
 
 // --- Components ---
 
-const Logo = ({ dark = false }: { dark?: boolean }) => (
-  <div className={`flex items-center gap-2 font-bold text-xl tracking-tight ${dark ? 'text-gray-900' : 'text-white'}`}>
-    <div className={`${dark ? 'bg-brand text-white' : 'bg-white text-brand'} p-1.5 rounded-lg shadow-sm`}>
-      <BookOpen className="w-6 h-6" />
+const Logo = ({ dark = false }: { dark?: boolean }) => {
+  const { settings } = useStore();
+  return (
+    <div className={`flex items-center gap-2 font-bold text-xl tracking-tight ${dark ? 'text-gray-900' : 'text-white'}`}>
+      <div className={`${dark ? 'bg-brand text-white' : 'bg-white text-brand'} p-1.5 rounded-lg shadow-sm`}>
+        <BookOpen className="w-6 h-6" />
+      </div>
+      <span>{settings.appName || 'Study Portal'}</span>
     </div>
-    <span>Study Portal</span>
-  </div>
-);
+  );
+};
 
 const AdContainer = () => {
   const { settings } = useStore();
   if (!settings.adsCode) return null;
   return (
-    <div className="w-full my-4 bg-gray-50 border-y border-gray-200 overflow-hidden flex flex-col items-center justify-center min-h-[100px] text-center">
+    <div className="w-full my-4 bg-gray-50 border-y border-gray-200 overflow-hidden flex flex-col items-center justify-center min-h-[100px] text-center p-2">
       <div className="text-[10px] text-gray-400 uppercase tracking-widest mb-1">Sponsored</div>
       <div dangerouslySetInnerHTML={{ __html: settings.adsCode }} />
     </div>
@@ -57,7 +88,7 @@ const Header = () => {
   
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 h-16 bg-brand text-white flex items-center justify-between px-4 z-50 shadow-md">
+      <header className="fixed top-0 left-0 right-0 h-16 bg-brand text-white flex items-center justify-between px-4 z-50 shadow-md transition-colors duration-300">
         <div className="flex items-center gap-3">
           <button onClick={() => setShowMenu(true)}>
             <Menu className="w-6 h-6" />
@@ -147,7 +178,7 @@ const BottomNav = () => {
 const Login = () => {
   const [isSignup, setIsSignup] = useState(false);
   const [formData, setFormData] = useState({ name: '', email: '', phone: '', password: '' });
-  const { login, signup, currentUser } = useStore();
+  const { login, signup, currentUser, settings } = useStore();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -171,7 +202,7 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-brand flex flex-col items-center justify-center p-6 relative overflow-hidden">
+    <div className="min-h-screen bg-brand flex flex-col items-center justify-center p-6 relative overflow-hidden transition-colors duration-300">
       <div className="absolute top-0 left-0 w-64 h-64 bg-white opacity-10 rounded-full -translate-x-1/2 -translate-y-1/2 blur-2xl"></div>
       <div className="absolute bottom-0 right-0 w-96 h-96 bg-black opacity-10 rounded-full translate-x-1/3 translate-y-1/3 blur-3xl"></div>
 
@@ -201,7 +232,7 @@ const Login = () => {
               {isSignup ? 'Create Account' : 'Welcome'}
             </h2>
             <p className="text-sm text-gray-500 mt-1">
-              {isSignup ? 'Join the best study portal' : 'Continue your learning journey'}
+              {isSignup ? `Join ${settings.appName}` : 'Continue your learning journey'}
             </p>
           </div>
           
@@ -234,6 +265,24 @@ const Login = () => {
           <button className="w-full bg-brand text-white py-3.5 rounded-lg font-bold shadow-lg shadow-blue-500/30 active:scale-[0.98] transition-all">
             {isSignup ? 'Start Learning' : 'Login'}
           </button>
+
+          {!isSignup && (
+            <div className="mt-6 text-center border-t pt-4 border-dashed border-gray-200">
+              <p className="text-xs text-gray-400 mb-1">Default Admin: <span className="font-mono">admin@gmail.com</span> / <span className="font-mono">admin</span></p>
+              <button 
+                type="button"
+                onClick={() => {
+                  if(confirm('This will RESET all app data (users, courses, settings) to default state. Are you sure?')) {
+                    localStorage.clear();
+                    window.location.reload();
+                  }
+                }}
+                className="text-[10px] text-red-400 hover:underline hover:text-red-600 transition-colors"
+              >
+                Reset Application Data
+              </button>
+            </div>
+          )}
         </form>
       </div>
     </div>
@@ -306,9 +355,6 @@ const HomePage = () => {
             <Link to={`/course/${course.id}`} key={course.id} className="flex-none w-72 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden group">
               <div className="relative overflow-hidden">
                 <img src={course.image} alt={course.title} className="w-full h-40 object-cover group-hover:scale-105 transition-transform duration-300" />
-                <div className="absolute top-2 left-2 bg-brand text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm">
-                  CLASS 10
-                </div>
                 <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded backdrop-blur-sm">
                   {course.category}
                 </div>
@@ -430,7 +476,7 @@ const CourseDetail = () => {
         contact: currentUser.phone
       },
       theme: {
-        color: "#0284C7"
+        color: settings.uiColor || "#0284C7"
       }
     };
 
@@ -487,7 +533,7 @@ const CourseDetail = () => {
         <img src={course.image} alt={course.title} className="w-full h-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-6">
           <div>
-            <span className="inline-block bg-brand text-white text-[10px] font-bold px-2 py-1 rounded mb-2">CLASS 10</span>
+            <span className="inline-block bg-brand text-white text-[10px] font-bold px-2 py-1 rounded mb-2 uppercase">{course.category}</span>
             <h1 className="text-2xl font-bold text-white shadow-sm leading-tight">{course.title}</h1>
           </div>
         </div>
@@ -664,7 +710,7 @@ const MyCourses = () => {
                 <div className="flex-1 flex flex-col justify-between">
                   <div>
                     <div className="flex gap-2 mb-1">
-                      <span className="text-[10px] bg-blue-50 text-brand px-2 py-0.5 rounded font-bold uppercase">Class 10</span>
+                      <span className="text-[10px] bg-blue-50 text-brand px-2 py-0.5 rounded font-bold uppercase">{course.category}</span>
                       {isTemp && <span className="text-[10px] bg-yellow-50 text-yellow-600 px-2 py-0.5 rounded font-bold uppercase">24H Access</span>}
                     </div>
                     <h3 className="font-bold text-gray-800 line-clamp-1 text-sm leading-snug">{course.title}</h3>
@@ -912,7 +958,7 @@ const Profile = () => {
 };
 
 const AdminPanel = () => {
-  const { currentUser, settings, updateSettings, courses, users, addCourse, updateCourse, deleteCourse, deleteUser } = useStore();
+  const { currentUser, settings, updateSettings, courses, users, addCourse, updateCourse, deleteCourse, deleteUser, updateUser } = useStore();
   const [activeTab, setActiveTab] = useState<'dashboard' | 'courses' | 'import' | 'users' | 'settings'>('dashboard');
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   
@@ -923,6 +969,7 @@ const AdminPanel = () => {
 
   // Settings State
   const [localSettings, setLocalSettings] = useState(settings);
+  const [adminCreds, setAdminCreds] = useState({ email: currentUser?.email || '', password: currentUser?.password || '' });
 
   if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.EDITOR)) {
     return <Navigate to="/" />;
@@ -930,7 +977,10 @@ const AdminPanel = () => {
 
   const handleSaveSettings = () => {
     updateSettings(localSettings);
-    alert('Settings saved successfully!');
+    if (adminCreds.email !== currentUser.email || adminCreds.password !== currentUser.password) {
+       updateUser({ email: adminCreds.email, password: adminCreds.password });
+    }
+    alert('Settings and Credentials saved successfully!');
   };
 
   const handleImport = () => {
@@ -963,7 +1013,6 @@ const AdminPanel = () => {
       alert('YouTube Video Imported!');
     } 
     else if (importType === 'telegram' || importType === 'drive') {
-      // Simulation for Telegram/Drive fetch
       alert(`Fetching content from ${importType === 'telegram' ? 'Telegram' : 'Drive'}...`);
       setTimeout(() => {
         const newVideo: Video = {
@@ -1050,7 +1099,7 @@ const AdminPanel = () => {
                   <XAxis dataKey="name" hide />
                   <YAxis />
                   <Tooltip />
-                  <Bar dataKey="users" fill="#0284C7" />
+                  <Bar dataKey="users" fill={settings.uiColor || '#0284C7'} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -1124,11 +1173,11 @@ const AdminPanel = () => {
                </select>
              </div>
 
-             <div className="flex gap-2 mb-4 border-b pb-2">
-               <button onClick={() => setImportType('youtube')} className={`flex-1 py-2 text-sm font-bold rounded ${importType === 'youtube' ? 'bg-brand text-white' : 'text-gray-500'}`}>YouTube</button>
-               <button onClick={() => setImportType('telegram')} className={`flex-1 py-2 text-sm font-bold rounded ${importType === 'telegram' ? 'bg-brand text-white' : 'text-gray-500'}`}>Telegram</button>
-               <button onClick={() => setImportType('drive')} className={`flex-1 py-2 text-sm font-bold rounded ${importType === 'drive' ? 'bg-brand text-white' : 'text-gray-500'}`}>Drive</button>
-               <button onClick={() => setImportType('device')} className={`flex-1 py-2 text-sm font-bold rounded ${importType === 'device' ? 'bg-brand text-white' : 'text-gray-500'}`}>Device</button>
+             <div className="flex gap-2 mb-4 border-b pb-2 overflow-x-auto">
+               <button onClick={() => setImportType('youtube')} className={`flex-1 min-w-[80px] py-2 text-sm font-bold rounded ${importType === 'youtube' ? 'bg-brand text-white' : 'text-gray-500'}`}>YouTube</button>
+               <button onClick={() => setImportType('telegram')} className={`flex-1 min-w-[80px] py-2 text-sm font-bold rounded ${importType === 'telegram' ? 'bg-brand text-white' : 'text-gray-500'}`}>Telegram</button>
+               <button onClick={() => setImportType('drive')} className={`flex-1 min-w-[80px] py-2 text-sm font-bold rounded ${importType === 'drive' ? 'bg-brand text-white' : 'text-gray-500'}`}>Drive</button>
+               <button onClick={() => setImportType('device')} className={`flex-1 min-w-[80px] py-2 text-sm font-bold rounded ${importType === 'device' ? 'bg-brand text-white' : 'text-gray-500'}`}>Device</button>
              </div>
 
              {importType === 'device' ? (
@@ -1181,41 +1230,64 @@ const AdminPanel = () => {
         )}
 
         {activeTab === 'settings' && (
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 space-y-4">
-            <h2 className="font-bold text-lg mb-4">App Configuration</h2>
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 space-y-6">
             
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">App Name</label>
-              <input type="text" className="w-full p-2 border rounded" value={localSettings.appName} onChange={e => setLocalSettings({...localSettings, appName: e.target.value})} />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-               <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Razorpay Key ID</label>
-                  <input type="text" className="w-full p-2 border rounded" value={localSettings.razorpayKey} onChange={e => setLocalSettings({...localSettings, razorpayKey: e.target.value})} />
+            <div className="border-b pb-6">
+               <h2 className="font-bold text-lg mb-4 text-brand">Branding</h2>
+               <div className="space-y-4">
+                 <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Website Name</label>
+                    <input type="text" className="w-full p-2 border rounded" value={localSettings.appName} onChange={e => setLocalSettings({...localSettings, appName: e.target.value})} />
+                 </div>
+                 <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">UI Color Theme</label>
+                    <div className="flex gap-2">
+                      <input type="color" className="h-10 w-20 p-1 border rounded" value={localSettings.uiColor || '#0284C7'} onChange={e => setLocalSettings({...localSettings, uiColor: e.target.value})} />
+                      <div className="text-xs text-gray-400 flex items-center">Pick a brand color</div>
+                    </div>
+                 </div>
                </div>
-               <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Razorpay Secret</label>
-                  <input type="password" className="w-full p-2 border rounded" value={localSettings.razorpaySecret || ''} onChange={e => setLocalSettings({...localSettings, razorpaySecret: e.target.value})} />
+            </div>
+
+            <div className="border-b pb-6">
+               <h2 className="font-bold text-lg mb-4 text-brand">Admin Credentials</h2>
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Admin Email</label>
+                    <input type="email" className="w-full p-2 border rounded" value={adminCreds.email} onChange={e => { setAdminCreds({...adminCreds, email: e.target.value}); setLocalSettings({...localSettings, adminEmail: e.target.value}); }} />
+                 </div>
+                 <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Admin Password</label>
+                    <input type="text" className="w-full p-2 border rounded" value={adminCreds.password} onChange={e => setAdminCreds({...adminCreds, password: e.target.value})} />
+                 </div>
                </div>
             </div>
 
-            <div>
-               <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Telegram Bot Token</label>
-               <input type="password" className="w-full p-2 border rounded" value={localSettings.telegramBotToken || ''} onChange={e => setLocalSettings({...localSettings, telegramBotToken: e.target.value})} />
+            <div className="border-b pb-6">
+               <h2 className="font-bold text-lg mb-4 text-brand">Integrations</h2>
+               <div className="grid grid-cols-2 gap-4">
+                  <div>
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Razorpay Key ID</label>
+                      <input type="text" className="w-full p-2 border rounded" value={localSettings.razorpayKey} onChange={e => setLocalSettings({...localSettings, razorpayKey: e.target.value})} />
+                  </div>
+                  <div>
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Razorpay Secret</label>
+                      <input type="password" className="w-full p-2 border rounded" value={localSettings.razorpaySecret || ''} onChange={e => setLocalSettings({...localSettings, razorpaySecret: e.target.value})} />
+                  </div>
+               </div>
+
+               <div className="mt-4">
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Link Shortener API URL</label>
+                  <input type="text" className="w-full p-2 border rounded" value={localSettings.linkShortenerApiUrl || ''} onChange={e => setLocalSettings({...localSettings, linkShortenerApiUrl: e.target.value})} />
+               </div>
+
+               <div className="mt-4">
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Ads Code (HTML/Script)</label>
+                  <textarea className="w-full p-2 border rounded h-24 font-mono text-xs" value={localSettings.adsCode || ''} onChange={e => setLocalSettings({...localSettings, adsCode: e.target.value})} placeholder="<script>...</script>" />
+               </div>
             </div>
 
-            <div>
-               <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Link Shortener API URL</label>
-               <input type="text" className="w-full p-2 border rounded" value={localSettings.linkShortenerApiUrl || ''} onChange={e => setLocalSettings({...localSettings, linkShortenerApiUrl: e.target.value})} />
-            </div>
-
-            <div>
-               <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Ads Code (HTML/Script)</label>
-               <textarea className="w-full p-2 border rounded h-24 font-mono text-xs" value={localSettings.adsCode || ''} onChange={e => setLocalSettings({...localSettings, adsCode: e.target.value})} placeholder="<script>...</script>" />
-            </div>
-
-            <button onClick={handleSaveSettings} className="w-full bg-brand text-white py-3 rounded-lg font-bold">Save Changes</button>
+            <button onClick={handleSaveSettings} className="w-full bg-brand text-white py-4 rounded-xl font-bold shadow-lg hover:bg-brand-dark transition-colors">Save All Changes</button>
           </div>
         )}
       </div>
@@ -1231,8 +1303,8 @@ const AdminPanel = () => {
               <textarea placeholder="Description" className="w-full p-3 border rounded-lg h-24" value={editingCourse.description} onChange={e => setEditingCourse({...editingCourse, description: e.target.value})} />
               
               <div className="grid grid-cols-2 gap-4">
-                 <div className="flex items-center gap-2 border p-3 rounded-lg">
-                    <input type="checkbox" checked={editingCourse.isPaid || false} onChange={e => setEditingCourse({...editingCourse, isPaid: e.target.checked})} className="w-5 h-5 text-brand" />
+                 <div className="flex items-center gap-2 border p-3 rounded-lg cursor-pointer" onClick={() => setEditingCourse({...editingCourse, isPaid: !editingCourse.isPaid})}>
+                    <input type="checkbox" checked={editingCourse.isPaid || false} onChange={() => {}} className="w-5 h-5 text-brand" />
                     <span className="font-bold">Is Paid?</span>
                  </div>
                  <input type="number" placeholder="Price (₹)" className="w-full p-3 border rounded-lg" value={editingCourse.price} onChange={e => setEditingCourse({...editingCourse, price: parseInt(e.target.value)})} />
@@ -1265,6 +1337,7 @@ const App = () => {
   return (
     <StoreProvider>
       <Router>
+        <ThemeHandler />
         <AppRoutes />
       </Router>
     </StoreProvider>

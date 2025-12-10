@@ -30,10 +30,10 @@ const StoreContext = createContext<StoreContextType | undefined>(undefined);
 const INITIAL_COURSES: Course[] = [
   {
     id: '1',
-    title: 'Class 10 Science (Physics, Chem, Bio)',
+    title: 'Science Masterclass',
     mrp: 1999,
     price: 0,
-    description: 'Complete NCERT coverage for Class 10 Science. Includes Physics (Light, Electricity), Chemistry (Reactions, Carbon), and Biology (Life Processes).',
+    description: 'Complete coverage of Physics, Chemistry, and Biology. Includes interactive video lectures and detailed notes.',
     image: 'https://img.freepik.com/free-vector/science-lab-objects-composition_1284-18158.jpg',
     category: 'Science',
     createdAt: new Date().toISOString(),
@@ -41,48 +41,28 @@ const INITIAL_COURSES: Course[] = [
     chapters: [
       {
         id: 'c1',
-        title: 'Chemical Reactions and Equations',
+        title: 'Chemical Reactions',
         videos: [
-          { id: 'v1', title: 'Introduction to Chemical Reactions', filename: 'https://www.w3schools.com/html/mov_bbb.mp4', duration: '15:00' },
+          { id: 'v1', title: 'Introduction', filename: 'https://www.w3schools.com/html/mov_bbb.mp4', duration: '15:00' },
           { id: 'v2', title: 'Balancing Equations', filename: 'https://www.w3schools.com/html/movie.mp4', duration: '20:00' }
         ],
         notes: [
-          { id: 'n1', title: 'Chapter 1 Summary Notes', url: '#' }
+          { id: 'n1', title: 'Chapter Summary', url: '#' }
         ]
-      },
-      {
-        id: 'c2',
-        title: 'Light - Reflection and Refraction',
-        videos: [
-          { id: 'v3', title: 'Laws of Reflection', filename: 'https://www.w3schools.com/html/mov_bbb.mp4', duration: '18:00' }
-        ],
-        notes: []
       }
     ]
   },
   {
     id: '2',
-    title: 'Class 10 Mathematics Mastery',
+    title: 'Advanced Mathematics',
     mrp: 2499,
     price: 499,
-    description: 'Master Trigonometry, Algebra, Geometry, and Statistics. Solved examples and previous year questions included.',
+    description: 'Master Trigonometry, Algebra, and Geometry with solved examples and previous year questions.',
     image: 'https://img.freepik.com/free-vector/maths-chalkboard_23-2148178220.jpg',
     category: 'Maths',
     createdAt: new Date().toISOString(),
     isPaid: true,
     verificationLink: 'https://google.com',
-    chapters: []
-  },
-  {
-    id: '3',
-    title: 'Class 10 English Literature & Grammar',
-    mrp: 999,
-    price: 0,
-    description: 'First Flight and Footprints Without Feet complete explanation with Grammar section.',
-    image: 'https://img.freepik.com/free-photo/english-british-flag-language-education-concept_53876-128211.jpg',
-    category: 'English',
-    createdAt: new Date().toISOString(),
-    isPaid: false,
     chapters: []
   }
 ];
@@ -96,21 +76,10 @@ const INITIAL_USERS: User[] = [
   {
     id: 'admin',
     name: 'Admin User',
-    email: 'r29878448@gmail.com',
+    email: 'admin@gmail.com',
     phone: '0000000000',
-    password: 'Mnbvcxz09@',
+    password: 'admin',
     role: UserRole.ADMIN,
-    purchasedCourseIds: [],
-    examResults: [],
-    tempAccess: {}
-  },
-  {
-    id: 'editor',
-    name: 'Editor',
-    email: 'editor@gmail.com',
-    phone: '1111111111',
-    password: 'Mnbvcxz09@',
-    role: UserRole.EDITOR,
     purchasedCourseIds: [],
     examResults: [],
     tempAccess: {}
@@ -119,10 +88,11 @@ const INITIAL_USERS: User[] = [
 
 const INITIAL_SETTINGS: AppSettings = {
   appName: 'Study Portal',
-  adminEmail: 'r29878448@gmail.com',
+  adminEmail: 'admin@gmail.com',
   supportPhone: '+91-9876543210',
   razorpayKey: 'rzp_test_123456',
   razorpaySecret: '',
+  uiColor: '#0284C7',
   linkShortenerApiUrl: '',
   linkShortenerApiKey: '',
   telegramBotToken: '',
@@ -130,10 +100,23 @@ const INITIAL_SETTINGS: AppSettings = {
 };
 
 export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
-  // Initialize state from LocalStorage or Defaults
   const [users, setUsers] = useState<User[]>(() => {
     const saved = localStorage.getItem('sp_users');
-    return saved ? JSON.parse(saved) : INITIAL_USERS;
+    let loadedUsers: User[] = saved ? JSON.parse(saved) : INITIAL_USERS;
+    
+    // Robustness: Ensure Admin Exists
+    const adminExists = loadedUsers.some(u => u.role === UserRole.ADMIN);
+    if (!adminExists) {
+      console.warn("No admin found in storage. Restoring default admin.");
+      // If we have users but no admin, append default admin.
+      // If loadedUsers is just empty, use INITIAL_USERS
+      if (loadedUsers.length === 0) {
+        loadedUsers = INITIAL_USERS;
+      } else {
+        loadedUsers = [...loadedUsers, INITIAL_USERS[0]];
+      }
+    }
+    return loadedUsers;
   });
 
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
@@ -161,45 +144,28 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
     return saved ? JSON.parse(saved) : INITIAL_SETTINGS;
   });
 
-  // Persistence Effects with Error Handling
-  useEffect(() => {
-    try {
-      localStorage.setItem('sp_users', JSON.stringify(users));
-    } catch (e) { console.error('Storage full'); }
-  }, [users]);
+  useEffect(() => { localStorage.setItem('sp_users', JSON.stringify(users)); }, [users]);
+  useEffect(() => { localStorage.setItem('sp_currentUser', JSON.stringify(currentUser)); }, [currentUser]);
+  useEffect(() => { localStorage.setItem('sp_courses', JSON.stringify(courses)); }, [courses]);
+  useEffect(() => { localStorage.setItem('sp_banners', JSON.stringify(banners)); }, [banners]);
+  useEffect(() => { localStorage.setItem('sp_orders', JSON.stringify(orders)); }, [orders]);
+  useEffect(() => { localStorage.setItem('sp_settings', JSON.stringify(settings)); }, [settings]);
 
+  // Sync settings email with admin user if needed
   useEffect(() => {
-    try {
-      localStorage.setItem('sp_currentUser', JSON.stringify(currentUser));
-    } catch (e) { console.error('Storage full'); }
-  }, [currentUser]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('sp_courses', JSON.stringify(courses));
-    } catch (e) { console.error('Storage full'); }
-  }, [courses]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('sp_banners', JSON.stringify(banners));
-    } catch (e) { console.error('Storage full'); }
-  }, [banners]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('sp_orders', JSON.stringify(orders));
-    } catch (e) { console.error('Storage full'); }
-  }, [orders]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('sp_settings', JSON.stringify(settings));
-    } catch (e) { console.error('Storage full'); }
-  }, [settings]);
+    const adminUser = users.find(u => u.role === UserRole.ADMIN);
+    if (adminUser && adminUser.email !== settings.adminEmail) {
+       // Logic to keep them in sync could go here, but strictly we usually update user first.
+    }
+  }, [settings.adminEmail, users]);
 
   const login = (email: string, pass: string) => {
-    const user = users.find(u => (u.email === email || u.name === email) && u.password === pass);
+    // Check for email OR phone match
+    const user = users.find(u => 
+      (u.email.toLowerCase() === email.toLowerCase() || u.phone === email || u.name === email) && 
+      u.password === pass
+    );
+    
     if (user) {
       const updatedUser = { ...user, lastLogin: new Date().toISOString() };
       setUsers(prevUsers => prevUsers.map(u => u.id === user.id ? updatedUser : u));
@@ -210,7 +176,7 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
   };
 
   const signup = (name: string, email: string, phone: string, pass: string) => {
-    if (users.some(u => u.email === email)) {
+    if (users.some(u => u.email.toLowerCase() === email.toLowerCase())) {
       alert('Email already exists!');
       return;
     }
@@ -273,10 +239,7 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
 
   const grantTempAccess = (courseId: string) => {
     if (!currentUser) return;
-    
-    // 24 hours from now
     const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-    
     const updatedUser: User = {
       ...currentUser,
       tempAccess: {
@@ -284,7 +247,6 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
         [courseId]: expiry
       }
     };
-
     setCurrentUser(updatedUser);
     setUsers(prevUsers => prevUsers.map(u => u.id === currentUser.id ? updatedUser : u));
   };
@@ -292,8 +254,11 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
   const updateUser = (data: Partial<User>) => {
     if (!currentUser) return;
     const updatedUser = { ...currentUser, ...data };
+    
+    const updatedUsers = users.map(u => u.id === currentUser.id ? updatedUser : u);
+    
+    setUsers(updatedUsers);
     setCurrentUser(updatedUser);
-    setUsers(prevUsers => prevUsers.map(u => u.id === currentUser.id ? updatedUser : u));
   };
 
   const deleteUser = (userId: string) => {
@@ -302,7 +267,18 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
 
   const addBanner = (banner: Banner) => setBanners([...banners, banner]);
   const deleteBanner = (id: string) => setBanners(banners.filter(b => b.id !== id));
-  const updateSettings = (newSettings: AppSettings) => setSettings(newSettings);
+  
+  const updateSettings = (newSettings: AppSettings) => {
+    setSettings(newSettings);
+    // Also update Admin user email if it was changed in settings
+    const adminUser = users.find(u => u.role === UserRole.ADMIN);
+    if (adminUser && adminUser.email !== newSettings.adminEmail) {
+      setUsers(users.map(u => u.role === UserRole.ADMIN ? { ...u, email: newSettings.adminEmail } : u));
+      if (currentUser?.role === UserRole.ADMIN) {
+        setCurrentUser({ ...currentUser, email: newSettings.adminEmail });
+      }
+    }
+  };
 
   const saveExamResult = (courseId: string, score: number, totalQuestions: number) => {
     if (!currentUser) return;

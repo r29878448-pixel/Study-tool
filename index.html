@@ -11,8 +11,8 @@
           extend: {
             colors: {
               brand: {
-                DEFAULT: '#0284C7', // Sky Blue
-                dark: '#0369A1',
+                DEFAULT: 'var(--color-brand)',
+                dark: 'var(--color-brand-dark)',
               }
             }
           }
@@ -20,6 +20,10 @@
       }
     </script>
     <style>
+      :root {
+        --color-brand: #0284C7; /* Default Sky Blue */
+        --color-brand-dark: #0369A1;
+      }
       body {
         -webkit-user-select: none;
         -moz-user-select: none;
@@ -33,6 +37,14 @@
       .no-scrollbar {
         -ms-overflow-style: none;
         scrollbar-width: none;
+      }
+      /* Animation classes */
+      .animate-fade-in {
+        animation: fadeIn 0.3s ease-out;
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
       }
     </style>
   <script type="importmap">

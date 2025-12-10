@@ -79,6 +79,7 @@ export interface AppSettings {
   appName: string;
   adminEmail: string;
   supportPhone: string;
+  uiColor?: string; // Hex code for brand color
   razorpayKey: string;
   razorpaySecret?: string;
   linkShortenerApiUrl?: string;

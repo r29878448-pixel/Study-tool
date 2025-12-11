@@ -12,7 +12,7 @@ interface Message {
 const ChatBot = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'model', text: 'Hello student! I am your teacher. How can I help you with your studies today?' }
+    { role: 'model', text: 'Namaste student! Main hoon aapka AI Teacher. Padhai mein main aapki kaise madad kar sakta hoon?' }
   ]);
   const [inputValue, setInputValue] = useState('');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -34,7 +34,7 @@ const ChatBot = () => {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
       const recognition = new SpeechRecognition();
-      recognition.lang = 'en-US';
+      recognition.lang = 'en-IN'; // Changed to Indian English/Hindi context
       recognition.interimResults = false;
       recognition.maxAlternatives = 1;
 
@@ -111,7 +111,7 @@ const ChatBot = () => {
           parts: parts
         },
         config: {
-          systemInstruction: "You are an expert school teacher named 'AI Teacher'. Your goal is to help students learn effectively. Do not sound like a robot. Speak naturally, kindly, and professionally. When explaining concepts, use real-world analogies and break them down step-by-step. If a student asks a question, guide them to the answer conceptually before giving the solution. Help with Math, Science, English, and Social Studies.",
+          systemInstruction: "You are an expert school teacher named 'AI Teacher'. Your goal is to help students learn effectively. \n\n**IMPORTANT RULES:**\n1. **Language:** You must strictly answer in **Hinglish** (a mix of Hindi and English) by default. Example: 'Haan, main samajha sakta hoon. Is concept ko aise samjho...'\n2. **No Unnecessary Code:** Do not use markdown code blocks (```) or write programming code unless the student EXPLICITLY asks for a coding solution (like 'Write a Java program'). For normal questions, just use text.\n3. **Tone:** Speak naturally, kindly, and professionally. Do not sound like a robot.\n4. **Teaching Style:** Use real-world analogies suitable for Indian students. Guide them to the answer conceptually before giving the solution.\n5. **Subjects:** Help with Math, Science, English, and Social Studies.",
         },
       });
 
@@ -121,7 +121,7 @@ const ChatBot = () => {
       }
     } catch (error) {
       console.error("Chat Error:", error);
-      setMessages(prev => [...prev, { role: 'model', text: "I apologize, but I am currently unable to connect to the server. Please check your internet connection." }]);
+      setMessages(prev => [...prev, { role: 'model', text: "Maaf kijiye, main abhi server se connect nahi kar pa raha hoon. Kripya apna internet check karein." }]);
     } finally {
       setIsLoading(false);
     }
@@ -229,7 +229,7 @@ const ChatBot = () => {
               {/* Text Input */}
               <textarea 
                 className="flex-1 bg-gray-100 rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand/50 text-gray-900 resize-none max-h-24 no-scrollbar"
-                placeholder="Ask a question..."
+                placeholder="Ask in Hinglish..."
                 rows={1}
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}

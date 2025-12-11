@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, Course, Banner, Order, AppSettings, UserRole, ExamResult } from './types';
+import { User, Course, Banner, Order, AppSettings, UserRole, ExamResult, ExamProgress } from './types';
 
 interface StoreContextType {
   currentUser: User | null;
@@ -23,6 +23,8 @@ interface StoreContextType {
   updateUser: (data: Partial<User>) => void;
   deleteUser: (userId: string) => void;
   saveExamResult: (courseId: string, score: number, totalQuestions: number) => void;
+  saveExamProgress: (progress: ExamProgress) => void;
+  clearExamProgress: (courseId: string) => void;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -298,6 +300,31 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
     setUsers(prevUsers => prevUsers.map(u => u.id === currentUser.id ? updatedUser : u));
   };
 
+  const saveExamProgress = (progress: ExamProgress) => {
+    if (!currentUser) return;
+    
+    const currentProgress = currentUser.savedExamProgress || [];
+    const otherProgress = currentProgress.filter(p => p.courseId !== progress.courseId);
+    
+    const updatedUser: User = {
+      ...currentUser,
+      savedExamProgress: [...otherProgress, progress]
+    };
+
+    setCurrentUser(updatedUser);
+    setUsers(prevUsers => prevUsers.map(u => u.id === currentUser.id ? updatedUser : u));
+  };
+
+  const clearExamProgress = (courseId: string) => {
+    if (!currentUser) return;
+    const updatedUser: User = {
+      ...currentUser,
+      savedExamProgress: (currentUser.savedExamProgress || []).filter(p => p.courseId !== courseId)
+    };
+    setCurrentUser(updatedUser);
+    setUsers(prevUsers => prevUsers.map(u => u.id === currentUser.id ? updatedUser : u));
+  };
+
   return (
     <StoreContext.Provider value={{
       currentUser, users, courses, banners, orders, settings,
@@ -308,7 +335,9 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
       updateSettings,
       updateUser,
       deleteUser,
-      saveExamResult
+      saveExamResult,
+      saveExamProgress,
+      clearExamProgress
     }}>
       {children}
     </StoreContext.Provider>

@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageCircle, X, Send, Bot, Mic, Image as ImageIcon } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
@@ -11,7 +12,7 @@ interface Message {
 const ChatBot = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'model', text: 'Hi! I am your Class 10 study assistant. Ask me anything about Math, Science, or English! You can also send me photos of your doubts.' }
+    { role: 'model', text: 'Hello student! I am your teacher. How can I help you with your studies today?' }
   ]);
   const [inputValue, setInputValue] = useState('');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -110,7 +111,7 @@ const ChatBot = () => {
           parts: parts
         },
         config: {
-          systemInstruction: "You are a friendly and knowledgeable tutor for Class 10 students (CBSE/ICSE curriculum). Explain concepts simply, provide examples, and keep answers concise. Help with Math, Science, Physics, Chemistry, Biology, and English grammar. Analyze images if provided.",
+          systemInstruction: "You are an expert school teacher named 'AI Teacher'. Your goal is to help students learn effectively. Do not sound like a robot. Speak naturally, kindly, and professionally. When explaining concepts, use real-world analogies and break them down step-by-step. If a student asks a question, guide them to the answer conceptually before giving the solution. Help with Math, Science, English, and Social Studies.",
         },
       });
 
@@ -120,7 +121,7 @@ const ChatBot = () => {
       }
     } catch (error) {
       console.error("Chat Error:", error);
-      setMessages(prev => [...prev, { role: 'model', text: "Sorry, I'm having trouble connecting right now. Please check your internet connection or try again later." }]);
+      setMessages(prev => [...prev, { role: 'model', text: "I apologize, but I am currently unable to connect to the server. Please check your internet connection." }]);
     } finally {
       setIsLoading(false);
     }
@@ -146,8 +147,8 @@ const ChatBot = () => {
                 <Bot className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-bold text-sm">Study Assistant</h3>
-                <p className="text-[10px] opacity-80">Online | AI Tutor</p>
+                <h3 className="font-bold text-sm">AI Teacher</h3>
+                <p className="text-[10px] opacity-80">Online</p>
               </div>
             </div>
             <button onClick={() => setIsOpen(false)} className="hover:bg-white/20 p-1 rounded">
@@ -228,7 +229,7 @@ const ChatBot = () => {
               {/* Text Input */}
               <textarea 
                 className="flex-1 bg-gray-100 rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand/50 text-gray-900 resize-none max-h-24 no-scrollbar"
-                placeholder="Ask a doubt or send a photo..."
+                placeholder="Ask a question..."
                 rows={1}
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}

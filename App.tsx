@@ -11,7 +11,7 @@ import {
 import VideoPlayer from './components/VideoPlayer';
 import ChatBot from './components/ChatBot';
 import ExamMode from './components/ExamMode';
-import { Course, Chapter, Video, UserRole, Note, Banner, AppSettings } from './types';
+import { Course, Chapter, Video, UserRole, Note, Banner, AppSettings, Exam, Question } from './types';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 // --- Theme Handler ---
@@ -32,8 +32,8 @@ const ThemeHandler = () => {
     const rDark = Math.floor(r * 0.8);
     const gDark = Math.floor(g * 0.8);
     const bDark = Math.floor(b * 0.8);
-    
-    const hexDark = `#${rDark.toString(16).padStart(2,'0')}${gDark.toString(16).padStart(2,'0')}${bDark.toString(16).padStart(2,'0')}`;
+
+    const hexDark = '#' + [rDark, gDark, bDark].map(c => c.toString(16).padStart(2, '0')).join('');
     
     root.style.setProperty('--color-brand', hex);
     root.style.setProperty('--color-brand-dark', hexDark);
@@ -565,7 +565,7 @@ const CourseDetail = () => {
                to={`/exam/${course.id}`}
                className="w-full bg-purple-100 hover:bg-purple-200 text-purple-700 py-3 rounded-xl font-bold flex items-center justify-center gap-2 border border-purple-200 transition-colors"
              >
-                <ClipboardList className="w-5 h-5" /> Take AI Exam (Mock Test)
+                <ClipboardList className="w-5 h-5" /> Take Exam
              </Link>
           </div>
         )}
@@ -668,73 +668,38 @@ const CourseDetail = () => {
 };
 
 const MyCourses = () => {
-  const { currentUser, courses } = useStore();
+  const { courses, currentUser } = useStore();
   
   if (!currentUser) return <Navigate to="/login" />;
 
-  const purchased = courses.filter(c => currentUser.purchasedCourseIds.includes(c.id));
-  const tempAccessed = Object.keys(currentUser.tempAccess || {})
-    .filter(id => {
-       const expiry = currentUser.tempAccess?.[id];
-       return expiry && new Date(expiry) > new Date();
-    })
-    .map(id => courses.find(c => c.id === id))
-    .filter((c): c is Course => !!c);
-
-  const allCourses = [...new Map([...purchased, ...tempAccessed].map(c => [c.id, c])).values()];
+  const myCourseIds = currentUser.purchasedCourseIds;
+  const myCourses = courses.filter(c => 
+    myCourseIds.includes(c.id) || 
+    (currentUser.tempAccess && currentUser.tempAccess[c.id] && new Date(currentUser.tempAccess[c.id]) > new Date())
+  );
 
   return (
     <div className="pb-24 pt-16 p-4">
-      <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-        <span className="w-1 h-8 bg-brand rounded-full"></span>
-        My Batches
-      </h2>
-      {allCourses.length === 0 ? (
-        <div className="text-center py-20 flex flex-col items-center">
-          <div className="w-32 h-32 bg-gray-100 rounded-full flex items-center justify-center mb-6">
-            <BookOpen className="w-12 h-12 text-gray-300" />
-          </div>
-          <h3 className="font-bold text-gray-800 mb-2 text-xl">No Batches Yet</h3>
-          <p className="text-gray-500 mb-8 text-sm max-w-xs">Enrolled batches will appear here. Start your preparation today!</p>
-          <Link to="/" className="bg-brand text-white font-bold px-8 py-3 rounded-xl shadow-lg shadow-blue-500/30 hover:bg-brand-dark transition-colors">Browse Batches</Link>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {allCourses.map(course => {
-            const isTemp = !currentUser.purchasedCourseIds.includes(course.id) && 
-                           (currentUser.tempAccess?.[course.id] ? new Date(currentUser.tempAccess[course.id]!) > new Date() : false);
-            
-            return (
-              <div key={course.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex gap-4">
-                <img src={course.image} alt={course.title} className="w-28 h-20 object-cover rounded-lg" />
-                <div className="flex-1 flex flex-col justify-between">
-                  <div>
-                    <div className="flex gap-2 mb-1">
-                      <span className="text-[10px] bg-blue-50 text-brand px-2 py-0.5 rounded font-bold uppercase">{course.category}</span>
-                      {isTemp && <span className="text-[10px] bg-yellow-50 text-yellow-600 px-2 py-0.5 rounded font-bold uppercase">24H Access</span>}
-                    </div>
-                    <h3 className="font-bold text-gray-800 line-clamp-1 text-sm leading-snug">{course.title}</h3>
-                  </div>
-                  <div className="flex gap-2 mt-2">
-                     <Link 
-                      to={`/watch/${course.id}`}
-                      className="flex-1 text-center bg-gray-900 text-white text-xs px-2 py-2.5 rounded-lg font-bold hover:bg-black transition-colors flex items-center justify-center gap-1"
-                    >
-                      <PlayCircle className="w-3 h-3" /> Study
-                    </Link>
-                     <Link 
-                      to={`/exam/${course.id}`}
-                      className="flex-1 text-center bg-purple-100 text-purple-700 text-xs px-2 py-2.5 rounded-lg font-bold hover:bg-purple-200 transition-colors flex items-center justify-center gap-1"
-                    >
-                      <ClipboardList className="w-3 h-3" /> Exam
-                    </Link>
-                  </div>
-                </div>
+      <h2 className="text-xl font-bold mb-6">My Batches</h2>
+      <div className="space-y-4">
+        {myCourses.length === 0 ? (
+           <div className="text-center py-10 text-gray-400">You haven't enrolled in any batches yet.</div>
+        ) : myCourses.map(course => (
+           <Link to={`/watch/${course.id}`} key={course.id} className="block bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex gap-4 p-3 items-center">
+              <img src={course.image} className="w-20 h-20 rounded-lg object-cover" />
+              <div className="flex-1">
+                 <h3 className="font-bold text-gray-800 line-clamp-1">{course.title}</h3>
+                 <div className="w-full bg-gray-100 h-1.5 rounded-full mt-3 overflow-hidden">
+                    <div className="bg-brand h-full w-[10%]"></div>
+                 </div>
+                 <p className="text-[10px] text-gray-400 mt-1">10% Completed</p>
               </div>
-            );
-          })}
-        </div>
-      )}
+              <div className="bg-brand/10 p-2 rounded-full text-brand">
+                <PlayCircle className="w-6 h-6" />
+              </div>
+           </Link>
+        ))}
+      </div>
     </div>
   );
 };
@@ -742,225 +707,321 @@ const MyCourses = () => {
 const Watch = () => {
   const { courseId } = useParams();
   const { courses, currentUser } = useStore();
-  const [activeTab, setActiveTab] = useState<'lectures' | 'notes'>('lectures');
-  const [activeChapter, setActiveChapter] = useState<string | null>(null);
-  const [currentVideo, setCurrentVideo] = useState<Video | null>(null);
+  const [activeVideo, setActiveVideo] = useState<Video | null>(null);
   
   const course = courses.find(c => c.id === courseId);
   
-  if (!course || !currentUser) return <Navigate to="/" />;
+  // Access Check
+  const hasAccess = currentUser && (
+     currentUser.purchasedCourseIds.includes(courseId!) || 
+     (currentUser.tempAccess?.[courseId!] && new Date(currentUser.tempAccess[courseId!]) > new Date()) ||
+     (!course?.isPaid)
+  );
 
-  const isPurchased = currentUser.purchasedCourseIds.includes(course.id);
-  const tempAccessExpiry = currentUser.tempAccess?.[course.id];
-  const isTempAccessValid = tempAccessExpiry ? new Date(tempAccessExpiry) > new Date() : false;
+  if (!course) return <Navigate to="/" />;
+  if (!hasAccess && course.isPaid) return <Navigate to={`/course/${courseId}`} />;
   
-  if (!isPurchased && !isTempAccessValid) {
-     return <Navigate to={`/course/${courseId}`} />;
-  }
-
+  // Select first video by default if not set
   useEffect(() => {
-    if (course.chapters.length > 0 && !activeChapter) {
-      setActiveChapter(course.chapters[0].id);
-      if (course.chapters[0].videos.length > 0 && !currentVideo) {
-        setCurrentVideo(course.chapters[0].videos[0]);
-      }
+    if (!activeVideo && course.chapters.length > 0 && course.chapters[0].videos.length > 0) {
+      setActiveVideo(course.chapters[0].videos[0]);
     }
-  }, [course, currentVideo, activeChapter]);
-
-  const downloadAllNotes = (chapter: Chapter) => {
-    if (chapter.notes.length === 0) {
-      alert("No notes available in this chapter.");
-      return;
-    }
-    let delay = 0;
-    chapter.notes.forEach((note) => {
-      setTimeout(() => {
-        const link = document.createElement('a');
-        link.href = note.url;
-        link.download = note.title;
-        link.target = "_blank";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }, delay);
-      delay += 500;
-    });
-    alert(`Starting download for ${chapter.notes.length} notes...`);
-  };
+  }, [course, activeVideo]);
 
   return (
-    <div className="pb-16 pt-16 bg-gray-900 min-h-screen text-white flex flex-col">
-      <div className="sticky top-16 z-30 bg-black w-full shadow-lg">
-         {currentVideo ? (
-           <VideoPlayer 
-            src={currentVideo.filename} 
-           />
-         ) : (
-           <div className="aspect-video bg-gray-800 flex items-center justify-center">
-             <div className="text-center">
-               <PlayCircle className="w-12 h-12 mx-auto mb-2 text-gray-600" />
-               <p className="text-gray-400">Select a lecture to play</p>
+     <div className="pb-24 pt-16 lg:h-screen lg:pb-0 lg:overflow-hidden flex flex-col lg:flex-row">
+        {/* Video Area */}
+        <div className="w-full lg:flex-1 bg-black sticky top-16 lg:static z-20">
+           {activeVideo ? (
+             <VideoPlayer src={activeVideo.filename} />
+           ) : (
+             <div className="aspect-video bg-gray-900 flex items-center justify-center text-gray-500">
+                Select a lecture to play
              </div>
+           )}
+           <div className="p-4 bg-white border-b lg:border-b-0">
+              <h1 className="font-bold text-lg text-gray-800">{activeVideo?.title || course.title}</h1>
            </div>
-         )}
-         <div className="p-4 bg-gray-800 border-b border-gray-700">
-           <h2 className="font-bold text-lg line-clamp-1 text-white">{currentVideo?.title || course.title}</h2>
-         </div>
-         <div className="flex bg-gray-800 border-b border-gray-700">
-           <button onClick={() => setActiveTab('lectures')} className={`flex-1 py-3 font-bold text-sm border-b-2 transition-colors ${activeTab === 'lectures' ? 'border-brand text-brand' : 'border-transparent text-gray-400'}`}>Lectures</button>
-           <button onClick={() => setActiveTab('notes')} className={`flex-1 py-3 font-bold text-sm border-b-2 transition-colors ${activeTab === 'notes' ? 'border-brand text-brand' : 'border-transparent text-gray-400'}`}>Notes & PDFs</button>
-         </div>
-      </div>
-      
-      <div className="flex-1 overflow-y-auto">
-        <AdContainer />
-        {activeTab === 'lectures' ? (
-          <div className="p-4 space-y-4">
-             {course.chapters.map((chapter, idx) => (
-                <div key={chapter.id} className="bg-gray-800 rounded-xl overflow-hidden">
-                   <button 
-                     className="w-full p-4 flex items-center justify-between text-left font-medium bg-gray-700/50 hover:bg-gray-700 transition-colors"
-                     onClick={() => setActiveChapter(activeChapter === chapter.id ? null : chapter.id)}
-                   >
-                     <div className="flex items-center gap-3">
-                       <span className="w-6 h-6 rounded bg-gray-600 flex items-center justify-center text-xs">{idx+1}</span>
-                       <span className="text-sm font-bold">{chapter.title}</span>
-                     </div>
-                     {activeChapter === chapter.id ? <ChevronUp className="w-4 h-4"/> : <ChevronDown className="w-4 h-4"/>}
-                   </button>
-                   
-                   {activeChapter === chapter.id && (
-                     <div className="divide-y divide-gray-700">
-                       {chapter.videos.length === 0 && <div className="p-4 text-center text-gray-500 text-xs">No lectures yet</div>}
-                       {chapter.videos.map(video => (
-                         <button 
-                           key={video.id}
-                           onClick={() => { setCurrentVideo(video); window.scrollTo({top: 0, behavior: 'smooth'}); }}
-                           className={`w-full p-4 flex items-center gap-3 hover:bg-gray-700/30 transition-colors ${currentVideo?.id === video.id ? 'bg-brand/10 text-brand' : 'text-gray-300'}`}
-                         >
-                           <PlayCircle className={`w-5 h-5 flex-shrink-0 ${currentVideo?.id === video.id ? 'text-brand' : 'text-gray-500'}`} />
-                           <div className="text-left">
-                             <p className="text-sm font-medium line-clamp-1">{video.title}</p>
-                             <p className="text-[10px] opacity-60">{video.duration}</p>
-                           </div>
-                         </button>
+        </div>
+        
+        {/* Playlist/Chapters */}
+        <div className="w-full lg:w-96 bg-gray-50 h-full overflow-y-auto border-l">
+           <div className="p-4 border-b bg-white font-bold text-gray-700">Course Content</div>
+           <div className="p-2 space-y-2">
+              {course.chapters.map((chapter, cIdx) => (
+                 <div key={chapter.id} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                    <div className="p-3 bg-gray-50 font-bold text-sm text-gray-600 border-b flex justify-between">
+                       <span>{cIdx + 1}. {chapter.title}</span>
+                       <span className="text-[10px] bg-gray-200 px-2 py-0.5 rounded">{chapter.videos.length} videos</span>
+                    </div>
+                    <div>
+                       {chapter.videos.map((video, vIdx) => (
+                          <button 
+                            key={video.id}
+                            onClick={() => setActiveVideo(video)}
+                            className={`w-full text-left p-3 flex items-start gap-3 hover:bg-gray-50 transition-colors border-b last:border-0 ${activeVideo?.id === video.id ? 'bg-blue-50' : ''}`}
+                          >
+                             <div className="mt-1">
+                                {activeVideo?.id === video.id ? <PlayCircle className="w-4 h-4 text-brand" /> : <div className="w-4 h-4 rounded-full border-2 border-gray-300" />}
+                             </div>
+                             <div>
+                                <p className={`text-sm font-medium ${activeVideo?.id === video.id ? 'text-brand' : 'text-gray-700'}`}>{video.title}</p>
+                                <p className="text-[10px] text-gray-400 mt-1">{video.duration}</p>
+                             </div>
+                          </button>
                        ))}
-                     </div>
-                   )}
-                </div>
-             ))}
-          </div>
-        ) : (
-          <div className="p-4 space-y-4">
-             {course.chapters.map((chapter) => (
-                <div key={chapter.id} className="bg-gray-800 rounded-xl overflow-hidden p-4">
-                   <div className="flex justify-between items-center mb-4">
-                      <h3 className="font-bold text-sm text-gray-300">{chapter.title}</h3>
-                      <button onClick={() => downloadAllNotes(chapter)} className="text-brand text-xs font-bold hover:underline">Download All</button>
-                   </div>
-                   <div className="grid grid-cols-1 gap-2">
-                      {chapter.notes.length === 0 && <p className="text-center text-gray-500 text-xs italic">No notes uploaded.</p>}
-                      {chapter.notes.map(note => (
-                         <a 
-                           key={note.id} 
-                           href={note.url}
-                           target="_blank"
-                           rel="noreferrer"
-                           className="flex items-center gap-3 p-3 bg-gray-700/50 rounded-lg hover:bg-gray-700 transition-colors"
-                         >
-                           <FileText className="w-5 h-5 text-red-400" />
-                           <span className="flex-1 text-sm font-medium truncate">{note.title}</span>
-                           <CloudDownload className="w-4 h-4 text-gray-500" />
-                         </a>
-                      ))}
-                   </div>
-                </div>
-             ))}
-          </div>
-        )}
-      </div>
-    </div>
+                       {chapter.notes.map(note => (
+                          <a 
+                            href={note.url} 
+                            target="_blank"
+                            key={note.id}
+                            className="w-full text-left p-3 flex items-start gap-3 hover:bg-gray-50 transition-colors border-b last:border-0 bg-red-50/30"
+                          >
+                             <FileText className="w-4 h-4 text-red-500 mt-1" />
+                             <div>
+                                <p className="text-sm font-medium text-gray-700">{note.title}</p>
+                                <p className="text-[10px] text-gray-400 mt-1">PDF Note</p>
+                             </div>
+                          </a>
+                       ))}
+                    </div>
+                 </div>
+              ))}
+           </div>
+        </div>
+     </div>
   );
 };
 
 const Profile = () => {
-  const { currentUser, logout, orders } = useStore();
-  if (!currentUser) return <Navigate to="/login" />;
+   const { currentUser, updateUser, logout } = useStore();
+   const [isEditing, setIsEditing] = useState(false);
+   const [data, setData] = useState({ name: currentUser?.name || '', email: currentUser?.email || '', phone: currentUser?.phone || '' });
 
-  const myOrders = orders.filter(o => o.userId === currentUser.id);
+   if (!currentUser) return <Navigate to="/login" />;
+   
+   const handleSave = () => {
+      updateUser(data);
+      setIsEditing(false);
+   };
+
+   return (
+      <div className="pb-24 pt-16 p-4 bg-gray-50 min-h-screen">
+         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6">
+            <div className="h-24 bg-brand relative">
+               <div className="absolute -bottom-10 left-6 w-20 h-20 rounded-full bg-white p-1 shadow-md">
+                  <div className="w-full h-full rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-2xl font-bold">
+                     {currentUser.name.charAt(0).toUpperCase()}
+                  </div>
+               </div>
+            </div>
+            <div className="pt-12 pb-6 px-6">
+               <div className="flex justify-between items-start">
+                  <div>
+                     <h2 className="text-xl font-bold">{currentUser.name}</h2>
+                     <p className="text-gray-500 text-sm">{currentUser.email}</p>
+                  </div>
+                  <button onClick={() => isEditing ? handleSave() : setIsEditing(true)} className="text-brand font-bold text-sm">
+                     {isEditing ? 'Save' : 'Edit'}
+                  </button>
+               </div>
+               
+               {isEditing && (
+                  <div className="mt-4 space-y-3">
+                     <input className="w-full p-2 border rounded" value={data.name} onChange={e => setData({...data, name: e.target.value})} placeholder="Name" />
+                     <input className="w-full p-2 border rounded" value={data.phone} onChange={e => setData({...data, phone: e.target.value})} placeholder="Phone" />
+                  </div>
+               )}
+            </div>
+         </div>
+         
+         <h3 className="font-bold text-lg mb-3">Exam Results</h3>
+         <div className="space-y-3">
+            {currentUser.examResults && currentUser.examResults.length > 0 ? currentUser.examResults.map((res, i) => (
+               <div key={i} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
+                  <div>
+                     <p className="font-bold text-gray-800">Exam Score</p>
+                     <p className="text-xs text-gray-500">{new Date(res.date).toLocaleDateString()}</p>
+                  </div>
+                  <div className="text-xl font-bold text-brand">{res.score}/{res.totalQuestions}</div>
+               </div>
+            )) : (
+               <div className="text-center py-6 text-gray-400 bg-white rounded-xl border border-dashed">No exams taken yet</div>
+            )}
+         </div>
+
+         <button onClick={logout} className="w-full mt-8 py-3 text-red-600 font-bold bg-white border border-red-100 rounded-xl hover:bg-red-50">
+            Log Out
+         </button>
+      </div>
+   );
+};
+
+// --- New Component: Exam Manager for Admin ---
+const ExamManager = ({ course, onClose }: { course: Course, onClose: () => void }) => {
+  const { updateCourse } = useStore();
+  const [exams, setExams] = useState<Exam[]>(course.exams || []);
+  const [editingExam, setEditingExam] = useState<Exam | null>(null);
+
+  const handleSaveExam = () => {
+    if(!editingExam) return;
+    const newExams = exams.map(e => e.id === editingExam.id ? editingExam : e);
+    if (!newExams.find(e => e.id === editingExam.id)) {
+      newExams.push(editingExam);
+    }
+    setExams(newExams);
+    updateCourse({ ...course, exams: newExams });
+    setEditingExam(null);
+  };
+
+  const handleDeleteExam = (id: string) => {
+    if(confirm('Delete this exam?')) {
+      const newExams = exams.filter(e => e.id !== id);
+      setExams(newExams);
+      updateCourse({ ...course, exams: newExams });
+    }
+  };
+
+  const addQuestion = () => {
+    if(!editingExam) return;
+    const newQ: Question = {
+      id: Date.now().toString(),
+      question: 'New Question',
+      options: ['Option A', 'Option B', 'Option C', 'Option D'],
+      correctAnswer: 0
+    };
+    setEditingExam({...editingExam, questions: [...editingExam.questions, newQ]});
+  };
+
+  const updateQuestion = (qIdx: number, field: string, val: any) => {
+    if(!editingExam) return;
+    const newQs = [...editingExam.questions];
+    if(field === 'question') newQs[qIdx].question = val;
+    if(field === 'correctAnswer') newQs[qIdx].correctAnswer = parseInt(val);
+    setEditingExam({...editingExam, questions: newQs});
+  };
+
+  const updateOption = (qIdx: number, oIdx: number, val: string) => {
+    if(!editingExam) return;
+    const newQs = [...editingExam.questions];
+    newQs[qIdx].options[oIdx] = val;
+    setEditingExam({...editingExam, questions: newQs});
+  };
 
   return (
-    <div className="pb-24 pt-16 p-4">
-       <div className="flex items-center gap-4 mb-8">
-          <div className="w-20 h-20 rounded-full bg-brand text-white flex items-center justify-center text-3xl font-bold shadow-lg">
-             {currentUser.name.charAt(0).toUpperCase()}
-          </div>
-          <div>
-             <h2 className="text-2xl font-bold text-gray-800">{currentUser.name}</h2>
-             <p className="text-gray-500 text-sm">{currentUser.email}</p>
-             <p className="text-gray-500 text-sm">{currentUser.phone}</p>
-          </div>
-       </div>
+    <div className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex justify-center items-center p-4">
+      <div className="bg-white w-full max-w-4xl h-[90vh] rounded-2xl flex flex-col shadow-2xl overflow-hidden">
+        <div className="p-4 border-b flex justify-between items-center bg-gray-50">
+           <h2 className="text-xl font-bold">Manage Exams: {course.title}</h2>
+           <button onClick={onClose}><X className="w-6 h-6" /></button>
+        </div>
 
-       <div className="space-y-4">
-          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-             <h3 className="font-bold text-gray-700 mb-2 flex items-center gap-2">
-                <Shield className="w-5 h-5 text-brand" /> Account Role
-             </h3>
-             <p className="text-sm text-gray-600 font-mono bg-gray-100 p-2 rounded">{currentUser.role}</p>
-          </div>
-
-          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-             <h3 className="font-bold text-gray-700 mb-2 flex items-center gap-2">
-                <ClipboardList className="w-5 h-5 text-brand" /> Exam Performance
-             </h3>
-             <div className="space-y-2">
-                {currentUser.examResults && currentUser.examResults.length > 0 ? (
-                  currentUser.examResults.slice(0, 3).map((res, i) => (
-                    <div key={i} className="flex justify-between text-sm border-b pb-1 last:border-0">
-                       <span className="text-gray-600">{new Date(res.date).toLocaleDateString()}</span>
-                       <span className="font-bold text-gray-800">{res.score}/{res.totalQuestions}</span>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-gray-400 italic">No exams taken yet.</p>
-                )}
-             </div>
-          </div>
-
-          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-             <h3 className="font-bold text-gray-700 mb-2 flex items-center gap-2">
-                <DollarSign className="w-5 h-5 text-brand" /> Order History
-             </h3>
-             <div className="space-y-2">
-                {myOrders.length > 0 ? (
-                  myOrders.map(order => (
-                    <div key={order.id} className="flex justify-between items-center text-sm bg-gray-50 p-2 rounded">
-                       <div>
-                          <p className="font-bold">Course ID: {order.courseId}</p>
-                          <p className="text-[10px] text-gray-500">{new Date(order.date).toLocaleDateString()}</p>
+        <div className="flex-1 flex overflow-hidden">
+           {/* Sidebar: List of Exams */}
+           <div className="w-1/3 border-r overflow-y-auto bg-gray-50 p-4">
+              <button 
+                onClick={() => setEditingExam({ id: Date.now().toString(), title: 'New Exam', questions: [] })}
+                className="w-full bg-brand text-white py-2 rounded-lg font-bold mb-4 flex items-center justify-center gap-2"
+              >
+                <Plus className="w-4 h-4"/> Create Exam
+              </button>
+              <div className="space-y-2">
+                 {exams.map(ex => (
+                    <div key={ex.id} className="bg-white p-3 rounded shadow-sm border flex justify-between items-center">
+                       <span className="font-bold truncate text-sm">{ex.title}</span>
+                       <div className="flex gap-1">
+                          <button onClick={() => setEditingExam(ex)} className="p-1 hover:bg-gray-100 rounded text-blue-600"><Edit className="w-4 h-4" /></button>
+                          <button onClick={() => handleDeleteExam(ex.id)} className="p-1 hover:bg-gray-100 rounded text-red-600"><Trash2 className="w-4 h-4" /></button>
                        </div>
-                       <span className="font-bold text-green-600">₹{order.amount}</span>
                     </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-gray-400 italic">No purchases yet.</p>
-                )}
-             </div>
-          </div>
+                 ))}
+              </div>
+           </div>
 
-          <button onClick={logout} className="w-full bg-red-50 text-red-600 py-3 rounded-xl font-bold border border-red-100 flex items-center justify-center gap-2 mt-4 hover:bg-red-100 transition-colors">
-             <LogOut className="w-5 h-5" /> Sign Out
-          </button>
-       </div>
+           {/* Main: Editor */}
+           <div className="flex-1 overflow-y-auto p-6 bg-white">
+              {editingExam ? (
+                 <div className="space-y-6">
+                    <div>
+                       <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Exam Title</label>
+                       <input 
+                         className="w-full p-2 border rounded font-bold text-lg" 
+                         value={editingExam.title} 
+                         onChange={e => setEditingExam({...editingExam, title: e.target.value})} 
+                       />
+                    </div>
+
+                    <div className="space-y-6">
+                       {editingExam.questions.map((q, qIdx) => (
+                          <div key={q.id} className="p-4 border rounded-xl bg-gray-50 relative group">
+                             <button 
+                               onClick={() => {
+                                 const nq = editingExam.questions.filter((_, i) => i !== qIdx);
+                                 setEditingExam({...editingExam, questions: nq});
+                               }}
+                               className="absolute top-2 right-2 text-red-400 opacity-0 group-hover:opacity-100 transition-opacity hover:text-red-600"
+                             >
+                               <Trash2 className="w-4 h-4" />
+                             </button>
+                             <div className="mb-2">
+                                <span className="text-xs font-bold text-gray-400">Question {qIdx + 1}</span>
+                                <textarea 
+                                  className="w-full p-2 border rounded mt-1 text-sm font-medium" 
+                                  rows={2}
+                                  value={q.question}
+                                  onChange={e => updateQuestion(qIdx, 'question', e.target.value)}
+                                />
+                             </div>
+                             <div className="grid grid-cols-2 gap-2">
+                                {q.options.map((opt, oIdx) => (
+                                   <div key={oIdx} className="flex items-center gap-2">
+                                      <input 
+                                        type="radio" 
+                                        name={`q-${q.id}`} 
+                                        checked={q.correctAnswer === oIdx}
+                                        onChange={() => updateQuestion(qIdx, 'correctAnswer', oIdx)}
+                                        className="w-4 h-4 text-brand"
+                                      />
+                                      <input 
+                                        className={`flex-1 p-2 border rounded text-sm ${q.correctAnswer === oIdx ? 'border-green-500 bg-green-50' : ''}`}
+                                        value={opt}
+                                        onChange={e => updateOption(qIdx, oIdx, e.target.value)}
+                                      />
+                                   </div>
+                                ))}
+                             </div>
+                          </div>
+                       ))}
+                    </div>
+
+                    <div className="flex gap-4 border-t pt-4">
+                       <button onClick={addQuestion} className="px-4 py-2 border rounded hover:bg-gray-50 text-sm font-bold flex items-center gap-2">
+                         <Plus className="w-4 h-4"/> Add Question
+                       </button>
+                       <div className="flex-1"></div>
+                       <button onClick={() => setEditingExam(null)} className="px-6 py-2 text-gray-500 font-bold">Cancel</button>
+                       <button onClick={handleSaveExam} className="px-6 py-2 bg-brand text-white rounded font-bold shadow-lg">Save Exam</button>
+                    </div>
+                 </div>
+              ) : (
+                 <div className="h-full flex flex-col items-center justify-center text-gray-400">
+                    <ClipboardList className="w-16 h-16 mb-4 opacity-20" />
+                    <p>Select an exam to edit or create a new one.</p>
+                 </div>
+              )}
+           </div>
+        </div>
+      </div>
     </div>
   );
 };
+
 
 const AdminPanel = () => {
   const { currentUser, settings, updateSettings, courses, users, addCourse, updateCourse, deleteCourse, deleteUser, updateUser } = useStore();
   const [activeTab, setActiveTab] = useState<'dashboard' | 'courses' | 'import' | 'users' | 'settings'>('dashboard');
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
+  const [managingExamsCourse, setManagingExamsCourse] = useState<Course | null>(null);
   
   // Import State
   const [importType, setImportType] = useState<'youtube' | 'telegram' | 'drive' | 'device'>('youtube');
@@ -1133,8 +1194,8 @@ const AdminPanel = () => {
                </button>
             </div>
             {courses.map(course => (
-              <div key={course.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
-                <div className="flex items-center gap-3">
+              <div key={course.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4">
+                <div className="flex items-center gap-3 w-full md:w-auto">
                   <img src={course.image} className="w-12 h-12 rounded object-cover" />
                   <div>
                     <h3 className="font-bold text-sm">{course.title}</h3>
@@ -1145,7 +1206,10 @@ const AdminPanel = () => {
                     </div>
                   </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 w-full md:w-auto justify-end">
+                  <button onClick={() => setManagingExamsCourse(course)} className="px-3 py-2 bg-purple-50 text-purple-600 font-bold text-xs rounded hover:bg-purple-100 flex items-center gap-1">
+                     <ClipboardList className="w-4 h-4" /> Exams
+                  </button>
                   <button onClick={() => setEditingCourse(course)} className="p-2 text-gray-500 hover:bg-gray-100 rounded">
                     <Edit className="w-5 h-5" />
                   </button>
@@ -1158,6 +1222,7 @@ const AdminPanel = () => {
           </div>
         )}
 
+        {/* ... Rest of existing tabs (import, users, settings) ... */}
         {activeTab === 'import' && (
            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
              <h2 className="font-bold text-lg mb-4">Import Content</h2>
@@ -1328,6 +1393,14 @@ const AdminPanel = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Exam Manager Modal */}
+      {managingExamsCourse && (
+         <ExamManager 
+            course={managingExamsCourse} 
+            onClose={() => setManagingExamsCourse(null)} 
+         />
       )}
     </div>
   );

@@ -12,6 +12,15 @@ export interface ExamResult {
   date: string;
 }
 
+export interface ExamProgress {
+  courseId: string;
+  questions: Question[];
+  answers: number[];
+  timeLeft: number;
+  lastSaved: string;
+  isAiGenerated: boolean;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -23,6 +32,7 @@ export interface User {
   lastLogin?: string;
   examResults?: ExamResult[];
   tempAccess?: Record<string, string>; // courseId -> ISO Expiry Date
+  savedExamProgress?: ExamProgress[]; // Array of unfinished exams
 }
 
 export interface Banner {
@@ -51,6 +61,19 @@ export interface Chapter {
   notes: Note[];
 }
 
+export interface Question {
+  id: string;
+  question: string;
+  options: string[];
+  correctAnswer: number;
+}
+
+export interface Exam {
+  id: string;
+  title: string;
+  questions: Question[];
+}
+
 export interface Course {
   id: string;
   title: string;
@@ -63,6 +86,7 @@ export interface Course {
   createdAt: string;
   isPaid?: boolean;
   verificationLink?: string;
+  exams?: Exam[];
 }
 
 export interface Order {

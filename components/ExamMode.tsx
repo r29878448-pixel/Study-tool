@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Timer, CheckCircle, AlertCircle, ArrowLeft, Loader2, List, PlayCircle, Bot, Save, LogOut, RotateCcw } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
@@ -33,17 +33,15 @@ const ExamMode: React.FC<ExamModeProps> = ({ course }) => {
       const saved = currentUser.savedExamProgress.find(p => p.courseId === course.id);
       if (saved) {
         setResumePrompt(saved);
-        return; // Wait for user choice
+        return; 
       }
     }
     
-    if (course.exams && course.exams.length > 0) {
-      setView('selection');
-    } else {
-      setView('selection'); 
-    }
+    // Default view
+    setView('selection'); 
   }, [course, currentUser]);
 
+  // Timer Logic
   useEffect(() => {
     if (view !== 'taking' || loading || isFinished || timeLeft <= 0) return;
 
@@ -60,22 +58,23 @@ const ExamMode: React.FC<ExamModeProps> = ({ course }) => {
     return () => clearInterval(timer);
   }, [view, loading, isFinished, timeLeft]);
 
-  // Auto-save progress every 10 seconds or when answers change
+  // Auto-save progress
+  // NOTE: We do NOT include timeLeft in dependencies to prevent the debounce from resetting every second
   useEffect(() => {
     if (view === 'taking' && !loading && !isFinished && questions.length > 0) {
       const timeout = setTimeout(() => {
         saveProgress();
-      }, 2000); // Debounce save 2s
+      }, 1000);
       return () => clearTimeout(timeout);
     }
-  }, [answers, currentQuestionIdx, timeLeft]);
+  }, [answers, currentQuestionIdx]); 
 
   const saveProgress = () => {
     saveExamProgress({
       courseId: course.id,
       questions,
       answers,
-      timeLeft,
+      timeLeft, // Captures current timeLeft due to closure or when called
       lastSaved: new Date().toISOString(),
       isAiGenerated
     });
@@ -133,6 +132,7 @@ const ExamMode: React.FC<ExamModeProps> = ({ course }) => {
         const data = JSON.parse(text);
         setQuestions(data);
         setAnswers(new Array(data.length).fill(-1));
+        setTimeLeft(data.length * 60); // Reset time for new exam
         setLoading(false);
       } else {
         throw new Error("No data returned");
@@ -208,7 +208,12 @@ const ExamMode: React.FC<ExamModeProps> = ({ course }) => {
   if (view === 'selection') {
     return (
        <div className="min-h-screen bg-gray-50 p-4 pt-20">
-          <h2 className="text-2xl font-bold mb-6 text-gray-800">Select Exam</h2>
+          <div className="flex items-center gap-2 mb-6">
+             <button onClick={() => navigate(`/course/${course.id}`)} className="bg-white p-2 rounded-full shadow-sm hover:bg-gray-100">
+               <ArrowLeft className="w-5 h-5 text-gray-600" />
+             </button>
+             <h2 className="text-2xl font-bold text-gray-800">Select Exam</h2>
+          </div>
           
           <div className="grid gap-4">
             {/* Manual Exams */}
@@ -319,8 +324,8 @@ const ExamMode: React.FC<ExamModeProps> = ({ course }) => {
                        {String.fromCharCode(65 + idx)}
                      </span>
                      {opt}
-                     {idx === currentQ.correctAnswer && <span className="float-right text-xs font-bold mt-1">Correct Answer</span>}
-                     {idx === userAnswer && idx !== currentQ.correctAnswer && <span className="float-right text-xs font-bold mt-1">Your Answer</span>}
+                     {idx === currentQ.correctAnswer && <span className="float-right text-xs font-bold mt-1 text-green-600">Correct Answer</span>}
+                     {idx === userAnswer && idx !== currentQ.correctAnswer && <span className="float-right text-xs font-bold mt-1 text-red-500">Your Answer</span>}
                    </div>
                  );
               })}
@@ -335,6 +340,9 @@ const ExamMode: React.FC<ExamModeProps> = ({ course }) => {
             >
               Previous
             </button>
+            <div className="flex items-center text-sm font-bold text-gray-400">
+               {currentQuestionIdx + 1} / {questions.length}
+            </div>
             <button 
               onClick={() => setCurrentQuestionIdx(curr => Math.min(questions.length - 1, curr + 1))}
               disabled={currentQuestionIdx === questions.length - 1}

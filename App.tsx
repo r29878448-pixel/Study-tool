@@ -24,6 +24,9 @@ const ThemeHandler = () => {
     
     // Calculate Dark Variant (simple dimming)
     // Basic hex to rgb
+    // Ensure hex is valid before parsing
+    if (!hex.startsWith('#') || hex.length < 7) return;
+
     let r = parseInt(hex.substring(1, 3), 16);
     let g = parseInt(hex.substring(3, 5), 16);
     let b = parseInt(hex.substring(5, 7), 16);

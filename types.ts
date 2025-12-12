@@ -21,6 +21,13 @@ export interface ExamProgress {
   isAiGenerated: boolean;
 }
 
+export interface VideoProgress {
+  timestamp: number;
+  duration: number;
+  completed: boolean;
+  lastWatched: string;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -33,6 +40,7 @@ export interface User {
   examResults?: ExamResult[];
   tempAccess?: Record<string, string>; // courseId -> ISO Expiry Date
   savedExamProgress?: ExamProgress[]; // Array of unfinished exams
+  videoProgress?: Record<string, VideoProgress>; // videoId -> Progress Data
 }
 
 export interface Banner {
@@ -87,6 +95,7 @@ export interface Course {
   isPaid?: boolean;
   verificationLink?: string;
   exams?: Exam[];
+  accessKey?: string; // Key to unlock the course
 }
 
 export interface Order {

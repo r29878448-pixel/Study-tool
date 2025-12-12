@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, Course, Banner, Order, AppSettings, UserRole, ExamResult, ExamProgress } from './types';
+import { User, Course, Banner, Order, AppSettings, UserRole, ExamResult, ExamProgress, VideoProgress } from './types';
 
 interface StoreContextType {
   currentUser: User | null;
@@ -25,6 +25,7 @@ interface StoreContextType {
   saveExamResult: (courseId: string, score: number, totalQuestions: number) => void;
   saveExamProgress: (progress: ExamProgress) => void;
   clearExamProgress: (courseId: string) => void;
+  saveVideoProgress: (videoId: string, timestamp: number, duration: number) => void;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -64,7 +65,7 @@ const INITIAL_COURSES: Course[] = [
     category: 'Maths',
     createdAt: new Date().toISOString(),
     isPaid: true,
-    verificationLink: 'https://google.com',
+    accessKey: 'MATHS2024',
     chapters: []
   }
 ];
@@ -84,7 +85,8 @@ const INITIAL_USERS: User[] = [
     role: UserRole.ADMIN,
     purchasedCourseIds: [],
     examResults: [],
-    tempAccess: {}
+    tempAccess: {},
+    videoProgress: {}
   }
 ];
 
@@ -95,8 +97,8 @@ const INITIAL_SETTINGS: AppSettings = {
   razorpayKey: 'rzp_test_123456',
   razorpaySecret: '',
   uiColor: '#0284C7',
-  linkShortenerApiUrl: '',
-  linkShortenerApiKey: '',
+  linkShortenerApiUrl: 'https://reel2earn.com/api',
+  linkShortenerApiKey: '886b2438df276766a961e805be231bcf791b9433',
   telegramBotToken: '',
   adsCode: ''
 };
@@ -110,8 +112,6 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
     const adminExists = loadedUsers.some(u => u.role === UserRole.ADMIN);
     if (!adminExists) {
       console.warn("No admin found in storage. Restoring default admin.");
-      // If we have users but no admin, append default admin.
-      // If loadedUsers is just empty, use INITIAL_USERS
       if (loadedUsers.length === 0) {
         loadedUsers = INITIAL_USERS;
       } else {
@@ -153,16 +153,14 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
   useEffect(() => { localStorage.setItem('sp_orders', JSON.stringify(orders)); }, [orders]);
   useEffect(() => { localStorage.setItem('sp_settings', JSON.stringify(settings)); }, [settings]);
 
-  // Sync settings email with admin user if needed
   useEffect(() => {
     const adminUser = users.find(u => u.role === UserRole.ADMIN);
     if (adminUser && adminUser.email !== settings.adminEmail) {
-       // Logic to keep them in sync could go here, but strictly we usually update user first.
+       // Logic to keep them in sync could go here
     }
   }, [settings.adminEmail, users]);
 
   const login = (email: string, pass: string) => {
-    // Check for email OR phone match
     const user = users.find(u => 
       (u.email.toLowerCase() === email.toLowerCase() || u.phone === email || u.name === email) && 
       u.password === pass
@@ -192,7 +190,8 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
       purchasedCourseIds: [],
       lastLogin: new Date().toISOString(),
       examResults: [],
-      tempAccess: {}
+      tempAccess: {},
+      videoProgress: {}
     };
     setUsers([...users, newUser]);
     setCurrentUser(newUser);
@@ -215,21 +214,7 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
     if (!currentUser) return;
     if (currentUser.purchasedCourseIds.includes(courseId)) return;
 
-    const course = courses.find(c => c.id === courseId);
-    if (!course) return;
-
-    const newOrder: Order = {
-      id: Date.now().toString(),
-      userId: currentUser.id,
-      courseId,
-      amount: course.price || 0,
-      status: 'SUCCESS',
-      razorpayOrderId: `ord_${Date.now()}`,
-      date: new Date().toISOString()
-    };
-
-    setOrders(prev => [...prev, newOrder]);
-    
+    // For free access via key, we treat it as 'purchased'
     const updatedUser = {
       ...currentUser,
       purchasedCourseIds: [...currentUser.purchasedCourseIds, courseId]
@@ -272,7 +257,6 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
   
   const updateSettings = (newSettings: AppSettings) => {
     setSettings(newSettings);
-    // Also update Admin user email if it was changed in settings
     const adminUser = users.find(u => u.role === UserRole.ADMIN);
     if (adminUser && adminUser.email !== newSettings.adminEmail) {
       setUsers(users.map(u => u.role === UserRole.ADMIN ? { ...u, email: newSettings.adminEmail } : u));
@@ -325,6 +309,31 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
     setUsers(prevUsers => prevUsers.map(u => u.id === currentUser.id ? updatedUser : u));
   };
 
+  const saveVideoProgress = (videoId: string, timestamp: number, duration: number) => {
+    if (!currentUser) return;
+
+    // Mark as completed if watched > 90%
+    const isCompleted = (timestamp / duration) > 0.9;
+    
+    const newProgress: VideoProgress = {
+      timestamp,
+      duration,
+      completed: isCompleted || (currentUser.videoProgress?.[videoId]?.completed || false),
+      lastWatched: new Date().toISOString()
+    };
+
+    const updatedUser: User = {
+      ...currentUser,
+      videoProgress: {
+        ...(currentUser.videoProgress || {}),
+        [videoId]: newProgress
+      }
+    };
+
+    setCurrentUser(updatedUser);
+    setUsers(prevUsers => prevUsers.map(u => u.id === currentUser.id ? updatedUser : u));
+  };
+
   return (
     <StoreContext.Provider value={{
       currentUser, users, courses, banners, orders, settings,
@@ -337,7 +346,8 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
       deleteUser,
       saveExamResult,
       saveExamProgress,
-      clearExamProgress
+      clearExamProgress,
+      saveVideoProgress
     }}>
       {children}
     </StoreContext.Provider>

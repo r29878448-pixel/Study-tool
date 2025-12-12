@@ -1,3 +1,4 @@
+
 import React, { useRef, useState, useEffect } from 'react';
 import { 
   Play, Pause, Volume2, VolumeX, Maximize, Minimize, Settings, Download, Lock 
@@ -7,9 +8,11 @@ interface VideoPlayerProps {
   src: string;
   poster?: string;
   isLocked?: boolean;
+  onProgress?: (currentTime: number, duration: number) => void;
+  initialTime?: number;
 }
 
-const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked }) => {
+const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProgress, initialTime }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -24,6 +27,13 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked }) => {
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isYoutube = src.includes('youtube.com') || src.includes('youtu.be') || src.includes('youtube-nocookie.com');
+
+  // Set initial time if provided (e.g. from saved progress)
+  useEffect(() => {
+    if (videoRef.current && initialTime) {
+       videoRef.current.currentTime = initialTime;
+    }
+  }, [initialTime]);
 
   useEffect(() => {
     const handleContextMenu = (e: MouseEvent) => e.preventDefault();
@@ -58,13 +68,18 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked }) => {
 
   const handleTimeUpdate = () => {
     if (videoRef.current) {
-      setCurrentTime(videoRef.current.currentTime);
+      const time = videoRef.current.currentTime;
+      setCurrentTime(time);
+      if (onProgress) {
+        onProgress(time, videoRef.current.duration);
+      }
     }
   };
 
   const handleLoadedMetadata = () => {
     if (videoRef.current) {
       setDuration(videoRef.current.duration);
+      if (initialTime) videoRef.current.currentTime = initialTime;
     }
   };
 

@@ -5,7 +5,8 @@ import {
   LayoutDashboard, Users, CreditCard, Settings, ChevronDown, ChevronUp, Lock,
   MessageCircle, CloudDownload, CheckCircle, Shield, Upload,
   Maximize, Minimize, Volume2, VolumeX, FileText, Download, MoreVertical, Play, Pause,
-  Mic, Image, Youtube, Link, Globe, Timer, ClipboardList, AlertCircle, Code, Clock, Eye, Smartphone
+  Mic, Image, Youtube, Link, Globe, Timer, ClipboardList, AlertCircle, Code, Clock, Eye, Smartphone,
+  Key, Copy, ExternalLink
 } from 'lucide-react';
 
 export { 
@@ -14,5 +15,6 @@ export {
   LayoutDashboard, Users, CreditCard, Settings, ChevronDown, ChevronUp, Lock,
   MessageCircle, CloudDownload, CheckCircle, Shield, Upload,
   Maximize, Minimize, Volume2, VolumeX, FileText, Download, MoreVertical, Play, Pause,
-  Mic, Image, Youtube, Link, Globe, Timer, ClipboardList, AlertCircle, Code, Clock, Eye, Smartphone
+  Mic, Image, Youtube, Link, Globe, Timer, ClipboardList, AlertCircle, Code, Clock, Eye, Smartphone,
+  Key, Copy, ExternalLink
 };

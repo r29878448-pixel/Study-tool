@@ -3,6 +3,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { MessageCircle, X, Send, Bot, Mic, Image as ImageIcon } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 
+declare var process: { env: { API_KEY: string } };
+
 interface Message {
   role: 'user' | 'model';
   text: string;

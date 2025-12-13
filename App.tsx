@@ -529,7 +529,7 @@ const CourseDetail = () => {
 
   // Calculate Progress if enrolled
   let progress = 0;
-  if (isPurchased && currentUser.videoProgress) {
+  if (isPurchased && currentUser?.videoProgress) {
       const allVideos = course.chapters.flatMap(c => c.videos);
       const totalVideos = allVideos.length;
       if (totalVideos > 0) {
@@ -766,7 +766,7 @@ const Watch = () => {
     // Determine last watched or first
     if (!activeVideo && course.chapters.length > 0) {
       // Find last watched video
-      let lastWatchedId = null;
+      let lastWatchedId: string | null = null;
       let latestTime = 0;
       
       if (currentUser?.videoProgress) {

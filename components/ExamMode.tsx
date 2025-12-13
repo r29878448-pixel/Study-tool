@@ -6,6 +6,8 @@ import { GoogleGenAI } from "@google/genai";
 import { Course, Question, Exam, ExamProgress } from '../types';
 import { useStore } from '../store';
 
+declare var process: { env: { API_KEY: string } };
+
 interface ExamModeProps {
   course: Course;
 }

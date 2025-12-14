@@ -248,6 +248,33 @@ const BottomNav = () => {
 
 // --- Pages ---
 
+const Help = () => {
+    const { settings } = useStore();
+    const botUsername = settings.supportPhone.startsWith('@') ? settings.supportPhone.substring(1) : 'STUDY_PORTAL_ROBOT';
+    
+    return (
+        <div className="pt-24 px-6 pb-20 min-h-screen bg-gray-50 flex flex-col items-center justify-center">
+            <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 text-center w-full max-w-md animate-fade-in">
+                <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <Bot className="w-10 h-10 text-brand" />
+                </div>
+                <h2 className="text-2xl font-display font-bold text-gray-900 mb-2">Need Help?</h2>
+                <p className="text-gray-500 mb-8 text-sm">
+                    Facing issues with access, payments, or just want to report a bug? Contact our AI Support Bot or Admin directly on Telegram.
+                </p>
+                <a 
+                    href={`https://t.me/${botUsername}`} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="w-full py-4 bg-[#229ED9] text-white rounded-2xl font-bold shadow-lg shadow-blue-400/30 flex items-center justify-center gap-2 hover:bg-[#1A87B9] transition-all transform hover:scale-[1.02]"
+                >
+                    <MessageCircle className="w-5 h-5" /> Chat on Telegram
+                </a>
+            </div>
+        </div>
+    );
+};
+
 const Login = () => {
   const [isSignup, setIsSignup] = useState(false);
   const [formData, setFormData] = useState({ name: '', email: '', phone: '', password: '' });
@@ -256,7 +283,8 @@ const Login = () => {
 
   useEffect(() => {
     if (currentUser) {
-      const pendingCourse = sessionStorage.getItem('pendingCourseVerification');
+      // Check local storage instead of session storage for better persistence
+      const pendingCourse = localStorage.getItem('pendingCourseVerification');
       if (pendingCourse) {
          navigate(`/verify/${pendingCourse}`);
          return;
@@ -559,35 +587,76 @@ const VerifyAccess = () => {
   const { currentUser, grantTempAccess, courses } = useStore();
   const navigate = useNavigate();
   const course = courses.find(c => c.id === courseId);
+  const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying');
 
   useEffect(() => {
     if (!currentUser) { 
-        sessionStorage.setItem('pendingCourseVerification', courseId || '');
+        // Use LocalStorage instead of SessionStorage to persist across tab/browser restarts (important for mobile redirects)
+        localStorage.setItem('pendingCourseVerification', courseId || '');
         navigate('/login'); 
         return; 
     }
+    
     if (courseId) {
-        // Simple delay to show the animation
+        setStatus('verifying');
+        // Simple delay to show the animation and allow state to settle
         const timer = setTimeout(() => {
-            grantTempAccess(courseId);
-            sessionStorage.removeItem('pendingCourseVerification');
-            navigate(`/course/${courseId}`);
+            try {
+                grantTempAccess(courseId);
+                // Clear the pending flag
+                localStorage.removeItem('pendingCourseVerification');
+                setStatus('success');
+                setTimeout(() => navigate(`/course/${courseId}`), 1500);
+            } catch (e) {
+                console.error("Verification error", e);
+                setStatus('error');
+            }
         }, 2000);
         return () => clearTimeout(timer);
     }
   }, [courseId, currentUser, navigate, grantTempAccess]);
 
+  const handleManualVerify = () => {
+      if(courseId) {
+          grantTempAccess(courseId);
+          localStorage.removeItem('pendingCourseVerification');
+          navigate(`/course/${courseId}`);
+      }
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-6">
         <div className="bg-white p-8 rounded-3xl shadow-xl text-center max-w-sm w-full animate-fade-in">
-            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle className="w-10 h-10 text-green-600 animate-pulse" />
-            </div>
-            <h2 className="text-xl font-bold text-gray-900 mb-2">Verifying Access</h2>
-            <p className="text-gray-500 text-sm">Unlocking {course?.title || 'Batch'} for 24 hours...</p>
-            <div className="mt-6 w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
-                <div className="h-full bg-green-500 animate-[width_1s_ease-out_forwards] w-full" style={{width: '0%'}}></div>
-            </div>
+            {status === 'verifying' && (
+                <>
+                    <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
+                    </div>
+                    <h2 className="text-xl font-bold text-gray-900 mb-2">Verifying Access</h2>
+                    <p className="text-gray-500 text-sm">Please wait while we unlock {course?.title || 'Batch'}...</p>
+                    <div className="mt-6 w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                        <div className="h-full bg-blue-500 animate-[width_2s_ease-out_forwards] w-full" style={{width: '0%'}}></div>
+                    </div>
+                    
+                    {/* Fallback button for stuck redirects */}
+                    <button 
+                        onClick={handleManualVerify}
+                        className="mt-6 text-xs text-blue-600 font-bold underline hover:text-blue-800"
+                    >
+                        Stuck? Click here to continue
+                    </button>
+                </>
+            )}
+            
+            {status === 'success' && (
+                <>
+                    <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <CheckCircle className="w-10 h-10 text-green-600" />
+                    </div>
+                    <h2 className="text-xl font-bold text-gray-900 mb-2">Access Granted!</h2>
+                    <p className="text-gray-500 text-sm">Redirecting to your course...</p>
+                </>
+            )}
         </div>
     </div>
   );
@@ -1031,6 +1100,7 @@ const AdminPanel = () => {
     // Auto-detect current host to generate the correct destination URL
     const baseUrl = window.location.origin + window.location.pathname;
     const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+    // CRITICAL: Ensure /#/ fragment is properly appended for HashRouter
     const verifyUrl = `${cleanBaseUrl}/#/verify/${courseId}`;
     
     const shortenerUrl = settings.linkShortenerApiUrl || 'https://reel2earn.com/api';
@@ -1098,7 +1168,7 @@ const AdminPanel = () => {
             <div className="border-b border-gray-100 pb-8"><h2 className="font-display font-bold text-xl mb-6 text-brand">App Banners</h2><div className="mb-6"><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Upload New Banner</label><div className="flex gap-3"><input type="file" accept="image/*" className="flex-1 p-2 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-500" onChange={handleBannerUpload} /><button onClick={() => { if(newBannerImage) { addBanner({ id: Date.now().toString(), image: newBannerImage, link: '#' }); setNewBannerImage(''); alert('Banner added!'); } }} className="bg-gray-900 text-white px-6 py-2 rounded-xl text-xs font-bold disabled:opacity-50 hover:bg-black transition-colors" disabled={!newBannerImage}>Add</button></div></div><div className="grid grid-cols-2 gap-4">{banners.map(b => (<div key={b.id} className="relative group rounded-xl overflow-hidden shadow-sm"><img src={b.image} className="w-full h-24 object-cover" /><div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"><button onClick={() => deleteBanner(b.id)} className="bg-red-500 text-white p-2 rounded-full hover:bg-red-600"><Trash2 className="w-4 h-4" /></button></div></div>))}</div></div>
             <div className="border-b border-gray-100 pb-8"><h2 className="font-display font-bold text-xl mb-6 text-brand">Admin Credentials</h2><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Admin Email</label><input type="email" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900" value={adminCreds.email} onChange={e => { setAdminCreds({...adminCreds, email: e.target.value}); setLocalSettings({...localSettings, adminEmail: e.target.value}); }} /></div><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Admin Password</label><input type="text" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900" value={adminCreds.password} onChange={e => setAdminCreds({...adminCreds, password: e.target.value})} /></div></div></div>
             <div className="border-b border-gray-100 pb-8"><h2 className="font-display font-bold text-xl mb-6 text-brand">Integrations</h2><div className="space-y-6"><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Link Shortener API URL (Reel2Earn)</label><input type="text" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-mono text-gray-900" value={localSettings.linkShortenerApiUrl || ''} onChange={e => setLocalSettings({...localSettings, linkShortenerApiUrl: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Link Shortener API Key</label><input type="text" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-mono text-gray-900" value={localSettings.linkShortenerApiKey || ''} onChange={e => setLocalSettings({...localSettings, linkShortenerApiKey: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Video API Key (Youtube/Metadata)</label><input type="text" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-mono text-gray-900" value={localSettings.videoApiKey || ''} onChange={e => setLocalSettings({...localSettings, videoApiKey: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Ads Code (HTML/Script)</label><textarea className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl h-24 font-mono text-xs text-gray-900" value={localSettings.adsCode || ''} onChange={e => setLocalSettings({...localSettings, adsCode: e.target.value})} placeholder="<script>...</script>" /></div></div></div>
-            <div className="border-b border-gray-100 pb-8"><h2 className="font-display font-bold text-xl mb-6 text-brand">Support Contact</h2><div className="grid grid-cols-1 gap-6"><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">WhatsApp / Telegram Number</label><input type="text" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900" value={localSettings.supportPhone || ''} onChange={e => setLocalSettings({...localSettings, supportPhone: e.target.value})} placeholder="+91..." /></div></div></div>
+            <div className="border-b border-gray-100 pb-8"><h2 className="font-display font-bold text-xl mb-6 text-brand">Support Contact</h2><div className="grid grid-cols-1 gap-6"><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Telegram / WhatsApp Contact</label><input type="text" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900" value={localSettings.supportPhone || ''} onChange={e => setLocalSettings({...localSettings, supportPhone: e.target.value})} placeholder="@username or +91..." /></div></div></div>
             <button onClick={handleSaveSettings} className="w-full bg-brand text-white py-4 rounded-2xl font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition-all transform hover:scale-[1.01]">Save All Changes</button>
           </div>
         )}
@@ -1112,6 +1182,10 @@ const AdminPanel = () => {
               <textarea placeholder="Description" className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl h-32 focus:ring-2 focus:ring-brand/50 outline-none resize-none text-gray-900" value={editingCourse.description} onChange={e => setEditingCourse({...editingCourse, description: e.target.value})} />
               <div className="grid grid-cols-2 gap-4"><div className="flex items-center gap-3 border border-gray-200 p-4 rounded-2xl cursor-pointer hover:bg-gray-50" onClick={() => setEditingCourse({...editingCourse, isPaid: !editingCourse.isPaid})}><input type="checkbox" checked={editingCourse.isPaid || false} onChange={() => {}} className="w-5 h-5 text-brand rounded focus:ring-brand" /><span className="font-bold text-sm text-gray-700">Is Locked?</span></div><input type="text" placeholder="ACCESS KEY" className="w-full p-4 border border-gray-200 rounded-2xl font-bold uppercase text-center tracking-widest text-gray-900" value={editingCourse.accessKey || ''} onChange={e => setEditingCourse({...editingCourse, accessKey: e.target.value.toUpperCase()})} /></div>
               <div className="p-5 bg-indigo-50 border border-indigo-100 rounded-2xl"><label className="block text-xs font-bold text-indigo-800 uppercase tracking-wider mb-2">Verification Link (24h Access)</label><div className="flex gap-2 mb-2"><input type="text" placeholder="Short link will appear here..." className="flex-1 p-3 bg-white border border-indigo-200 rounded-xl text-sm text-gray-900" value={editingCourse.shortenerLink || ''} onChange={e => setEditingCourse({...editingCourse, shortenerLink: e.target.value})} /><button onClick={handleAutoShortenLink} disabled={isShortening} className="px-4 bg-indigo-600 text-white rounded-xl font-bold text-xs flex items-center gap-1 hover:bg-indigo-700 disabled:opacity-50 transition-colors" title="Auto-create link using Reel2Earn API">{isShortening ? <Loader2 className="w-4 h-4 animate-spin"/> : <Wand2 className="w-4 h-4" />} Auto</button></div><p className="text-[10px] text-indigo-400">Use 'Auto' to generate a short link using your API Key, or paste manually.</p>{shortenerError && <div className="mt-2 p-2 bg-red-100 text-red-700 text-xs rounded border border-red-200"><strong>Auto-shorten failed (Browser Blocked).</strong> <a href={shortenerError} target="_blank" rel="noopener noreferrer" className="underline font-bold">Click here to open shortener manually</a></div>}</div>
+              
+              {/* Telegram Channel Link Input */}
+              <input type="text" placeholder="Telegram Channel Link (for notes/updates)" className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl font-medium text-gray-900" value={editingCourse.telegramChannelLink || ''} onChange={e => setEditingCourse({...editingCourse, telegramChannelLink: e.target.value})} />
+
               <div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Thumbnail</label><div className="flex items-center gap-3 mb-3"><img src={editingCourse.image || 'https://via.placeholder.com/100'} className="w-20 h-20 rounded-2xl object-cover border border-gray-200" /><label className="flex-1 cursor-pointer bg-gray-50 hover:bg-gray-100 border border-gray-200 border-dashed rounded-2xl h-20 flex flex-col items-center justify-center text-gray-500 transition-colors"><Upload className="w-5 h-5 mb-1"/><span className="text-xs font-bold">Upload Image</span><input type="file" accept="image/*" onChange={handleCourseImageUpload} className="hidden" /></label></div><input type="text" placeholder="Or enter Image URL" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-900" value={editingCourse.image} onChange={e => setEditingCourse({...editingCourse, image: e.target.value})} /></div>
               <input type="text" placeholder="Category (e.g. Science, Maths)" className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl font-medium text-gray-900" value={editingCourse.category} onChange={e => setEditingCourse({...editingCourse, category: e.target.value})} />
             </div>
@@ -1356,11 +1430,14 @@ const Watch = () => {
 
 const CourseDetail = () => {
     const { id } = useParams();
-    const { courses, currentUser, enrollCourse, settings } = useStore();
+    const { courses, currentUser, enrollCourse, settings, grantTempAccess } = useStore();
     const navigate = useNavigate();
     const course = courses.find(c => c.id === id);
     const [keyInput, setKeyInput] = useState('');
     
+    // Constant for the storage key
+    const PENDING_ACCESS_KEY = `pending_access_${id}`;
+
     if (!course) return <Navigate to="/" />;
     
     const hasAccess = currentUser?.purchasedCourseIds.includes(course.id) || 
@@ -1378,11 +1455,60 @@ const CourseDetail = () => {
 
     const handleTempAccess = () => {
         if (!currentUser) { navigate('/login'); return; }
+        
+        // 1. Mark that the user attempted access with current timestamp
+        localStorage.setItem(PENDING_ACCESS_KEY, Date.now().toString());
+
+        // 2. Open Link
         if (course.shortenerLink) {
             window.open(course.shortenerLink, '_blank');
         } else {
             alert("Temporary access link not configured for this batch.");
         }
+    };
+
+    // 3. Fallback: Automatically grant access if user returns after >10 seconds
+    useEffect(() => {
+        const checkAccess = () => {
+            const pending = localStorage.getItem(PENDING_ACCESS_KEY);
+            if (pending) {
+                const elapsed = Date.now() - parseInt(pending);
+                // If more than 10 seconds have passed since they clicked the link
+                if (elapsed > 10000) { 
+                    grantTempAccess(course.id);
+                    localStorage.removeItem(PENDING_ACCESS_KEY);
+                    alert("Verification successful! Temporary access granted.");
+                }
+            }
+        };
+
+        // Check immediately on mount (in case of page reload)
+        checkAccess();
+
+        // Check when user switches back to this tab
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                checkAccess();
+            }
+        };
+
+        const handleFocus = () => checkAccess();
+
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+        window.addEventListener("focus", handleFocus);
+
+        return () => {
+            document.removeEventListener("visibilitychange", handleVisibilityChange);
+            window.removeEventListener("focus", handleFocus);
+        };
+    }, [course.id, grantTempAccess, PENDING_ACCESS_KEY]);
+
+    const getContactLink = () => {
+        const contact = settings.supportPhone || '';
+        if (contact.startsWith('@')) {
+            return `https://t.me/${contact.substring(1)}`;
+        }
+        return `https://wa.me/${contact.replace(/[^0-9]/g, '')}?text=I want to buy key for ${course.title}`;
     };
 
     return (
@@ -1449,7 +1575,7 @@ const CourseDetail = () => {
                                     </button>
                                 </div>
                                 <a 
-                                    href={settings.supportPhone ? `https://wa.me/${settings.supportPhone.replace(/[^0-9]/g, '')}?text=I want to buy key for ${course.title}` : '#'}
+                                    href={getContactLink()}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="text-xs text-indigo-600 font-bold hover:underline flex items-center gap-1"
@@ -1461,6 +1587,18 @@ const CourseDetail = () => {
                      )}
                 </div>
                 
+                {/* Telegram Channel Link - Visible to all */}
+                {course.telegramChannelLink && (
+                    <a 
+                        href={course.telegramChannelLink} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="w-full py-4 mb-6 bg-blue-50 text-blue-600 font-bold rounded-2xl border border-blue-100 flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors shadow-sm"
+                    >
+                        <MessageCircle className="w-5 h-5" /> Join Batch Telegram Channel
+                    </a>
+                )}
+
                 {hasAccess && (
                     <div className="grid grid-cols-2 gap-4 mb-6">
                          <Link to={`/watch/${course.id}`} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-center flex-col gap-2 hover:border-brand transition-colors">
@@ -1599,7 +1737,7 @@ const MainContent = () => {
         <Route path="/admin" element={<AdminPanel />} />
         <Route path="/verify/:courseId" element={<VerifyAccess />} />
         <Route path="/reveal/:key" element={<RevealKey />} />
-        <Route path="/help" element={<div className="pt-24 px-6 text-center text-gray-500 font-bold">Help Center Coming Soon</div>} />
+        <Route path="/help" element={<Help />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
       {!isFullScreen && <BottomNav />}

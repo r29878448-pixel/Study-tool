@@ -104,6 +104,7 @@ export interface Course {
   exams?: Exam[];
   accessKey?: string; // Key to unlock the course
   shortenerLink?: string; // External link to generate temp access
+  telegramChannelLink?: string; // Link to specific telegram channel for this batch
 }
 
 export interface Order {

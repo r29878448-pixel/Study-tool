@@ -96,7 +96,7 @@ const INITIAL_USERS: User[] = [
 const INITIAL_SETTINGS: AppSettings = {
   appName: 'Study Portal',
   adminEmail: 'admin@gmail.com',
-  supportPhone: '+91-9876543210',
+  supportPhone: '@STUDY_PORTAL_ROBOT',
   razorpayKey: 'rzp_test_123456',
   razorpaySecret: '',
   uiColor: '#0284C7',

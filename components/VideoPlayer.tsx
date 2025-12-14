@@ -41,7 +41,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
     const handleKeyDown = (e: KeyboardEvent) => {
       // Only react if the container is focused or body is focused (not typing in an input)
       if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
-      if (!containerRef.current?.contains(document.activeElement) && document.activeElement !== document.body) return;
+      // If we are not fullscreen, only react if body or player is focused
+      if (!isFullscreen && !containerRef.current?.contains(document.activeElement) && document.activeElement !== document.body) return;
 
       switch(e.key) {
         case ' ':
@@ -62,6 +63,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
           }
           break;
         case 'f':
+          e.preventDefault();
           toggleFullscreen();
           break;
       }
@@ -69,7 +71,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isPlaying]); // Re-bind if needed, or better, use ref for isPlaying if complicated
+  }, [isPlaying, isFullscreen]); 
 
   useEffect(() => {
     const handleContextMenu = (e: MouseEvent) => e.preventDefault();

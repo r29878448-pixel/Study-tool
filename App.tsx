@@ -104,9 +104,6 @@ const AdContainer = () => {
   );
 };
 
-// ... (Existing components like CountdownTimer, Header, BottomNav, Login, HomePage, CourseListing, RevealKey, VerifyAccess remain unchanged) ...
-// Since I can't elide, I must include them.
-
 const CountdownTimer = ({ expiryDate }: { expiryDate: string }) => {
   const [timeLeft, setTimeLeft] = useState<{h: number, m: number, s: number} | null>(null);
 
@@ -248,6 +245,8 @@ const BottomNav = () => {
     </div>
   );
 };
+
+// --- Pages ---
 
 const Login = () => {
   const [isSignup, setIsSignup] = useState(false);
@@ -470,8 +469,6 @@ const HomePage = () => {
   );
 };
 
-// ... CourseListing, RevealKey, VerifyAccess, ExamManager are here ...
-
 const CourseListing = () => {
   const { courses } = useStore();
   const [filter, setFilter] = useState('All');
@@ -559,8 +556,9 @@ const RevealKey = () => {
 
 const VerifyAccess = () => {
   const { courseId } = useParams();
-  const { currentUser, grantTempAccess } = useStore();
+  const { currentUser, grantTempAccess, courses } = useStore();
   const navigate = useNavigate();
+  const course = courses.find(c => c.id === courseId);
 
   useEffect(() => {
     if (!currentUser) { 
@@ -569,17 +567,34 @@ const VerifyAccess = () => {
         return; 
     }
     if (courseId) {
-        grantTempAccess(courseId);
-        sessionStorage.removeItem('pendingCourseVerification');
-        alert('Temporary Access Granted (24h)');
-        navigate(`/course/${courseId}`);
+        // Simple delay to show the animation
+        const timer = setTimeout(() => {
+            grantTempAccess(courseId);
+            sessionStorage.removeItem('pendingCourseVerification');
+            navigate(`/course/${courseId}`);
+        }, 2000);
+        return () => clearTimeout(timer);
     }
   }, [courseId, currentUser, navigate, grantTempAccess]);
 
-  return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-brand w-10 h-10" /></div>;
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-6">
+        <div className="bg-white p-8 rounded-3xl shadow-xl text-center max-w-sm w-full animate-fade-in">
+            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircle className="w-10 h-10 text-green-600 animate-pulse" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">Verifying Access</h2>
+            <p className="text-gray-500 text-sm">Unlocking {course?.title || 'Batch'} for 24 hours...</p>
+            <div className="mt-6 w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                <div className="h-full bg-green-500 animate-[width_1s_ease-out_forwards] w-full" style={{width: '0%'}}></div>
+            </div>
+        </div>
+    </div>
+  );
 };
 
 const ExamManager = ({ course, onClose }: { course: Course; onClose: () => void }) => {
+    // ... (Existing ExamManager code unchanged)
     const { updateCourse } = useStore();
     const [exams, setExams] = useState<Exam[]>(course.exams || []);
     const [editingExamId, setEditingExamId] = useState<string | null>(null);
@@ -695,6 +710,7 @@ const ExamManager = ({ course, onClose }: { course: Course; onClose: () => void 
 };
 
 const ContentManager = ({ course, onClose }: { course: Course; onClose: () => void }) => {
+    // ... (Existing ContentManager code unchanged)
     const { updateCourse, settings } = useStore();
     const [chapters, setChapters] = useState<Chapter[]>(course.chapters || []);
     const [showImport, setShowImport] = useState(false);
@@ -1009,17 +1025,13 @@ const AdminPanel = () => {
     
     setIsShortening(true);
     const courseId = editingCourse.id || Date.now().toString();
+    // Ensure ID is set
     if(editingCourse.id !== courseId) setEditingCourse(prev => prev ? {...prev, id: courseId} : null);
     
-    // Fallback logic for non-http environments (like local file preview/blob)
-    let baseUrl = window.location.href.split('#')[0];
-    if (!baseUrl.startsWith('http')) {
-        baseUrl = 'https://studyportal.app'; // Default placeholder domain for link generation
-        // alert("Warning: Running in non-HTTP environment. Using placeholder domain for short link.");
-    }
-    if(baseUrl.endsWith('/')) baseUrl = baseUrl.slice(0, -1);
-    
-    const verifyUrl = `${baseUrl}/#/verify/${courseId}`;
+    // Auto-detect current host to generate the correct destination URL
+    const baseUrl = window.location.origin + window.location.pathname;
+    const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+    const verifyUrl = `${cleanBaseUrl}/#/verify/${courseId}`;
     
     const shortenerUrl = settings.linkShortenerApiUrl || 'https://reel2earn.com/api';
     const finalApiUrl = `${shortenerUrl}?api=${settings.linkShortenerApiKey}&url=${encodeURIComponent(verifyUrl)}`;
@@ -1086,6 +1098,7 @@ const AdminPanel = () => {
             <div className="border-b border-gray-100 pb-8"><h2 className="font-display font-bold text-xl mb-6 text-brand">App Banners</h2><div className="mb-6"><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Upload New Banner</label><div className="flex gap-3"><input type="file" accept="image/*" className="flex-1 p-2 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-500" onChange={handleBannerUpload} /><button onClick={() => { if(newBannerImage) { addBanner({ id: Date.now().toString(), image: newBannerImage, link: '#' }); setNewBannerImage(''); alert('Banner added!'); } }} className="bg-gray-900 text-white px-6 py-2 rounded-xl text-xs font-bold disabled:opacity-50 hover:bg-black transition-colors" disabled={!newBannerImage}>Add</button></div></div><div className="grid grid-cols-2 gap-4">{banners.map(b => (<div key={b.id} className="relative group rounded-xl overflow-hidden shadow-sm"><img src={b.image} className="w-full h-24 object-cover" /><div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"><button onClick={() => deleteBanner(b.id)} className="bg-red-500 text-white p-2 rounded-full hover:bg-red-600"><Trash2 className="w-4 h-4" /></button></div></div>))}</div></div>
             <div className="border-b border-gray-100 pb-8"><h2 className="font-display font-bold text-xl mb-6 text-brand">Admin Credentials</h2><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Admin Email</label><input type="email" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900" value={adminCreds.email} onChange={e => { setAdminCreds({...adminCreds, email: e.target.value}); setLocalSettings({...localSettings, adminEmail: e.target.value}); }} /></div><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Admin Password</label><input type="text" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900" value={adminCreds.password} onChange={e => setAdminCreds({...adminCreds, password: e.target.value})} /></div></div></div>
             <div className="border-b border-gray-100 pb-8"><h2 className="font-display font-bold text-xl mb-6 text-brand">Integrations</h2><div className="space-y-6"><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Link Shortener API URL (Reel2Earn)</label><input type="text" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-mono text-gray-900" value={localSettings.linkShortenerApiUrl || ''} onChange={e => setLocalSettings({...localSettings, linkShortenerApiUrl: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Link Shortener API Key</label><input type="text" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-mono text-gray-900" value={localSettings.linkShortenerApiKey || ''} onChange={e => setLocalSettings({...localSettings, linkShortenerApiKey: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Video API Key (Youtube/Metadata)</label><input type="text" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-mono text-gray-900" value={localSettings.videoApiKey || ''} onChange={e => setLocalSettings({...localSettings, videoApiKey: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Ads Code (HTML/Script)</label><textarea className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl h-24 font-mono text-xs text-gray-900" value={localSettings.adsCode || ''} onChange={e => setLocalSettings({...localSettings, adsCode: e.target.value})} placeholder="<script>...</script>" /></div></div></div>
+            <div className="border-b border-gray-100 pb-8"><h2 className="font-display font-bold text-xl mb-6 text-brand">Support Contact</h2><div className="grid grid-cols-1 gap-6"><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">WhatsApp / Telegram Number</label><input type="text" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900" value={localSettings.supportPhone || ''} onChange={e => setLocalSettings({...localSettings, supportPhone: e.target.value})} placeholder="+91..." /></div></div></div>
             <button onClick={handleSaveSettings} className="w-full bg-brand text-white py-4 rounded-2xl font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition-all transform hover:scale-[1.01]">Save All Changes</button>
           </div>
         )}
@@ -1341,19 +1354,37 @@ const Watch = () => {
     );
 };
 
-// ... CourseDetail, Profile remain unchanged in structure ...
-
 const CourseDetail = () => {
     const { id } = useParams();
-    const { courses, currentUser, enrollCourse } = useStore();
+    const { courses, currentUser, enrollCourse, settings } = useStore();
     const navigate = useNavigate();
     const course = courses.find(c => c.id === id);
+    const [keyInput, setKeyInput] = useState('');
     
     if (!course) return <Navigate to="/" />;
     
     const hasAccess = currentUser?.purchasedCourseIds.includes(course.id) || 
                       (currentUser?.tempAccess?.[course.id] && new Date(currentUser.tempAccess[course.id]) > new Date());
     
+    const handleKeyUnlock = () => {
+        if (!currentUser) { navigate('/login'); return; }
+        if (keyInput.trim().toUpperCase() === course.accessKey) {
+            enrollCourse(course.id);
+            alert("Success! Permanent access granted.");
+        } else {
+            alert("Invalid Key. Please check and try again.");
+        }
+    };
+
+    const handleTempAccess = () => {
+        if (!currentUser) { navigate('/login'); return; }
+        if (course.shortenerLink) {
+            window.open(course.shortenerLink, '_blank');
+        } else {
+            alert("Temporary access link not configured for this batch.");
+        }
+    };
+
     return (
         <div className="min-h-screen bg-gray-50 pb-24">
             <div className="relative h-64 md:h-80">
@@ -1366,39 +1397,67 @@ const CourseDetail = () => {
                 </div>
             </div>
             <div className="p-4 max-w-4xl mx-auto -mt-8 relative z-10">
-                <div className="bg-white rounded-3xl shadow-lg p-6 mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
-                     <div>
-                         <p className="text-sm text-gray-500">Total Price</p>
-                         <div className="text-2xl font-bold text-gray-900">{course.price === 0 ? 'FREE' : `₹${course.price}`} <span className="text-sm text-gray-400 line-through font-normal">₹{course.mrp}</span></div>
+                <div className="bg-white rounded-3xl shadow-lg p-6 mb-6">
+                     <div className="flex justify-between items-center mb-6">
+                         <div>
+                             <p className="text-sm text-gray-500">Price</p>
+                             <div className="text-2xl font-bold text-gray-900">{course.price === 0 ? 'FREE' : `₹${course.price}`} <span className="text-sm text-gray-400 line-through font-normal">₹{course.mrp}</span></div>
+                         </div>
+                         {hasAccess && (
+                            <div className="bg-green-100 text-green-700 px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2">
+                                <CheckCircle className="w-5 h-5" /> Enrolled
+                            </div>
+                         )}
                      </div>
-                     {!hasAccess ? (
-                        <button 
-                            onClick={() => { 
-                                if (!currentUser) {
-                                    alert("Please login to enroll.");
-                                    navigate('/login');
-                                    return;
-                                }
-                                if(course.isPaid) {
-                                    const key = prompt("Enter Access Key:");
-                                    if(key === course.accessKey) {
-                                        enrollCourse(course.id);
-                                        alert("Success! Batch Unlocked.");
-                                    } else if (key !== null) {
-                                        alert("Invalid Access Key.");
-                                    }
-                                } else { 
-                                    enrollCourse(course.id); 
-                                } 
-                            }} 
-                            className="bg-brand text-white px-8 py-3 rounded-xl font-bold hover:bg-brand-dark shadow-lg shadow-brand/30 w-full md:w-auto"
-                        >
-                            {course.isPaid ? 'Unlock Now' : 'Join for Free'}
-                        </button>
-                     ) : (
-                        <button className="bg-green-600 text-white px-8 py-3 rounded-xl font-bold cursor-default shadow-lg shadow-green-600/30 w-full md:w-auto flex items-center justify-center gap-2">
-                            <CheckCircle className="w-5 h-5" /> Enrolled
-                        </button>
+
+                     {!hasAccess && (
+                        <div className="space-y-4">
+                            {/* Temporary Access Section */}
+                            <div className="bg-gray-50 p-4 rounded-2xl border border-gray-200">
+                                <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-2"><Clock className="w-4 h-4 text-blue-500"/> Temporary Access</h3>
+                                <p className="text-xs text-gray-500 mb-3">Get 24 hours of free access by visiting a sponsor link.</p>
+                                <button 
+                                    onClick={handleTempAccess}
+                                    className="w-full py-3 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-colors shadow-sm"
+                                >
+                                    Get Free Access (24h)
+                                </button>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <div className="h-px bg-gray-200 flex-1"></div>
+                                <span className="text-xs text-gray-400 font-bold uppercase">OR</span>
+                                <div className="h-px bg-gray-200 flex-1"></div>
+                            </div>
+
+                            {/* Permanent Access Section */}
+                            <div className="bg-indigo-50 p-4 rounded-2xl border border-indigo-100">
+                                <h3 className="font-bold text-indigo-900 mb-2 flex items-center gap-2"><Key className="w-4 h-4 text-indigo-600"/> Permanent Access</h3>
+                                <div className="flex gap-2 mb-3">
+                                    <input 
+                                        type="text" 
+                                        placeholder="Enter Premium Key" 
+                                        className="flex-1 p-3 rounded-xl border border-indigo-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 uppercase font-mono"
+                                        value={keyInput}
+                                        onChange={(e) => setKeyInput(e.target.value)}
+                                    />
+                                    <button 
+                                        onClick={handleKeyUnlock}
+                                        className="bg-indigo-600 text-white px-6 py-2 rounded-xl font-bold text-sm hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200"
+                                    >
+                                        Unlock
+                                    </button>
+                                </div>
+                                <a 
+                                    href={settings.supportPhone ? `https://wa.me/${settings.supportPhone.replace(/[^0-9]/g, '')}?text=I want to buy key for ${course.title}` : '#'}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs text-indigo-600 font-bold hover:underline flex items-center gap-1"
+                                >
+                                    Don't have a key? Buy from Admin <ExternalLink className="w-3 h-3"/>
+                                </a>
+                            </div>
+                        </div>
                      )}
                 </div>
                 

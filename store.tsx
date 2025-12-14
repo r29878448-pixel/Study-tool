@@ -11,6 +11,7 @@ interface StoreContextType {
   settings: AppSettings;
   login: (email: string, pass: string) => boolean;
   signup: (name: string, email: string, phone: string, pass: string) => void;
+  addUser: (user: User) => void; // New function for Admin to create specific users
   logout: () => void;
   addCourse: (course: Course) => void;
   updateCourse: (course: Course) => void;
@@ -66,6 +67,7 @@ const INITIAL_COURSES: Course[] = [
     createdAt: new Date().toISOString(),
     isPaid: true,
     accessKey: 'MATHS2024',
+    shortenerLink: '', // Admin can set this
     chapters: []
   }
 ];
@@ -197,6 +199,15 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
     setCurrentUser(newUser);
   };
 
+  // Allow admins to add users manually (including Editors/Managers)
+  const addUser = (user: User) => {
+    if (users.some(u => u.email.toLowerCase() === user.email.toLowerCase())) {
+      alert('User with this email already exists!');
+      return;
+    }
+    setUsers([...users, user]);
+  };
+
   const logout = () => {
     setCurrentUser(null);
     localStorage.removeItem('sp_currentUser');
@@ -226,6 +237,7 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
 
   const grantTempAccess = (courseId: string) => {
     if (!currentUser) return;
+    // Set expiry to 24 hours from now
     const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
     const updatedUser: User = {
       ...currentUser,
@@ -337,7 +349,7 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
   return (
     <StoreContext.Provider value={{
       currentUser, users, courses, banners, orders, settings,
-      login, signup, logout,
+      login, signup, addUser, logout,
       addCourse, updateCourse, deleteCourse,
       enrollCourse, grantTempAccess,
       addBanner, deleteBanner,

@@ -96,6 +96,7 @@ export interface Course {
   verificationLink?: string;
   exams?: Exam[];
   accessKey?: string; // Key to unlock the course
+  shortenerLink?: string; // External link to generate temp access
 }
 
 export interface Order {

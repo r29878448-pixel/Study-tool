@@ -42,6 +42,16 @@ const ThemeHandler = () => {
   return null;
 };
 
+// --- Helper Functions ---
+const convertToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = error => reject(error);
+  });
+};
+
 // --- Components ---
 
 const Logo = ({ dark = false }: { dark?: boolean }) => {
@@ -63,6 +73,41 @@ const AdContainer = () => {
     <div className="w-full my-4 bg-gray-50 border-y border-gray-200 overflow-hidden flex flex-col items-center justify-center min-h-[100px] text-center p-2">
       <div className="text-[10px] text-gray-400 uppercase tracking-widest mb-1">Sponsored</div>
       <div dangerouslySetInnerHTML={{ __html: settings.adsCode }} />
+    </div>
+  );
+};
+
+const CountdownTimer = ({ expiryDate }: { expiryDate: string }) => {
+  const [timeLeft, setTimeLeft] = useState<{h: number, m: number, s: number} | null>(null);
+
+  useEffect(() => {
+    const calculateTimeLeft = () => {
+      const difference = +new Date(expiryDate) - +new Date();
+      if (difference > 0) {
+        return {
+          h: Math.floor((difference / (1000 * 60 * 60))),
+          m: Math.floor((difference / 1000 / 60) % 60),
+          s: Math.floor((difference / 1000) % 60),
+        };
+      }
+      return null;
+    };
+
+    const timer = setInterval(() => {
+      setTimeLeft(calculateTimeLeft());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [expiryDate]);
+
+  if (!timeLeft) return <span className="text-red-500 font-bold">Expired</span>;
+
+  return (
+    <div className="flex gap-1 items-center font-mono font-bold text-lg text-brand bg-blue-50 px-3 py-1 rounded-lg border border-blue-100">
+      <Timer className="w-5 h-5 mr-1" />
+      <span>{timeLeft.h.toString().padStart(2, '0')}</span>:
+      <span>{timeLeft.m.toString().padStart(2, '0')}</span>:
+      <span>{timeLeft.s.toString().padStart(2, '0')}</span>
     </div>
   );
 };
@@ -450,6 +495,36 @@ const RevealKey = () => {
   );
 };
 
+// Route to handle automatic verification after returning from shortener
+const VerifyAccess = () => {
+  const { courseId } = useParams();
+  const { grantTempAccess, courses } = useStore();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (courseId) {
+      const course = courses.find(c => c.id === courseId);
+      if(course) {
+        grantTempAccess(courseId);
+        navigate('/course/' + courseId, { replace: true });
+        // Optional: Show a toast here if a toast library existed
+        alert("Verification Successful! 24 Hours Access Granted.");
+      } else {
+        navigate('/');
+      }
+    }
+  }, [courseId, courses, grantTempAccess, navigate]);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+       <div className="text-center">
+         <div className="w-16 h-16 border-4 border-brand border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+         <h2 className="text-xl font-bold text-gray-800">Verifying Access...</h2>
+       </div>
+    </div>
+  );
+};
+
 const CourseDetail = () => {
   const { id } = useParams();
   const { courses, currentUser, enrollCourse, settings } = useStore();
@@ -463,7 +538,17 @@ const CourseDetail = () => {
   if (!course) return <Navigate to="/" />;
 
   const isPurchased = currentUser?.purchasedCourseIds.includes(course.id);
-  const hasAccess = isPurchased || !course.isPaid;
+  
+  // Check temp access validity
+  let tempAccessExpiry: string | null = null;
+  if (currentUser?.tempAccess && currentUser.tempAccess[course.id]) {
+     const expiry = new Date(currentUser.tempAccess[course.id]);
+     if (expiry > new Date()) {
+        tempAccessExpiry = currentUser.tempAccess[course.id];
+     }
+  }
+
+  const hasAccess = isPurchased || tempAccessExpiry !== null || !course.isPaid;
 
   const handleKeySubmit = () => {
     if (!currentUser) { navigate('/login'); return; }
@@ -485,6 +570,15 @@ const CourseDetail = () => {
     navigate('/my-courses');
   };
 
+  const handleGenerateTempAccess = () => {
+    if (!course.shortenerLink) {
+       alert("No shortener link configured for this course.");
+       return;
+    }
+    // Open the shortener link. The shortener link should redirect back to /#/verify-access/<courseId>
+    window.open(course.shortenerLink, '_blank');
+  };
+
   const handleGetFreeKey = async () => {
      if (!course.accessKey) {
         alert("This course does not have an access key configured.");
@@ -499,7 +593,9 @@ const CourseDetail = () => {
      const revealUrl = `${baseUrl}#/reveal/${course.accessKey}`;
      
      // Reel2Earn API call
-     const apiUrl = `https://reel2earn.com/api?api=${settings.linkShortenerApiKey}&url=${encodeURIComponent(revealUrl)}`;
+     // Use settings.linkShortenerApiUrl if available, else default to known endpoint or just allow config
+     const shortenerUrl = settings.linkShortenerApiUrl || 'https://reel2earn.com/api';
+     const apiUrl = `${shortenerUrl}?api=${settings.linkShortenerApiKey}&url=${encodeURIComponent(revealUrl)}`;
 
      try {
        const res = await fetch(apiUrl);
@@ -558,6 +654,11 @@ const CourseDetail = () => {
               </span>
               {course.isPaid && <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded font-bold uppercase">Locked</span>}
            </div>
+           
+           {/* Countdown Timer Display */}
+           {tempAccessExpiry && (
+              <CountdownTimer expiryDate={tempAccessExpiry} />
+           )}
         </div>
 
         {hasAccess && (
@@ -617,15 +718,25 @@ const CourseDetail = () => {
             <PlayCircle className="w-5 h-5"/> Resume Learning
           </Link>
         ) : course.isPaid ? (
-          <button 
-            onClick={() => {
-              if(!currentUser) navigate('/login');
-              else setShowUnlockModal(true);
-            }}
-            className="w-full font-bold py-4 rounded-xl text-lg bg-brand text-white shadow-lg shadow-blue-500/30 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-          >
-            <Lock className="w-5 h-5"/> Unlock Batch
-          </button>
+          <div className="flex flex-col gap-2">
+            {course.shortenerLink && (
+              <button 
+                onClick={handleGenerateTempAccess}
+                className="w-full font-bold py-4 rounded-xl text-lg bg-blue-600 text-white shadow-lg shadow-blue-500/30 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+              >
+                <Clock className="w-5 h-5"/> Get 24h Access (Watch Ad)
+              </button>
+            )}
+            <button 
+              onClick={() => {
+                if(!currentUser) navigate('/login');
+                else setShowUnlockModal(true);
+              }}
+              className={`w-full font-bold py-4 rounded-xl text-lg ${course.shortenerLink ? 'bg-white text-gray-700 border border-gray-300' : 'bg-brand text-white shadow-lg shadow-blue-500/30'} active:scale-[0.98] transition-all flex items-center justify-center gap-2`}
+            >
+              <Lock className="w-5 h-5"/> Unlock Permanently
+            </button>
+          </div>
         ) : (
           <button 
             onClick={handleFreeEnroll}
@@ -1196,26 +1307,88 @@ const ExamManager = ({ course, onClose }: { course: Course, onClose: () => void 
 };
 
 const AdminPanel = () => {
-  const { currentUser, settings, updateSettings, courses, users, addCourse, updateCourse, deleteCourse, deleteUser, updateUser } = useStore();
+  const { currentUser, settings, updateSettings, courses, users, addCourse, updateCourse, deleteCourse, deleteUser, updateUser, addBanner, deleteBanner, addUser, banners } = useStore();
   const [activeTab, setActiveTab] = useState<'dashboard' | 'courses' | 'users' | 'settings'>('dashboard');
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [managingExamsCourse, setManagingExamsCourse] = useState<Course | null>(null);
   const [managingContentCourse, setManagingContentCourse] = useState<Course | null>(null);
   
+  // User Management State
+  const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'USER' });
+
   // Settings State
   const [localSettings, setLocalSettings] = useState(settings);
   const [adminCreds, setAdminCreds] = useState({ email: currentUser?.email || '', password: currentUser?.password || '' });
+  
+  // Banner State
+  const [newBannerImage, setNewBannerImage] = useState<string>('');
 
   if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.EDITOR)) {
     return <Navigate to="/" />;
   }
 
   const handleSaveSettings = () => {
+    if (!currentUser) return;
     updateSettings(localSettings);
     if (adminCreds.email !== currentUser.email || adminCreds.password !== currentUser.password) {
        updateUser({ email: adminCreds.email, password: adminCreds.password });
     }
     alert('Settings and Credentials saved successfully!');
+  };
+
+  const handleAddUser = () => {
+    if(!newUser.name || !newUser.email || !newUser.password) {
+      alert("Please fill all fields");
+      return;
+    }
+    addUser({
+      id: Date.now().toString(),
+      name: newUser.name,
+      email: newUser.email,
+      password: newUser.password,
+      role: newUser.role as UserRole,
+      purchasedCourseIds: [],
+      phone: '0000000000'
+    });
+    setNewUser({ name: '', email: '', password: '', role: 'USER' });
+    alert("User created successfully");
+  };
+
+  const handleBannerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      try {
+        const base64 = await convertToBase64(e.target.files[0]);
+        setNewBannerImage(base64);
+      } catch (err) {
+        console.error("Error converting image", err);
+      }
+    }
+  };
+
+  const handleCourseImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0] && editingCourse) {
+      try {
+        const base64 = await convertToBase64(e.target.files[0]);
+        setEditingCourse({ ...editingCourse, image: base64 });
+      } catch (err) {
+        console.error("Error converting image", err);
+      }
+    }
+  };
+
+  // Logic to handle saving a course (create new or update existing)
+  const handleSaveCourse = () => {
+    if (!editingCourse) return;
+    
+    // Check if course already exists in the list
+    const exists = courses.some(c => c.id === editingCourse.id);
+    
+    if (exists) {
+      updateCourse(editingCourse);
+    } else {
+      addCourse(editingCourse);
+    }
+    setEditingCourse(null);
   };
 
   return (
@@ -1278,8 +1451,7 @@ const AdminPanel = () => {
                       chapters: [],
                       isPaid: false
                     };
-                    addCourse(newCourse);
-                    setEditingCourse(newCourse);
+                    setEditingCourse(newCourse); // Just open modal, don't add yet
                   }}
                   className="bg-brand text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2"
                >
@@ -1319,21 +1491,42 @@ const AdminPanel = () => {
         )}
 
         {activeTab === 'users' && (
-           <div className="space-y-4">
-             {users.map(u => (
-               <div key={u.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
-                 <div>
-                   <p className="font-bold">{u.name}</p>
-                   <p className="text-xs text-gray-500">{u.email}</p>
-                   <span className="text-[10px] bg-gray-100 px-2 py-0.5 rounded">{u.role}</span>
-                 </div>
-                 {u.role === UserRole.USER && (
-                   <button onClick={() => deleteUser(u.id)} className="text-red-500 hover:bg-red-50 p-2 rounded">
-                     <Trash2 className="w-4 h-4" />
-                   </button>
-                 )}
+           <div className="space-y-6">
+             {/* Create User/Manager Section */}
+             <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+               <h3 className="font-bold text-gray-800 mb-3">Create New User / Manager</h3>
+               <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                 <input className="p-2 border rounded" placeholder="Name" value={newUser.name} onChange={e => setNewUser({...newUser, name: e.target.value})} />
+                 <input className="p-2 border rounded" placeholder="Email" value={newUser.email} onChange={e => setNewUser({...newUser, email: e.target.value})} />
+                 <input className="p-2 border rounded" placeholder="Password" value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})} />
+                 <select className="p-2 border rounded bg-white" value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})}>
+                   <option value="USER">Student</option>
+                   <option value="EDITOR">Manager/Editor</option>
+                   <option value="ADMIN">Admin</option>
+                 </select>
+                 <button onClick={handleAddUser} className="bg-brand text-white font-bold rounded hover:bg-brand-dark">Create</button>
                </div>
-             ))}
+             </div>
+
+             <div className="space-y-3">
+               <h3 className="font-bold text-gray-800">Existing Users</h3>
+               {users.map(u => (
+                 <div key={u.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
+                   <div>
+                     <p className="font-bold">{u.name}</p>
+                     <p className="text-xs text-gray-500">{u.email}</p>
+                     <span className={`text-[10px] px-2 py-0.5 rounded ${u.role === 'ADMIN' ? 'bg-red-100 text-red-700' : u.role === 'EDITOR' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100'}`}>
+                        {u.role}
+                     </span>
+                   </div>
+                   {u.role !== UserRole.ADMIN && (
+                     <button onClick={() => deleteUser(u.id)} className="text-red-500 hover:bg-red-50 p-2 rounded">
+                       <Trash2 className="w-4 h-4" />
+                     </button>
+                   )}
+                 </div>
+               ))}
+             </div>
            </div>
         )}
 
@@ -1354,6 +1547,39 @@ const AdminPanel = () => {
                     </div>
                  </div>
                </div>
+            </div>
+            
+            <div className="border-b pb-6">
+              <h2 className="font-bold text-lg mb-4 text-brand">App Banners</h2>
+              <div className="mb-4">
+                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Upload New Banner</label>
+                 <div className="flex gap-2">
+                    <input type="file" accept="image/*" className="flex-1 text-sm text-gray-500" onChange={handleBannerUpload} />
+                    <button 
+                      onClick={() => {
+                         if(newBannerImage) {
+                           addBanner({ id: Date.now().toString(), image: newBannerImage, link: '#' });
+                           setNewBannerImage('');
+                           alert('Banner added!');
+                         }
+                      }}
+                      className="bg-brand text-white px-4 py-2 rounded text-xs font-bold disabled:opacity-50"
+                      disabled={!newBannerImage}
+                    >
+                      Add
+                    </button>
+                 </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                 {banners.map(b => (
+                    <div key={b.id} className="relative group">
+                       <img src={b.image} className="w-full h-24 object-cover rounded-lg" />
+                       <button onClick={() => deleteBanner(b.id)} className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Trash2 className="w-4 h-4" />
+                       </button>
+                    </div>
+                 ))}
+              </div>
             </div>
 
             <div className="border-b pb-6">
@@ -1397,7 +1623,7 @@ const AdminPanel = () => {
       {editingCourse && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white w-full max-w-lg rounded-2xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <h3 className="text-xl font-bold mb-4">Edit Batch Details</h3>
+            <h3 className="text-xl font-bold mb-4">{courses.some(c => c.id === editingCourse.id) ? 'Edit Batch' : 'Create New Batch'}</h3>
             
             <div className="space-y-3">
               <input type="text" placeholder="Title" className="w-full p-3 border rounded-lg" value={editingCourse.title} onChange={e => setEditingCourse({...editingCourse, title: e.target.value})} />
@@ -1411,13 +1637,38 @@ const AdminPanel = () => {
                  <input type="text" placeholder="Access Key (Required)" className="w-full p-3 border rounded-lg font-bold uppercase" value={editingCourse.accessKey || ''} onChange={e => setEditingCourse({...editingCourse, accessKey: e.target.value.toUpperCase()})} />
               </div>
 
-              <input type="text" placeholder="Image URL" className="w-full p-3 border rounded-lg" value={editingCourse.image} onChange={e => setEditingCourse({...editingCourse, image: e.target.value})} />
+              {/* Shortener Link Section */}
+              <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg">
+                 <label className="block text-xs font-bold text-blue-700 uppercase mb-1">Shortener Link (For 24h Access)</label>
+                 <input 
+                   type="text" 
+                   placeholder="e.g. https://gplinks.co/..." 
+                   className="w-full p-2 border rounded text-sm mb-2" 
+                   value={editingCourse.shortenerLink || ''} 
+                   onChange={e => setEditingCourse({...editingCourse, shortenerLink: e.target.value})} 
+                 />
+                 <p className="text-[10px] text-gray-500">
+                    <strong>Instructions:</strong> Create a link in your shortener that redirects to: <br/>
+                    <code className="bg-gray-200 px-1 rounded select-all">{window.location.origin}/#/verify/{editingCourse.id || 'COURSE_ID'}</code>
+                 </p>
+              </div>
+
+              {/* Image Upload for Course */}
+              <div>
+                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Thumbnail Image</label>
+                 <div className="flex items-center gap-2 mb-2">
+                    <img src={editingCourse.image || 'https://via.placeholder.com/100'} className="w-16 h-16 rounded object-cover border" />
+                    <input type="file" accept="image/*" onChange={handleCourseImageUpload} className="text-sm text-gray-500" />
+                 </div>
+                 <input type="text" placeholder="Or enter Image URL" className="w-full p-3 border rounded-lg text-sm" value={editingCourse.image} onChange={e => setEditingCourse({...editingCourse, image: e.target.value})} />
+              </div>
+              
               <input type="text" placeholder="Category" className="w-full p-3 border rounded-lg" value={editingCourse.category} onChange={e => setEditingCourse({...editingCourse, category: e.target.value})} />
             </div>
 
             <div className="flex gap-3 mt-6">
               <button onClick={() => setEditingCourse(null)} className="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-100 rounded-lg">Cancel</button>
-              <button onClick={() => { updateCourse(editingCourse); setEditingCourse(null); }} className="flex-1 py-3 bg-brand text-white font-bold rounded-lg shadow-lg">Save Changes</button>
+              <button onClick={handleSaveCourse} className="flex-1 py-3 bg-brand text-white font-bold rounded-lg shadow-lg">Save Changes</button>
             </div>
           </div>
         </div>
@@ -1537,6 +1788,7 @@ const AppRoutes = () => {
         <Route path="/profile" element={<Profile />} />
         <Route path="/admin" element={<AdminPanel />} />
         <Route path="/reveal/:key" element={<RevealKey />} />
+        <Route path="/verify/:courseId" element={<VerifyAccess />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
       <ChatBot />

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams, Navigate } from 'react-router-dom';
 import { Timer, CheckCircle, AlertCircle, ArrowLeft, Loader2, List, PlayCircle, Bot, Save, LogOut, RotateCcw } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import { Course, Question, Exam, ExamProgress } from '../types';
@@ -8,13 +8,12 @@ import { useStore } from '../store';
 
 declare var process: { env: { API_KEY: string } };
 
-interface ExamModeProps {
-  course: Course;
-}
-
-const ExamMode: React.FC<ExamModeProps> = ({ course }) => {
-  const { saveExamResult, saveExamProgress, clearExamProgress, currentUser } = useStore();
+const ExamMode = () => {
+  const { id } = useParams();
+  const { courses, saveExamResult, saveExamProgress, clearExamProgress, currentUser } = useStore();
   const navigate = useNavigate();
+  
+  const course = courses.find(c => c.id === id);
   
   // States
   const [view, setView] = useState<'selection' | 'taking' | 'review'>('selection');
@@ -28,6 +27,9 @@ const ExamMode: React.FC<ExamModeProps> = ({ course }) => {
   const [score, setScore] = useState(0);
   const [isAiGenerated, setIsAiGenerated] = useState(false);
   const [resumePrompt, setResumePrompt] = useState<ExamProgress | null>(null);
+
+  // Validate Course
+  if (!course) return <Navigate to="/" />;
 
   // Check for saved progress on mount
   useEffect(() => {
@@ -61,7 +63,6 @@ const ExamMode: React.FC<ExamModeProps> = ({ course }) => {
   }, [view, loading, isFinished, timeLeft]);
 
   // Auto-save progress
-  // NOTE: We do NOT include timeLeft in dependencies to prevent the debounce from resetting every second
   useEffect(() => {
     if (view === 'taking' && !loading && !isFinished && questions.length > 0) {
       const timeout = setTimeout(() => {
@@ -76,7 +77,7 @@ const ExamMode: React.FC<ExamModeProps> = ({ course }) => {
       courseId: course.id,
       questions,
       answers,
-      timeLeft, // Captures current timeLeft due to closure or when called
+      timeLeft,
       lastSaved: new Date().toISOString(),
       isAiGenerated
     });

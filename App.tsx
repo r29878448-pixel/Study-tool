@@ -5,13 +5,16 @@ import {
   Home, BookOpen, User, HelpCircle, Menu, LogOut, 
   Search, PlayCircle, Lock, LayoutDashboard, Users, CreditCard, Settings, Plus, Trash2, Edit, Save, X, ChevronDown, ChevronUp,
   MessageCircle, CloudDownload, CheckCircle, Shield, Upload, FileText, Download, Youtube, Link as LinkIcon, Image as ImageIcon, Globe,
-  ClipboardList, Timer, Code, DollarSign, Clock, Eye, Smartphone, MoreVertical, Key, Copy, ExternalLink, Play
+  ClipboardList, Timer, Code, DollarSign, Clock, Eye, Smartphone, MoreVertical, Key, Copy, ExternalLink, Play, Bot, Brain
 } from './components/Icons';
 import VideoPlayer from './components/VideoPlayer';
 import ChatBot from './components/ChatBot';
 import ExamMode from './components/ExamMode';
-import { Course, Chapter, Video, UserRole, Note, Banner, AppSettings, Exam, Question, VideoProgress } from './types';
+import { Course, Chapter, Video, UserRole, Note, Banner, AppSettings, Exam, Question, VideoProgress, AiGeneratedQuiz } from './types';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { GoogleGenAI } from "@google/genai";
+
+declare var process: { env: { API_KEY: string } };
 
 // --- Theme Handler ---
 const ThemeHandler = () => {
@@ -889,9 +892,16 @@ const MyCourses = () => {
 
 const Watch = () => {
   const { courseId } = useParams();
-  const { courses, currentUser, saveVideoProgress } = useStore();
+  const { courses, currentUser, saveVideoProgress, saveAiQuiz } = useStore();
   const [activeVideo, setActiveVideo] = useState<Video | null>(null);
   
+  // AI Quiz States
+  const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
+  const [activeQuiz, setActiveQuiz] = useState<AiGeneratedQuiz | null>(null);
+  const [showQuizModal, setShowQuizModal] = useState(false);
+  const [quizAnswers, setQuizAnswers] = useState<number[]>([]);
+  const [quizScore, setQuizScore] = useState<number | null>(null);
+
   const course = courses.find(c => c.id === courseId);
   
   const hasAccess = currentUser && (
@@ -904,9 +914,7 @@ const Watch = () => {
   if (!hasAccess && course.isPaid) return <Navigate to={`/course/${courseId}`} />;
   
   useEffect(() => {
-    // Determine last watched or first
     if (!activeVideo && course.chapters.length > 0) {
-      // Find last watched video
       let lastWatchedId: string | null = null;
       let latestTime = 0;
       
@@ -930,6 +938,13 @@ const Watch = () => {
     }
   }, [course]);
 
+  // Reset quiz state when video changes
+  useEffect(() => {
+    setActiveQuiz(null);
+    setShowQuizModal(false);
+    setQuizScore(null);
+  }, [activeVideo]);
+
   const handleProgress = (time: number, duration: number) => {
     if (activeVideo) {
       saveVideoProgress(activeVideo.id, time, duration);
@@ -943,13 +958,78 @@ const Watch = () => {
     return 0;
   };
 
+  // --- AI Quiz Logic ---
+  const handleGenerateQuiz = async () => {
+    if (!activeVideo || !course) return;
+
+    // Check if we already have a cached quiz for this video
+    const cachedQuiz = currentUser?.generatedQuizzes?.find(q => q.videoId === activeVideo.id);
+    if (cachedQuiz) {
+      setActiveQuiz(cachedQuiz);
+      setQuizAnswers(new Array(cachedQuiz.questions.length).fill(-1));
+      setShowQuizModal(true);
+      return;
+    }
+
+    setIsGeneratingQuiz(true);
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const chapter = course.chapters.find(c => c.videos.some(v => v.id === activeVideo.id));
+      
+      const prompt = `You are an expert tutor. Create a conceptual mini-quiz for a student watching a lecture.
+      
+      Course: ${course.title}
+      Chapter: ${chapter?.title || 'General'}
+      Video Title: ${activeVideo.title}
+      
+      Task: Analyze these titles to infer the educational topic. Generate 3 multiple-choice questions to test understanding of this specific topic.
+      Format strictly as a JSON array of objects with keys: "id" (string), "question" (string), "options" (array of 4 strings), "correctAnswer" (number index 0-3).`;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: {
+          responseMimeType: 'application/json'
+        }
+      });
+
+      if (response.text) {
+        const questions = JSON.parse(response.text);
+        const newQuiz: AiGeneratedQuiz = {
+          videoId: activeVideo.id,
+          questions: questions,
+          generatedAt: new Date().toISOString()
+        };
+        
+        saveAiQuiz(newQuiz);
+        setActiveQuiz(newQuiz);
+        setQuizAnswers(new Array(newQuiz.questions.length).fill(-1));
+        setShowQuizModal(true);
+      }
+    } catch (e) {
+      console.error("Quiz Gen Error", e);
+      alert("Failed to generate quiz. Please check your internet connection.");
+    } finally {
+      setIsGeneratingQuiz(false);
+    }
+  };
+
+  const submitQuiz = () => {
+    if (!activeQuiz) return;
+    let score = 0;
+    activeQuiz.questions.forEach((q, i) => {
+      if (quizAnswers[i] === q.correctAnswer) score++;
+    });
+    setQuizScore(score);
+  };
+
   return (
      <div className="pb-24 pt-16 lg:h-screen lg:pb-0 lg:overflow-hidden flex flex-col lg:flex-row">
         {/* Video Area */}
-        <div className="w-full lg:flex-1 bg-black sticky top-16 lg:static z-20">
+        <div className="w-full lg:flex-1 bg-black sticky top-16 lg:static z-20 relative">
            {activeVideo ? (
              <VideoPlayer 
-               key={activeVideo.id} // Re-mount on change
+               key={activeVideo.id} 
                src={activeVideo.filename} 
                onProgress={handleProgress}
                initialTime={getInitialTime()}
@@ -959,8 +1039,24 @@ const Watch = () => {
                 Select a lecture to play
              </div>
            )}
-           <div className="p-4 bg-white border-b lg:border-b-0">
+           <div className="p-4 bg-white border-b lg:border-b-0 flex justify-between items-center">
               <h1 className="font-bold text-lg text-gray-800">{activeVideo?.title || course.title}</h1>
+              
+              {/* AI Quiz Button */}
+              {activeVideo && (
+                <button 
+                  onClick={handleGenerateQuiz}
+                  disabled={isGeneratingQuiz}
+                  className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-2 rounded-full font-bold text-sm flex items-center gap-2 shadow-lg hover:shadow-xl transition-all disabled:opacity-70"
+                >
+                  {isGeneratingQuiz ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <Brain className="w-4 h-4" />
+                  )}
+                  {isGeneratingQuiz ? 'Analyzing...' : 'AI Quiz'}
+                </button>
+              )}
            </div>
         </div>
         
@@ -1018,6 +1114,71 @@ const Watch = () => {
               ))}
            </div>
         </div>
+
+        {/* AI Quiz Modal Overlay */}
+        {showQuizModal && activeQuiz && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
+             <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+                <div className="p-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white flex justify-between items-center">
+                   <div>
+                      <h3 className="font-bold text-lg flex items-center gap-2"><Brain className="w-5 h-5"/> Quick Recall</h3>
+                      <p className="text-xs opacity-90">Testing: {activeVideo?.title}</p>
+                   </div>
+                   <button onClick={() => setShowQuizModal(false)}><X className="w-6 h-6"/></button>
+                </div>
+                
+                <div className="p-6 overflow-y-auto flex-1">
+                   {quizScore !== null ? (
+                      <div className="text-center py-8">
+                         <div className="text-5xl font-bold text-brand mb-2">{quizScore} / {activeQuiz.questions.length}</div>
+                         <p className="text-gray-500 mb-6">You scored {Math.round((quizScore / activeQuiz.questions.length) * 100)}%</p>
+                         <button 
+                           onClick={() => { setQuizScore(null); setQuizAnswers(new Array(activeQuiz.questions.length).fill(-1)); setShowQuizModal(false); }}
+                           className="bg-brand text-white px-6 py-2 rounded-full font-bold shadow-lg"
+                         >
+                           Continue Learning
+                         </button>
+                      </div>
+                   ) : (
+                      <div className="space-y-6">
+                         {activeQuiz.questions.map((q, qIdx) => (
+                            <div key={qIdx} className="space-y-2">
+                               <p className="font-bold text-gray-800 text-sm">{qIdx + 1}. {q.question}</p>
+                               <div className="space-y-1">
+                                  {q.options.map((opt, oIdx) => (
+                                     <button
+                                       key={oIdx}
+                                       onClick={() => {
+                                          const newAns = [...quizAnswers];
+                                          newAns[qIdx] = oIdx;
+                                          setQuizAnswers(newAns);
+                                       }}
+                                       className={`w-full text-left p-3 rounded-lg text-sm border transition-all ${quizAnswers[qIdx] === oIdx ? 'bg-purple-50 border-purple-500 text-purple-700 font-bold' : 'hover:bg-gray-50 border-gray-200'}`}
+                                     >
+                                        {opt}
+                                     </button>
+                                  ))}
+                               </div>
+                            </div>
+                         ))}
+                      </div>
+                   )}
+                </div>
+
+                {quizScore === null && (
+                   <div className="p-4 border-t bg-gray-50 flex justify-end">
+                      <button 
+                        onClick={submitQuiz}
+                        disabled={quizAnswers.includes(-1)}
+                        className="bg-brand text-white px-6 py-2 rounded-xl font-bold disabled:opacity-50 shadow-lg"
+                      >
+                         Submit Answers
+                      </button>
+                   </div>
+                )}
+             </div>
+          </div>
+        )}
      </div>
   );
 };
@@ -1814,7 +1975,7 @@ const AppRoutes = () => {
         <Route path="/course/:id" element={<CourseDetail />} />
         <Route path="/my-courses" element={<MyCourses />} />
         <Route path="/watch/:courseId" element={<Watch />} />
-        <Route path="/exam/:id" element={<ExamMode course={{id:'demo', title:'Demo', description:'Demo', price:0, mrp:0, image:'', category:'', createdAt:'', chapters:[]}} /* Placeholder, loaded inside */ />} />
+        <Route path="/exam/:id" element={<ExamMode />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/admin" element={<AdminPanel />} />
         <Route path="/reveal/:key" element={<RevealKey />} />

@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, Course, Banner, Order, AppSettings, UserRole, ExamResult, ExamProgress, VideoProgress } from './types';
+import { User, Course, Banner, Order, AppSettings, UserRole, ExamResult, ExamProgress, VideoProgress, AiGeneratedQuiz } from './types';
 
 interface StoreContextType {
   currentUser: User | null;
@@ -27,6 +27,7 @@ interface StoreContextType {
   saveExamProgress: (progress: ExamProgress) => void;
   clearExamProgress: (courseId: string) => void;
   saveVideoProgress: (videoId: string, timestamp: number, duration: number) => void;
+  saveAiQuiz: (quiz: AiGeneratedQuiz) => void;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -107,53 +108,67 @@ const INITIAL_SETTINGS: AppSettings = {
 
 export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
   const [users, setUsers] = useState<User[]>(() => {
-    const saved = localStorage.getItem('sp_users');
-    let loadedUsers: User[] = saved ? JSON.parse(saved) : INITIAL_USERS;
-    
-    // Robustness: Ensure Admin Exists
-    const adminExists = loadedUsers.some(u => u.role === UserRole.ADMIN);
-    if (!adminExists) {
-      console.warn("No admin found in storage. Restoring default admin.");
-      if (loadedUsers.length === 0) {
-        loadedUsers = INITIAL_USERS;
-      } else {
-        loadedUsers = [...loadedUsers, INITIAL_USERS[0]];
+    try {
+      const saved = localStorage.getItem('sp_users');
+      let loadedUsers: User[] = saved ? JSON.parse(saved) : INITIAL_USERS;
+      
+      const adminExists = loadedUsers.some(u => u.role === UserRole.ADMIN);
+      if (!adminExists) {
+        if (loadedUsers.length === 0) {
+          loadedUsers = INITIAL_USERS;
+        } else {
+          loadedUsers = [...loadedUsers, INITIAL_USERS[0]];
+        }
       }
+      return loadedUsers;
+    } catch (e) {
+      console.error("Storage error", e);
+      return INITIAL_USERS;
     }
-    return loadedUsers;
   });
 
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    const saved = localStorage.getItem('sp_currentUser');
-    return saved ? JSON.parse(saved) : null;
+    try {
+      const saved = localStorage.getItem('sp_currentUser');
+      return saved ? JSON.parse(saved) : null;
+    } catch(e) { return null; }
   });
 
   const [courses, setCourses] = useState<Course[]>(() => {
-    const saved = localStorage.getItem('sp_courses');
-    return saved ? JSON.parse(saved) : INITIAL_COURSES;
+    try {
+      const saved = localStorage.getItem('sp_courses');
+      return saved ? JSON.parse(saved) : INITIAL_COURSES;
+    } catch(e) { return INITIAL_COURSES; }
   });
 
   const [banners, setBanners] = useState<Banner[]>(() => {
-    const saved = localStorage.getItem('sp_banners');
-    return saved ? JSON.parse(saved) : INITIAL_BANNERS;
+    try {
+      const saved = localStorage.getItem('sp_banners');
+      return saved ? JSON.parse(saved) : INITIAL_BANNERS;
+    } catch(e) { return INITIAL_BANNERS; }
   });
 
   const [orders, setOrders] = useState<Order[]>(() => {
-    const saved = localStorage.getItem('sp_orders');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem('sp_orders');
+      return saved ? JSON.parse(saved) : [];
+    } catch(e) { return []; }
   });
 
   const [settings, setSettings] = useState<AppSettings>(() => {
-    const saved = localStorage.getItem('sp_settings');
-    return saved ? JSON.parse(saved) : INITIAL_SETTINGS;
+    try {
+      const saved = localStorage.getItem('sp_settings');
+      return saved ? JSON.parse(saved) : INITIAL_SETTINGS;
+    } catch(e) { return INITIAL_SETTINGS; }
   });
 
-  useEffect(() => { localStorage.setItem('sp_users', JSON.stringify(users)); }, [users]);
-  useEffect(() => { localStorage.setItem('sp_currentUser', JSON.stringify(currentUser)); }, [currentUser]);
-  useEffect(() => { localStorage.setItem('sp_courses', JSON.stringify(courses)); }, [courses]);
-  useEffect(() => { localStorage.setItem('sp_banners', JSON.stringify(banners)); }, [banners]);
-  useEffect(() => { localStorage.setItem('sp_orders', JSON.stringify(orders)); }, [orders]);
-  useEffect(() => { localStorage.setItem('sp_settings', JSON.stringify(settings)); }, [settings]);
+  // Safe Setters with Try/Catch for Storage Quota
+  useEffect(() => { try { localStorage.setItem('sp_users', JSON.stringify(users)); } catch(e) { console.error("Storage full"); } }, [users]);
+  useEffect(() => { try { localStorage.setItem('sp_currentUser', JSON.stringify(currentUser)); } catch(e) { console.error("Storage full"); } }, [currentUser]);
+  useEffect(() => { try { localStorage.setItem('sp_courses', JSON.stringify(courses)); } catch(e) { console.error("Storage full"); } }, [courses]);
+  useEffect(() => { try { localStorage.setItem('sp_banners', JSON.stringify(banners)); } catch(e) { console.error("Storage full"); } }, [banners]);
+  useEffect(() => { try { localStorage.setItem('sp_orders', JSON.stringify(orders)); } catch(e) { console.error("Storage full"); } }, [orders]);
+  useEffect(() => { try { localStorage.setItem('sp_settings', JSON.stringify(settings)); } catch(e) { console.error("Storage full"); } }, [settings]);
 
   useEffect(() => {
     const adminUser = users.find(u => u.role === UserRole.ADMIN);
@@ -346,6 +361,22 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
     setUsers(prevUsers => prevUsers.map(u => u.id === currentUser.id ? updatedUser : u));
   };
 
+  const saveAiQuiz = (quiz: AiGeneratedQuiz) => {
+    if (!currentUser) return;
+    
+    const currentQuizzes = currentUser.generatedQuizzes || [];
+    // Remove old quiz for this video if exists
+    const otherQuizzes = currentQuizzes.filter(q => q.videoId !== quiz.videoId);
+    
+    const updatedUser: User = {
+      ...currentUser,
+      generatedQuizzes: [...otherQuizzes, quiz]
+    };
+
+    setCurrentUser(updatedUser);
+    setUsers(prevUsers => prevUsers.map(u => u.id === currentUser.id ? updatedUser : u));
+  };
+
   return (
     <StoreContext.Provider value={{
       currentUser, users, courses, banners, orders, settings,
@@ -359,7 +390,8 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
       saveExamResult,
       saveExamProgress,
       clearExamProgress,
-      saveVideoProgress
+      saveVideoProgress,
+      saveAiQuiz
     }}>
       {children}
     </StoreContext.Provider>

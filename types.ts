@@ -28,6 +28,12 @@ export interface VideoProgress {
   lastWatched: string;
 }
 
+export interface AiGeneratedQuiz {
+  videoId: string;
+  questions: Question[];
+  generatedAt: string;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -41,6 +47,7 @@ export interface User {
   tempAccess?: Record<string, string>; // courseId -> ISO Expiry Date
   savedExamProgress?: ExamProgress[]; // Array of unfinished exams
   videoProgress?: Record<string, VideoProgress>; // videoId -> Progress Data
+  generatedQuizzes?: AiGeneratedQuiz[]; // Cache for AI quizzes per video
 }
 
 export interface Banner {

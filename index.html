@@ -4,16 +4,30 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Study Portal</title>
+    <!-- Google Fonts: Inter & Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;700;800&display=swap" rel="stylesheet">
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
         theme: {
           extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+              display: ['Outfit', 'sans-serif'],
+            },
             colors: {
               brand: {
                 DEFAULT: 'var(--color-brand)',
                 dark: 'var(--color-brand-dark)',
+                light: 'var(--color-brand-light)',
               }
+            },
+            boxShadow: {
+              'glow': '0 0 20px rgba(2, 132, 199, 0.3)',
+              'card': '0 10px 30px -10px rgba(0, 0, 0, 0.05)',
             }
           }
         }
@@ -21,15 +35,20 @@
     </script>
     <style>
       :root {
-        --color-brand: #0284C7; /* Default Sky Blue */
-        --color-brand-dark: #0369A1;
+        --color-brand: #4F46E5; /* Indigo 600 */
+        --color-brand-dark: #4338CA;
+        --color-brand-light: #EEF2FF;
       }
       body {
         -webkit-user-select: none;
         -moz-user-select: none;
         -ms-user-select: none;
         user-select: none;
-        background-color: #f3f4f6;
+        background-color: #F8FAFC;
+        font-family: 'Inter', sans-serif;
+      }
+      h1, h2, h3, h4, h5, h6 {
+        font-family: 'Outfit', sans-serif;
       }
       .no-scrollbar::-webkit-scrollbar {
         display: none;
@@ -40,11 +59,25 @@
       }
       /* Animation classes */
       .animate-fade-in {
-        animation: fadeIn 0.3s ease-out;
+        animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      .animate-slide-up {
+        animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1);
       }
       @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(10px); }
+        from { opacity: 0; transform: scale(0.98); }
+        to { opacity: 1; transform: scale(1); }
+      }
+      @keyframes slideUp {
+        from { opacity: 0; transform: translateY(20px); }
         to { opacity: 1; transform: translateY(0); }
+      }
+      
+      .glass {
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.5);
       }
     </style>
   <script type="importmap">

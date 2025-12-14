@@ -6,7 +6,7 @@ import {
   MessageCircle, DownloadCloud, CheckCircle, Shield, Upload,
   Maximize, Minimize, Volume2, VolumeX, FileText, Download, MoreVertical, Play, Pause,
   Mic, Image, Youtube, Link, Globe, Timer, ClipboardList, AlertCircle, Code, Clock, Eye, Smartphone,
-  Key, Copy, ExternalLink, Bot, Brain
+  Key, Copy, ExternalLink, Bot, Brain, Loader2, List, Wand2
 } from 'lucide-react';
 
 // Alias DownloadCloud to CloudDownload to match usage in other files
@@ -19,5 +19,5 @@ export {
   MessageCircle, CloudDownload, CheckCircle, Shield, Upload,
   Maximize, Minimize, Volume2, VolumeX, FileText, Download, MoreVertical, Play, Pause,
   Mic, Image, Youtube, Link, Globe, Timer, ClipboardList, AlertCircle, Code, Clock, Eye, Smartphone,
-  Key, Copy, ExternalLink, Bot, Brain
+  Key, Copy, ExternalLink, Bot, Brain, Loader2, List, Wand2
 };

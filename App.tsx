@@ -5,7 +5,7 @@ import {
   Home, BookOpen, User, HelpCircle, Menu, LogOut, 
   Search, PlayCircle, Lock, LayoutDashboard, Users, CreditCard, Settings, Plus, Trash2, Edit, Save, X, ChevronDown, ChevronUp,
   MessageCircle, CloudDownload, CheckCircle, Shield, Upload, FileText, Download, Youtube, Link as LinkIcon, Image as ImageIcon, Globe,
-  ClipboardList, Timer, Code, DollarSign, Clock, Eye, Smartphone, MoreVertical, Key, Copy, ExternalLink, Play, Bot, Brain
+  ClipboardList, Timer, Code, DollarSign, Clock, Eye, Smartphone, MoreVertical, Key, Copy, ExternalLink, Play, Bot, Brain, Wand2, Loader2, List
 } from './components/Icons';
 import VideoPlayer from './components/VideoPlayer';
 import ChatBot from './components/ChatBot';
@@ -22,7 +22,7 @@ const ThemeHandler = () => {
   
   useEffect(() => {
     const root = document.documentElement;
-    const hex = settings.uiColor || '#0284C7';
+    const hex = settings.uiColor || '#4F46E5';
     
     // Calculate Dark Variant
     if (!hex.startsWith('#') || hex.length < 7) return;
@@ -31,15 +31,22 @@ const ThemeHandler = () => {
     let g = parseInt(hex.substring(3, 5), 16);
     let b = parseInt(hex.substring(5, 7), 16);
     
-    // Darken by 20%
-    const rDark = Math.floor(r * 0.8);
-    const gDark = Math.floor(g * 0.8);
-    const bDark = Math.floor(b * 0.8);
+    // Darken by 10%
+    const rDark = Math.floor(r * 0.9);
+    const gDark = Math.floor(g * 0.9);
+    const bDark = Math.floor(b * 0.9);
+    
+    // Light Variant (Tint)
+    const rLight = Math.min(255, Math.floor(r + (255 - r) * 0.9));
+    const gLight = Math.min(255, Math.floor(g + (255 - g) * 0.9));
+    const bLight = Math.min(255, Math.floor(b + (255 - b) * 0.9));
 
     const hexDark = '#' + [rDark, gDark, bDark].map(c => c.toString(16).padStart(2, '0')).join('');
+    const hexLight = '#' + [rLight, gLight, bLight].map(c => c.toString(16).padStart(2, '0')).join('');
     
     root.style.setProperty('--color-brand', hex);
     root.style.setProperty('--color-brand-dark', hexDark);
+    root.style.setProperty('--color-brand-light', hexLight);
   }, [settings.uiColor]);
 
   return null;
@@ -60,9 +67,9 @@ const convertToBase64 = (file: File): Promise<string> => {
 const Logo = ({ dark = false }: { dark?: boolean }) => {
   const { settings } = useStore();
   return (
-    <div className={`flex items-center gap-2 font-bold text-xl tracking-tight ${dark ? 'text-gray-900' : 'text-white'}`}>
-      <div className={`${dark ? 'bg-brand text-white' : 'bg-white text-brand'} p-1.5 rounded-lg shadow-sm`}>
-        <BookOpen className="w-6 h-6" />
+    <div className={`flex items-center gap-2.5 font-display font-bold text-xl tracking-tight ${dark ? 'text-gray-900' : 'text-white'}`}>
+      <div className={`p-2 rounded-xl shadow-lg shadow-brand/20 ${dark ? 'bg-brand text-white' : 'bg-white text-brand'}`}>
+        <BookOpen className="w-5 h-5" />
       </div>
       <span>{settings.appName || 'Study Portal'}</span>
     </div>
@@ -73,8 +80,8 @@ const AdContainer = () => {
   const { settings } = useStore();
   if (!settings.adsCode) return null;
   return (
-    <div className="w-full my-4 bg-gray-50 border-y border-gray-200 overflow-hidden flex flex-col items-center justify-center min-h-[100px] text-center p-2">
-      <div className="text-[10px] text-gray-400 uppercase tracking-widest mb-1">Sponsored</div>
+    <div className="w-full my-6 bg-white rounded-2xl border border-gray-100 overflow-hidden flex flex-col items-center justify-center min-h-[100px] text-center p-2 shadow-sm">
+      <div className="text-[9px] text-gray-400 uppercase tracking-widest mb-1 font-bold">Sponsored Advertisement</div>
       <div dangerouslySetInnerHTML={{ __html: settings.adsCode }} />
     </div>
   );
@@ -103,17 +110,17 @@ const CountdownTimer = ({ expiryDate }: { expiryDate: string }) => {
     return () => clearInterval(timer);
   }, [expiryDate]);
 
-  if (!timeLeft) return <span className="text-red-500 font-bold text-xs bg-red-50 px-2 py-1 rounded">Expired</span>;
+  if (!timeLeft) return <span className="text-red-500 font-bold text-xs bg-red-50 px-2 py-1 rounded-lg">Expired</span>;
 
   return (
-    <div className="flex gap-1 items-center font-mono font-bold text-sm text-brand bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100 shadow-sm">
+    <div className="flex gap-1 items-center font-mono font-bold text-sm text-brand bg-brand-light px-3 py-1.5 rounded-xl border border-brand/10 shadow-sm">
       <Timer className="w-4 h-4 mr-1" />
       <div className="flex items-center gap-0.5">
-        <span className="bg-white px-1 rounded text-gray-800">{timeLeft.h.toString().padStart(2, '0')}</span>
-        <span className="text-gray-400">:</span>
-        <span className="bg-white px-1 rounded text-gray-800">{timeLeft.m.toString().padStart(2, '0')}</span>
-        <span className="text-gray-400">:</span>
-        <span className="bg-white px-1 rounded text-gray-800">{timeLeft.s.toString().padStart(2, '0')}</span>
+        <span className="bg-white px-1.5 rounded text-gray-800 shadow-sm">{timeLeft.h.toString().padStart(2, '0')}</span>
+        <span className="text-brand/50">:</span>
+        <span className="bg-white px-1.5 rounded text-gray-800 shadow-sm">{timeLeft.m.toString().padStart(2, '0')}</span>
+        <span className="text-brand/50">:</span>
+        <span className="bg-white px-1.5 rounded text-gray-800 shadow-sm">{timeLeft.s.toString().padStart(2, '0')}</span>
       </div>
     </div>
   );
@@ -122,24 +129,32 @@ const CountdownTimer = ({ expiryDate }: { expiryDate: string }) => {
 const Header = () => {
   const { settings, currentUser, logout } = useStore();
   const [showMenu, setShowMenu] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const location = useLocation();
+
+  useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 10);
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
   
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 h-16 bg-brand text-white flex items-center justify-between px-4 z-50 shadow-md transition-colors duration-300">
+      <header className={`fixed top-0 left-0 right-0 h-16 flex items-center justify-between px-4 z-50 transition-all duration-300 ${scrolled ? 'bg-white/80 backdrop-blur-md shadow-sm border-b border-gray-100 text-gray-900' : 'bg-transparent text-gray-900'}`}>
         <div className="flex items-center gap-3">
-          <button onClick={() => setShowMenu(true)}>
+          <button onClick={() => setShowMenu(true)} className={`p-2 rounded-xl transition-colors ${scrolled ? 'hover:bg-gray-100' : 'bg-white/50 hover:bg-white'}`}>
             <Menu className="w-6 h-6" />
           </button>
-          <Logo />
+          <div className={!scrolled && location.pathname === '/' ? 'opacity-0' : 'opacity-100 transition-opacity'}>
+             <Logo dark={true} />
+          </div>
         </div>
         
         <Link to="/profile">
-          <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center border border-white/30 text-sm font-bold overflow-hidden">
-            {currentUser ? (
-              currentUser.name.charAt(0).toUpperCase()
-            ) : (
-              <User className="w-5 h-5" />
-            )}
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand to-purple-600 p-[2px] shadow-lg shadow-brand/20">
+            <div className="w-full h-full rounded-full bg-white flex items-center justify-center text-brand font-bold overflow-hidden text-sm">
+                {currentUser ? currentUser.name.charAt(0).toUpperCase() : <User className="w-5 h-5" />}
+            </div>
           </div>
         </Link>
       </header>
@@ -147,38 +162,38 @@ const Header = () => {
       {/* Sidebar Drawer */}
       {showMenu && (
         <div className="fixed inset-0 z-[60] flex">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setShowMenu(false)} />
-          <div className="relative w-64 bg-white h-full shadow-xl flex flex-col animate-slide-in">
-            <div className="h-40 bg-brand flex flex-col justify-center px-6 text-white relative overflow-hidden">
-               <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full translate-x-10 -translate-y-10"></div>
-               <div className="w-14 h-14 rounded-full bg-white text-brand flex items-center justify-center mb-3 text-2xl font-bold shadow-md">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowMenu(false)} />
+          <div className="relative w-72 bg-white h-full shadow-2xl flex flex-col animate-slide-in">
+            <div className="h-48 bg-gradient-to-br from-brand to-purple-700 flex flex-col justify-end p-6 text-white relative overflow-hidden">
+               <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full blur-2xl translate-x-10 -translate-y-10"></div>
+               <div className="w-16 h-16 rounded-full bg-white text-brand flex items-center justify-center mb-4 text-2xl font-bold shadow-lg shadow-black/10">
                 {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : <User />}
                </div>
-               <p className="font-bold truncate text-lg">{currentUser?.name || 'Guest'}</p>
+               <p className="font-bold truncate text-lg font-display">{currentUser?.name || 'Guest'}</p>
                <p className="text-sm opacity-80 truncate">{currentUser?.email || 'Please login'}</p>
             </div>
-            <nav className="flex-1 overflow-y-auto py-4">
-              <Link to="/" onClick={() => setShowMenu(false)} className="flex items-center px-6 py-3 text-gray-700 hover:bg-gray-100 border-l-4 border-transparent hover:border-brand transition-all">
+            <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+              <Link to="/" onClick={() => setShowMenu(false)} className="flex items-center px-4 py-3.5 text-gray-700 hover:bg-gray-50 rounded-xl transition-all font-medium">
                 <Home className="w-5 h-5 mr-3 text-brand" /> Home
               </Link>
-              <Link to="/my-courses" onClick={() => setShowMenu(false)} className="flex items-center px-6 py-3 text-gray-700 hover:bg-gray-100 border-l-4 border-transparent hover:border-brand transition-all">
+              <Link to="/my-courses" onClick={() => setShowMenu(false)} className="flex items-center px-4 py-3.5 text-gray-700 hover:bg-gray-50 rounded-xl transition-all font-medium">
                 <BookOpen className="w-5 h-5 mr-3 text-brand" /> My Batches
               </Link>
-              <Link to="/profile" onClick={() => setShowMenu(false)} className="flex items-center px-6 py-3 text-gray-700 hover:bg-gray-100 border-l-4 border-transparent hover:border-brand transition-all">
+              <Link to="/profile" onClick={() => setShowMenu(false)} className="flex items-center px-4 py-3.5 text-gray-700 hover:bg-gray-50 rounded-xl transition-all font-medium">
                 <User className="w-5 h-5 mr-3 text-brand" /> Profile
               </Link>
-              <Link to="/help" onClick={() => setShowMenu(false)} className="flex items-center px-6 py-3 text-gray-700 hover:bg-gray-100 border-l-4 border-transparent hover:border-brand transition-all">
+              <Link to="/help" onClick={() => setShowMenu(false)} className="flex items-center px-4 py-3.5 text-gray-700 hover:bg-gray-50 rounded-xl transition-all font-medium">
                 <HelpCircle className="w-5 h-5 mr-3 text-brand" /> Help & Support
               </Link>
               {(currentUser?.role === UserRole.ADMIN || currentUser?.role === UserRole.EDITOR) && (
-                <Link to="/admin" onClick={() => setShowMenu(false)} className="flex items-center px-6 py-3 text-red-600 font-medium hover:bg-red-50 mt-4 border-t border-red-100">
+                <Link to="/admin" onClick={() => setShowMenu(false)} className="flex items-center px-4 py-3.5 text-red-600 bg-red-50 hover:bg-red-100 rounded-xl font-bold mt-4 transition-all">
                   <LayoutDashboard className="w-5 h-5 mr-3" /> {currentUser.role === UserRole.EDITOR ? 'Editor Panel' : 'Admin Panel'}
                 </Link>
               )}
             </nav>
-            <div className="p-4 border-t">
-              <button onClick={() => { logout(); setShowMenu(false); }} className="flex items-center text-red-600 w-full px-4 py-3 hover:bg-red-50 rounded-lg transition-colors font-medium">
-                <LogOut className="w-5 h-5 mr-3" /> Logout
+            <div className="p-4 border-t border-gray-100">
+              <button onClick={() => { logout(); setShowMenu(false); }} className="flex items-center justify-center text-red-600 w-full px-4 py-3 hover:bg-red-50 rounded-xl transition-colors font-bold text-sm">
+                <LogOut className="w-4 h-4 mr-2" /> Logout
               </button>
             </div>
           </div>
@@ -193,22 +208,22 @@ const BottomNav = () => {
   const isActive = (path: string) => location.pathname === path ? 'text-brand' : 'text-gray-400';
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 h-16 bg-white border-t flex items-center justify-around z-40 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-      <Link to="/" className={`flex flex-col items-center ${isActive('/')}`}>
+    <div className="fixed bottom-0 left-0 right-0 h-16 bg-white/90 backdrop-blur-md border-t border-gray-200 flex items-center justify-around z-40 pb-safe shadow-lg">
+      <Link to="/" className={`flex flex-col items-center transition-colors ${isActive('/')}`}>
         <Home className="w-6 h-6" />
-        <span className="text-[10px] mt-1 font-medium">Home</span>
+        <span className="text-[10px] mt-1 font-bold">Home</span>
       </Link>
-      <Link to="/my-courses" className={`flex flex-col items-center ${isActive('/my-courses')}`}>
+      <Link to="/my-courses" className={`flex flex-col items-center transition-colors ${isActive('/my-courses')}`}>
         <BookOpen className="w-6 h-6" />
-        <span className="text-[10px] mt-1 font-medium">Batches</span>
+        <span className="text-[10px] mt-1 font-bold">Batches</span>
       </Link>
-      <Link to="/help" className={`flex flex-col items-center ${isActive('/help')}`}>
+      <Link to="/help" className={`flex flex-col items-center transition-colors ${isActive('/help')}`}>
         <HelpCircle className="w-6 h-6" />
-        <span className="text-[10px] mt-1 font-medium">Help</span>
+        <span className="text-[10px] mt-1 font-bold">Help</span>
       </Link>
-      <Link to="/profile" className={`flex flex-col items-center ${isActive('/profile')}`}>
+      <Link to="/profile" className={`flex flex-col items-center transition-colors ${isActive('/profile')}`}>
         <User className="w-6 h-6" />
-        <span className="text-[10px] mt-1 font-medium">Profile</span>
+        <span className="text-[10px] mt-1 font-bold">Profile</span>
       </Link>
     </div>
   );
@@ -224,13 +239,11 @@ const Login = () => {
 
   useEffect(() => {
     if (currentUser) {
-      // Check for pending verification
       const pendingCourse = sessionStorage.getItem('pendingCourseVerification');
       if (pendingCourse) {
          navigate(`/verify/${pendingCourse}`);
          return;
       }
-
       if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.EDITOR) {
         navigate('/admin');
       } else {
@@ -250,24 +263,27 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-brand flex flex-col items-center justify-center p-6 relative overflow-hidden transition-colors duration-300">
-      <div className="absolute top-0 left-0 w-64 h-64 bg-white opacity-10 rounded-full -translate-x-1/2 -translate-y-1/2 blur-2xl"></div>
-      <div className="absolute bottom-0 right-0 w-96 h-96 bg-black opacity-10 rounded-full translate-x-1/3 translate-y-1/3 blur-3xl"></div>
-
-      <div className="mb-8 scale-125">
-         <Logo />
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6 relative overflow-hidden">
+      {/* Background Blobs */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0">
+          <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-brand/10 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-500/10 rounded-full blur-3xl"></div>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden z-10">
-        <div className="flex">
+      <div className="mb-10 scale-150 z-10">
+         <Logo dark={true} />
+      </div>
+
+      <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-glow w-full max-w-sm overflow-hidden z-10 border border-white/50">
+        <div className="flex p-2 bg-gray-100/50 m-2 rounded-2xl">
           <button 
-            className={`flex-1 py-4 text-center font-bold text-sm tracking-wide transition-colors ${!isSignup ? 'bg-white text-brand border-b-2 border-brand' : 'bg-gray-50 text-gray-500 border-b-2 border-transparent'}`}
+            className={`flex-1 py-3 text-center font-bold text-sm rounded-xl transition-all ${!isSignup ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
             onClick={() => setIsSignup(false)}
           >
             LOGIN
           </button>
           <button 
-            className={`flex-1 py-4 text-center font-bold text-sm tracking-wide transition-colors ${isSignup ? 'bg-white text-brand border-b-2 border-brand' : 'bg-gray-50 text-gray-500 border-b-2 border-transparent'}`}
+            className={`flex-1 py-3 text-center font-bold text-sm rounded-xl transition-all ${isSignup ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
             onClick={() => setIsSignup(true)}
           >
             SIGNUP
@@ -276,11 +292,11 @@ const Login = () => {
         
         <form onSubmit={handleSubmit} className="p-8 space-y-5">
           <div className="text-center mb-6">
-            <h2 className="text-xl font-bold text-gray-800">
-              {isSignup ? 'Create Account' : 'Welcome'}
+            <h2 className="text-2xl font-display font-bold text-gray-900">
+              {isSignup ? 'Create Account' : 'Welcome Back'}
             </h2>
-            <p className="text-sm text-gray-500 mt-1">
-              {isSignup ? `Join ${settings.appName}` : 'Continue your learning journey'}
+            <p className="text-sm text-gray-500 mt-2">
+              {isSignup ? `Start learning with ${settings.appName}` : 'Continue your progress'}
             </p>
           </div>
           
@@ -288,12 +304,12 @@ const Login = () => {
             <>
               <input 
                 type="text" placeholder="Full Name" required 
-                className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-brand focus:bg-white transition-colors text-gray-900"
+                className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-brand focus:bg-white transition-all text-gray-900 font-medium placeholder:text-gray-400"
                 value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})}
               />
               <input 
                 type="tel" placeholder="Phone Number" required 
-                className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-brand focus:bg-white transition-colors text-gray-900"
+                className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-brand focus:bg-white transition-all text-gray-900 font-medium placeholder:text-gray-400"
                 value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})}
               />
             </>
@@ -301,16 +317,16 @@ const Login = () => {
           
           <input 
             type="text" placeholder="Email Address" required 
-            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-brand focus:bg-white transition-colors text-gray-900"
+            className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-brand focus:bg-white transition-all text-gray-900 font-medium placeholder:text-gray-400"
             value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})}
           />
           <input 
             type="password" placeholder="Password" required 
-            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-brand focus:bg-white transition-colors text-gray-900"
+            className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-brand focus:bg-white transition-all text-gray-900 font-medium placeholder:text-gray-400"
             value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})}
           />
           
-          <button className="w-full bg-brand text-white py-3.5 rounded-lg font-bold shadow-lg shadow-blue-500/30 active:scale-[0.98] transition-all">
+          <button className="w-full bg-gradient-to-r from-brand to-indigo-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-brand/30 active:scale-[0.98] transition-all hover:shadow-brand/40">
             {isSignup ? 'Start Learning' : 'Login'}
           </button>
 
@@ -324,7 +340,7 @@ const Login = () => {
                     window.location.reload();
                   }
                 }}
-                className="text-[10px] text-red-400 hover:underline hover:text-red-600 transition-colors"
+                className="text-[10px] text-gray-400 hover:text-red-500 transition-colors font-medium"
               >
                 Reset Application Data
               </button>
@@ -337,7 +353,7 @@ const Login = () => {
 };
 
 const HomePage = () => {
-  const { banners, courses } = useStore();
+  const { banners, courses, currentUser } = useStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeBanner, setActiveBanner] = useState(0);
 
@@ -350,77 +366,81 @@ const HomePage = () => {
   }, [banners.length]);
 
   return (
-    <div className="pb-24 pt-16">
-      <div className="p-4 bg-white shadow-sm sticky top-16 z-20">
+    <div className="pb-24 pt-20">
+      {/* Search Bar */}
+      <div className="px-4 mb-6">
         <div className="relative">
-          <input 
-            type="text" 
-            placeholder="Search for subjects, topics..." 
-            className="w-full pl-10 pr-4 py-3 bg-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand/50 transition-all text-gray-900 placeholder-gray-500"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-          <Search className="w-5 h-5 text-gray-400 absolute left-3 top-3.5" />
+            <h1 className="text-2xl font-display font-bold text-gray-900 mb-4">Hello, {currentUser?.name.split(' ')[0] || 'Student'} 👋</h1>
+            <input 
+                type="text" 
+                placeholder="What do you want to learn today?" 
+                className="w-full pl-12 pr-4 py-4 bg-white rounded-2xl shadow-sm border border-gray-100 focus:outline-none focus:ring-2 focus:ring-brand/50 transition-all text-gray-900 placeholder-gray-400 font-medium"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            <Search className="w-5 h-5 text-gray-400 absolute left-4 bottom-4" />
         </div>
       </div>
 
+      {/* Banners */}
       {banners.length > 0 ? (
-        <div className="relative w-full aspect-[21/9] overflow-hidden mt-2 bg-gray-200">
-          {banners.map((b, i) => (
-            <img 
-              key={b.id} 
-              src={b.image} 
-              alt="Banner" 
-              className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${i === activeBanner ? 'opacity-100' : 'opacity-0'}`}
-            />
-          ))}
-          <div className="absolute bottom-4 right-4 flex gap-1.5">
-            {banners.map((_, i) => (
-              <div key={i} className={`h-1.5 rounded-full transition-all ${i === activeBanner ? 'w-6 bg-white' : 'w-1.5 bg-white/50'}`} />
+        <div className="px-4">
+            <div className="relative w-full aspect-[21/9] rounded-2xl overflow-hidden shadow-lg">
+            {banners.map((b, i) => (
+                <img 
+                key={b.id} 
+                src={b.image} 
+                alt="Banner" 
+                className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${i === activeBanner ? 'opacity-100' : 'opacity-0'}`}
+                />
             ))}
-          </div>
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 p-1 bg-black/20 backdrop-blur-sm rounded-full">
+                {banners.map((_, i) => (
+                <div key={i} className={`h-1.5 rounded-full transition-all ${i === activeBanner ? 'w-4 bg-white' : 'w-1.5 bg-white/50'}`} />
+                ))}
+            </div>
+            </div>
         </div>
-      ) : (
-        <div className="w-full aspect-[21/9] bg-gray-200 mt-2 flex items-center justify-center text-gray-400">
-          No banners available
-        </div>
-      )}
+      ) : null}
       
-      <AdContainer />
+      <div className="px-4">
+         <AdContainer />
+      </div>
 
-      <div className="p-4 mt-2">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-            <span className="w-1 h-6 bg-brand rounded-full"></span>
-            Popular Batches
-          </h2>
-          <Link to="/courses" className="text-brand text-sm font-bold hover:bg-blue-50 px-2 py-1 rounded transition-colors">View All</Link>
+      {/* Popular Batches */}
+      <div className="mt-4 pl-4">
+        <div className="flex justify-between items-center mb-4 pr-4">
+          <h2 className="text-lg font-display font-bold text-gray-900">Popular Batches</h2>
+          <Link to="/courses" className="text-brand text-xs font-bold bg-brand-light px-3 py-1.5 rounded-full hover:bg-brand/10 transition-colors">View All</Link>
         </div>
         
-        <div className="flex overflow-x-auto space-x-4 pb-4 no-scrollbar">
+        <div className="flex overflow-x-auto space-x-4 pb-8 pr-4 no-scrollbar">
           {courses.slice(0, 5).map(course => (
-            <Link to={`/course/${course.id}`} key={course.id} className="flex-none w-72 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden group">
-              <div className="relative overflow-hidden">
-                <img src={course.image} alt={course.title} className="w-full h-40 object-cover group-hover:scale-105 transition-transform duration-300" />
-                <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded backdrop-blur-sm">
-                  {course.category}
+            <Link to={`/course/${course.id}`} key={course.id} className="flex-none w-72 bg-white rounded-3xl shadow-card border border-gray-100 overflow-hidden group hover:scale-[1.02] transition-transform duration-300">
+              <div className="relative h-40 overflow-hidden">
+                <img src={course.image} alt={course.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                <div className="absolute top-0 inset-x-0 h-full bg-gradient-to-t from-black/60 to-transparent"></div>
+                <div className="absolute bottom-3 left-3 text-white">
+                     <span className="text-[10px] font-bold bg-white/20 backdrop-blur-md px-2 py-1 rounded-lg border border-white/20 uppercase tracking-wide">{course.category}</span>
                 </div>
                 {course.isPaid && (
-                   <div className="absolute top-2 right-2 bg-yellow-500 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm flex items-center gap-1">
-                     <Lock className="w-3 h-3" /> LOCKED
+                   <div className="absolute top-3 right-3 bg-yellow-400 text-yellow-900 text-[10px] font-bold px-2 py-1 rounded-lg shadow-sm flex items-center gap-1">
+                     <Lock className="w-3 h-3" /> PREMIUM
                    </div>
                 )}
               </div>
-              <div className="p-4">
-                <h3 className="font-bold text-gray-800 line-clamp-1 mb-1">{course.title}</h3>
-                <div className="flex items-center justify-between mt-3">
-                  <div className="flex items-center gap-2">
-                    <span className={`font-bold text-lg ${course.isPaid ? 'text-yellow-600' : 'text-green-600'}`}>
-                      {course.isPaid ? 'Key Access' : 'FREE'}
+              <div className="p-5">
+                <h3 className="font-bold text-gray-900 line-clamp-1 mb-1 text-lg font-display">{course.title}</h3>
+                <p className="text-gray-500 text-xs line-clamp-1 mb-4">{course.description}</p>
+                <div className="flex items-center justify-between">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] text-gray-400 font-bold uppercase">Access</span>
+                    <span className={`font-bold text-base ${course.isPaid ? 'text-gray-900' : 'text-green-600'}`}>
+                      {course.isPaid ? 'Key Locked' : 'Free'}
                     </span>
                   </div>
-                  <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-brand">
-                    <PlayCircle className="w-4 h-4" />
+                  <div className="w-10 h-10 rounded-full bg-brand text-white flex items-center justify-center shadow-lg shadow-brand/30 group-hover:scale-110 transition-transform">
+                    <PlayCircle className="w-5 h-5" />
                   </div>
                 </div>
               </div>
@@ -442,32 +462,51 @@ const CourseListing = () => {
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   return (
-    <div className="pb-24 pt-16 p-4">
-      <div className="flex gap-2 mb-6 sticky top-20 z-10">
-        <select className="flex-1 p-3 bg-white shadow-sm border-0 rounded-lg text-sm font-medium text-gray-900 focus:ring-2 focus:ring-brand" onChange={e => setFilter(e.target.value)}>
-          {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-        </select>
+    <div className="pb-24 pt-24 p-4 min-h-screen bg-gray-50">
+      <div className="flex gap-2 mb-6 overflow-x-auto no-scrollbar pb-2">
+         {categories.map(cat => (
+             <button 
+                key={cat} 
+                onClick={() => setFilter(cat)}
+                className={`whitespace-nowrap px-5 py-2.5 rounded-full text-sm font-bold transition-all shadow-sm ${filter === cat ? 'bg-brand text-white shadow-brand/30' : 'bg-white text-gray-600 hover:bg-gray-100'}`}
+             >
+                {cat}
+             </button>
+         ))}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {filtered.length === 0 ? (
-          <div className="col-span-2 text-center py-10 text-gray-400 font-medium">No batches found</div>
-        ) : filtered.map(course => (
-          <Link to={`/course/${course.id}`} key={course.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col hover:shadow-md transition-shadow">
-            <img src={course.image} alt={course.title} className="w-full h-44 object-cover" />
-            <div className="p-4 flex-1 flex flex-col">
-              <div className="flex justify-between items-start mb-2">
-                 <span className="bg-blue-50 text-brand text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-bold">{course.category}</span>
-                 {course.isPaid && <span className="bg-yellow-100 text-yellow-700 text-[10px] px-2 py-0.5 rounded-full font-bold">LOCKED</span>}
+          <div className="col-span-2 text-center py-20 bg-white rounded-3xl border border-dashed border-gray-200">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
+                  <Search className="w-8 h-8"/>
               </div>
-              <h3 className="font-bold text-gray-800 text-lg leading-tight mb-2 flex-1">{course.title}</h3>
-              <div className="flex items-center justify-between pt-4 border-t border-gray-50 mt-2">
+              <p className="text-gray-500 font-medium">No batches found for this category.</p>
+          </div>
+        ) : filtered.map(course => (
+          <Link to={`/course/${course.id}`} key={course.id} className="bg-white rounded-3xl shadow-card border border-gray-100 overflow-hidden flex flex-col group hover:-translate-y-1 transition-all duration-300">
+            <div className="relative h-48 overflow-hidden">
+                 <img src={course.image} alt={course.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                 <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent"></div>
+                 <div className="absolute bottom-3 left-3">
+                    <span className="bg-white/90 backdrop-blur text-brand-dark text-[10px] px-3 py-1 rounded-full font-bold uppercase tracking-wider">{course.category}</span>
+                 </div>
+                 {course.isPaid && <div className="absolute top-3 right-3 bg-yellow-400 text-yellow-900 text-[10px] px-2 py-1 rounded-lg font-bold shadow-sm flex items-center gap-1"><Lock className="w-3 h-3"/> LOCKED</div>}
+            </div>
+            <div className="p-5 flex-1 flex flex-col">
+              <h3 className="font-display font-bold text-gray-900 text-xl leading-tight mb-2 flex-1">{course.title}</h3>
+              <p className="text-gray-500 text-sm line-clamp-2 mb-4">{course.description}</p>
+              
+              <div className="flex items-center justify-between pt-4 border-t border-gray-50">
                 <div className="flex flex-col">
-                  <span className={`text-xl font-bold ${course.isPaid ? 'text-gray-900' : 'text-green-600'}`}>
-                    {course.isPaid ? 'Requires Key' : 'FREE'}
-                  </span>
+                   <span className="text-[10px] text-gray-400 font-bold uppercase">Status</span>
+                   <span className={`font-bold ${course.isPaid ? 'text-gray-900' : 'text-green-600'}`}>
+                    {course.isPaid ? 'Key Required' : 'Free Access'}
+                   </span>
                 </div>
-                <button className="bg-brand text-white text-sm font-bold px-6 py-2 rounded-lg hover:bg-brand-dark transition-colors">Start Learning</button>
+                <button className="bg-gray-900 text-white text-sm font-bold px-6 py-2.5 rounded-xl hover:bg-brand transition-colors shadow-lg group-hover:shadow-xl">
+                    View Batch
+                </button>
               </div>
             </div>
           </Link>
@@ -479,1022 +518,242 @@ const CourseListing = () => {
 
 const RevealKey = () => {
   const { key } = useParams();
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = () => {
-    if(key) {
-      navigator.clipboard.writeText(key);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-brand flex flex-col items-center justify-center p-6 text-white text-center">
-      <div className="bg-white/10 backdrop-blur-lg p-8 rounded-3xl border border-white/20 w-full max-w-sm shadow-2xl">
-         <div className="w-16 h-16 bg-green-400 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg text-brand animate-fade-in">
-           <Key className="w-8 h-8" />
-         </div>
-         <h1 className="text-2xl font-bold mb-2">Access Key Revealed!</h1>
-         <p className="text-white/80 text-sm mb-6">Use this key to unlock your course.</p>
-         
-         <div className="bg-black/20 p-4 rounded-xl font-mono text-xl font-bold mb-6 flex items-center justify-between gap-4 border border-white/10">
-            <span className="truncate">{key}</span>
-            <button onClick={handleCopy} className="p-2 hover:bg-white/10 rounded-lg transition-colors">
-               {copied ? <CheckCircle className="w-5 h-5 text-green-400"/> : <Copy className="w-5 h-5"/>}
-            </button>
-         </div>
-
-         <Link to="/" className="block w-full bg-white text-brand font-bold py-3 rounded-xl hover:bg-gray-100 transition-colors">
-           Go to App & Unlock
-         </Link>
-      </div>
-    </div>
-  );
-};
-
-// Route to handle automatic verification after returning from shortener
-const VerifyAccess = () => {
-  const { courseId } = useParams();
-  const { grantTempAccess, courses, currentUser } = useStore();
+  const { courses, enrollCourse, currentUser } = useStore();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!courseId) return;
-
-    if (!currentUser) {
-       // If not logged in, we must redirect to login, but we need to remember where to go back
-       // Store intent in Session Storage
-       sessionStorage.setItem('pendingCourseVerification', courseId);
-       navigate('/login');
-       return;
-    }
-
-    const course = courses.find(c => c.id === courseId);
-    if(course) {
-      grantTempAccess(courseId);
-      // Clear any pending verification
-      sessionStorage.removeItem('pendingCourseVerification');
-      // Show success (optional, could use a toast)
-      // alert("Verification Successful! 24 Hours Access Granted."); 
-      // Redirect to course
-      navigate('/course/' + courseId, { replace: true });
+    if (!currentUser) { navigate('/login'); return; }
+    const course = courses.find(c => c.accessKey === key);
+    if (course) {
+      enrollCourse(course.id);
+      alert(`Access Granted: ${course.title}`);
+      navigate(`/course/${course.id}`);
     } else {
+      alert('Invalid Key');
       navigate('/');
     }
-  }, [courseId, courses, grantTempAccess, navigate, currentUser]);
+  }, [key, courses, currentUser, navigate, enrollCourse]);
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-       <div className="text-center">
-         <div className="w-16 h-16 border-4 border-brand border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-         <h2 className="text-xl font-bold text-gray-800">Verifying Access...</h2>
-         <p className="text-gray-500 text-sm mt-2">Please wait while we unlock your content.</p>
-       </div>
-    </div>
-  );
+  return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-brand w-10 h-10" /></div>;
 };
 
-const CourseDetail = () => {
-  const { id } = useParams();
-  const { courses, currentUser, enrollCourse, settings } = useStore();
-  const navigate = useNavigate();
-  const [showUnlockModal, setShowUnlockModal] = useState(false);
-  const [inputKey, setInputKey] = useState('');
-  const [isLoadingShortLink, setIsLoadingShortLink] = useState(false);
-  
-  const course = courses.find(c => c.id === id);
-
-  if (!course) return <Navigate to="/" />;
-
-  const isPurchased = currentUser?.purchasedCourseIds.includes(course.id);
-  
-  // Check temp access validity
-  let tempAccessExpiry: string | null = null;
-  if (currentUser?.tempAccess && currentUser.tempAccess[course.id]) {
-     const expiry = new Date(currentUser.tempAccess[course.id]);
-     if (expiry > new Date()) {
-        tempAccessExpiry = currentUser.tempAccess[course.id];
-     }
-  }
-
-  const hasAccess = isPurchased || tempAccessExpiry !== null || !course.isPaid;
-
-  const handleKeySubmit = () => {
-    if (!currentUser) { navigate('/login'); return; }
-    
-    if (inputKey.trim() === course.accessKey) {
-       enrollCourse(course.id);
-       alert("Access Granted Successfully!");
-       setShowUnlockModal(false);
-       navigate('/watch/' + course.id);
-    } else {
-       alert("Invalid Access Key. Please try again.");
-    }
-  };
-
-  const handleFreeEnroll = () => {
-    if (!currentUser) { navigate('/login'); return; }
-    enrollCourse(course.id);
-    alert('Success! You are now enrolled.');
-    navigate('/my-courses');
-  };
-
-  const handleGenerateTempAccess = () => {
-    if (!currentUser) {
-       // Redirect to login but warn user
-       if(confirm("You must be logged in to get temporary access. Login now?")) {
-          navigate('/login');
-       }
-       return;
-    }
-
-    if (!course.shortenerLink) {
-       alert("No shortener link configured for this course.");
-       return;
-    }
-    // Open the shortener link. The shortener link should redirect back to /#/verify-access/<courseId>
-    window.open(course.shortenerLink, '_blank');
-  };
-
-  const handleGetFreeKey = async () => {
-     if (!course.accessKey) {
-        alert("This course does not have an access key configured.");
-        return;
-     }
-
-     setIsLoadingShortLink(true);
-     const baseUrl = window.location.href.split('#')[0];
-     const revealUrl = `${baseUrl}#/reveal/${course.accessKey}`;
-     
-     const shortenerUrl = settings.linkShortenerApiUrl || 'https://reel2earn.com/api';
-     const apiUrl = `${shortenerUrl}?api=${settings.linkShortenerApiKey}&url=${encodeURIComponent(revealUrl)}`;
-
-     try {
-       // Try fetching directly first
-       const res = await fetch(apiUrl);
-       const data = await res.json();
-       
-       if (data.status === 'success' && data.shortenedUrl) {
-          window.open(data.shortenedUrl, '_blank');
-       } else {
-          // Fallback: Open reveal directly if API fails
-          console.warn('Shortener API failed or returned error:', data);
-          window.open(revealUrl, '_blank'); 
-       }
-     } catch (e) {
-       console.error("Shortener API Fetch Error (likely CORS):", e);
-       // Silent Fallback for CORS issues - just open the reveal URL directly 
-       // In a real app, you would need a backend proxy to avoid CORS
-       window.open(revealUrl, '_blank'); 
-     } finally {
-       setIsLoadingShortLink(false);
-     }
-  };
-
-  const openTelegramAdmin = () => {
-     window.open('http://t.me/STUDY_PORTAL_ROBOT', '_blank');
-  };
-
-  // Calculate Progress if enrolled
-  let progress = 0;
-  if (isPurchased && currentUser?.videoProgress) {
-      const allVideos = course.chapters.flatMap(c => c.videos);
-      const totalVideos = allVideos.length;
-      if (totalVideos > 0) {
-        const completedCount = allVideos.filter(v => currentUser.videoProgress?.[v.id]?.completed).length;
-        progress = Math.round((completedCount / totalVideos) * 100);
-      }
-  }
-
-  return (
-    <div className="pb-24 pt-16 bg-white min-h-screen relative">
-      <div className="w-full aspect-video bg-gray-200 sticky top-16 z-10">
-        <img src={course.image} alt={course.title} className="w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-6">
-          <div>
-            <span className="inline-block bg-brand text-white text-[10px] font-bold px-2 py-1 rounded mb-2 uppercase">{course.category}</span>
-            <h1 className="text-2xl font-bold text-white shadow-sm leading-tight">{course.title}</h1>
-          </div>
-        </div>
-      </div>
-      
-      <div className="p-5">
-        <div className="flex items-center justify-between mb-4">
-           <div className="flex items-center gap-2">
-              <span className={`text-2xl font-bold ${course.isPaid ? 'text-gray-900' : 'text-green-600'}`}>
-                  {course.isPaid ? 'Requires Access Key' : 'FREE'}
-              </span>
-              {course.isPaid && <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded font-bold uppercase">Locked</span>}
-           </div>
-           
-           {/* Countdown Timer Display */}
-           {tempAccessExpiry && (
-              <CountdownTimer expiryDate={tempAccessExpiry} />
-           )}
-        </div>
-
-        {hasAccess && (
-          <div className="mb-6 space-y-3">
-             <div className="bg-gray-100 rounded-lg p-3">
-                <div className="flex justify-between text-xs font-bold text-gray-500 mb-1">
-                   <span>Course Progress</span>
-                   <span>{progress}%</span>
-                </div>
-                <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
-                   <div className="bg-brand h-full transition-all duration-500" style={{ width: `${progress}%` }}></div>
-                </div>
-             </div>
-
-             <Link 
-               to={`/exam/${course.id}`}
-               className="w-full bg-purple-100 hover:bg-purple-200 text-purple-700 py-3 rounded-xl font-bold flex items-center justify-center gap-2 border border-purple-200 transition-colors"
-             >
-                <ClipboardList className="w-5 h-5" /> Take Exam
-             </Link>
-          </div>
-        )}
-
-        <h3 className="font-bold text-lg mb-2">Overview</h3>
-        <div className="text-gray-600 leading-relaxed mb-8 text-sm bg-gray-50 p-4 rounded-xl border border-gray-100">
-          {course.description}
-        </div>
-
-        <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
-          <BookOpen className="w-5 h-5 text-brand" />
-          Batch Content
-        </h3>
-        <div className="space-y-3 mb-20">
-          {course.chapters.length === 0 && <p className="text-gray-500 italic p-6 text-center bg-gray-50 rounded-lg border border-dashed">Content is being uploaded...</p>}
-          {course.chapters.map((chapter, idx) => (
-             <div key={chapter.id} className="border border-gray-100 rounded-xl overflow-hidden shadow-sm">
-                <div className="bg-white p-4 font-medium flex justify-between items-center">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-brand/10 flex items-center justify-center text-brand text-xs font-bold">
-                      {idx + 1}
-                    </div>
-                    <span className="text-gray-800">{chapter.title}</span>
-                  </div>
-                  <span className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-600 font-medium">{chapter.videos.length} Lectures</span>
-                </div>
-             </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="fixed bottom-16 left-0 right-0 p-4 bg-white border-t shadow-[0_-4px_10px_rgba(0,0,0,0.05)] z-20">
-        {hasAccess ? (
-          <Link 
-            to={`/watch/${course.id}`}
-            className="w-full font-bold py-4 rounded-xl text-lg bg-green-600 text-white shadow-lg shadow-green-500/30 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-          >
-            <PlayCircle className="w-5 h-5"/> Resume Learning
-          </Link>
-        ) : course.isPaid ? (
-          <div className="flex flex-col gap-2">
-            {course.shortenerLink && (
-              <button 
-                onClick={handleGenerateTempAccess}
-                className="w-full font-bold py-4 rounded-xl text-lg bg-blue-600 text-white shadow-lg shadow-blue-500/30 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-              >
-                <Clock className="w-5 h-5"/> Get 24h Access (Watch Ad)
-              </button>
-            )}
-            <button 
-              onClick={() => {
-                if(!currentUser) navigate('/login');
-                else setShowUnlockModal(true);
-              }}
-              className={`w-full font-bold py-4 rounded-xl text-lg ${course.shortenerLink ? 'bg-white text-gray-700 border border-gray-300' : 'bg-brand text-white shadow-lg shadow-blue-500/30'} active:scale-[0.98] transition-all flex items-center justify-center gap-2`}
-            >
-              <Lock className="w-5 h-5"/> Unlock Permanently
-            </button>
-          </div>
-        ) : (
-          <button 
-            onClick={handleFreeEnroll}
-            className="w-full font-bold py-4 rounded-xl text-lg bg-brand text-white shadow-lg shadow-blue-500/30 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-          >
-            <Plus className="w-5 h-5"/> Start Learning (Free)
-          </button>
-        )}
-      </div>
-
-      {/* Access Key Modal */}
-      {showUnlockModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-           <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl">
-              <div className="flex justify-between items-center mb-6">
-                 <h3 className="text-xl font-bold">Unlock Batch</h3>
-                 <button onClick={() => setShowUnlockModal(false)}><X className="w-5 h-5 text-gray-500" /></button>
-              </div>
-              
-              <div className="space-y-4">
-                 <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">Enter Access Key</label>
-                    <input 
-                      type="text" 
-                      placeholder="e.g. SCIENCE2024" 
-                      className="w-full p-3 border-2 border-gray-200 rounded-xl font-bold text-center uppercase focus:border-brand focus:outline-none"
-                      value={inputKey}
-                      onChange={e => setInputKey(e.target.value.toUpperCase())}
-                    />
-                 </div>
-                 
-                 <button 
-                   onClick={handleKeySubmit}
-                   disabled={!inputKey}
-                   className="w-full bg-brand text-white py-3 rounded-xl font-bold shadow-lg shadow-blue-500/30 disabled:opacity-50"
-                 >
-                   Unlock Now
-                 </button>
-
-                 <div className="relative py-2">
-                   <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-gray-200"></span></div>
-                   <div className="relative flex justify-center text-xs uppercase"><span className="bg-white px-2 text-gray-400 font-bold">Don't have a key?</span></div>
-                 </div>
-
-                 <div className="grid grid-cols-2 gap-3">
-                   <button 
-                      onClick={handleGetFreeKey}
-                      disabled={isLoadingShortLink}
-                      className="flex flex-col items-center justify-center p-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
-                   >
-                      <LinkIcon className="w-5 h-5 text-blue-500 mb-1" />
-                      <span className="text-xs font-bold text-gray-700">{isLoadingShortLink ? 'Loading...' : 'Get Key Free'}</span>
-                      <span className="text-[9px] text-gray-400">Complete Task</span>
-                   </button>
-                   
-                   <button 
-                      onClick={openTelegramAdmin}
-                      className="flex flex-col items-center justify-center p-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
-                   >
-                      <MessageCircle className="w-5 h-5 text-blue-500 mb-1" />
-                      <span className="text-xs font-bold text-gray-700">Buy Key</span>
-                      <span className="text-[9px] text-gray-400">Contact Admin</span>
-                   </button>
-                 </div>
-              </div>
-           </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-const MyCourses = () => {
-  const { courses, currentUser } = useStore();
-  
-  if (!currentUser) return <Navigate to="/login" />;
-
-  const myCourseIds = currentUser.purchasedCourseIds;
-  const myCourses = courses.filter(c => 
-    myCourseIds.includes(c.id) || 
-    (currentUser.tempAccess && currentUser.tempAccess[c.id] && new Date(currentUser.tempAccess[c.id]) > new Date())
-  );
-
-  const getProgress = (course: Course) => {
-    const allVideos = course.chapters.flatMap(c => c.videos);
-    const totalVideos = allVideos.length;
-    if (totalVideos === 0) return 0;
-    const completedCount = allVideos.filter(v => currentUser?.videoProgress?.[v.id]?.completed).length;
-    return Math.round((completedCount / totalVideos) * 100);
-  };
-
-  return (
-    <div className="pb-24 pt-16 p-4">
-      <h2 className="text-xl font-bold mb-6">My Batches</h2>
-      <div className="space-y-4">
-        {myCourses.length === 0 ? (
-           <div className="text-center py-10 text-gray-400">You haven't enrolled in any batches yet.</div>
-        ) : myCourses.map(course => {
-           const progress = getProgress(course);
-           return (
-             <Link to={`/watch/${course.id}`} key={course.id} className="block bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex gap-4 p-3 items-center">
-                <img src={course.image} className="w-20 h-20 rounded-lg object-cover" />
-                <div className="flex-1">
-                   <h3 className="font-bold text-gray-800 line-clamp-1">{course.title}</h3>
-                   <div className="w-full bg-gray-100 h-1.5 rounded-full mt-3 overflow-hidden">
-                      <div className="bg-brand h-full transition-all duration-500" style={{ width: `${progress}%` }}></div>
-                   </div>
-                   <p className="text-[10px] text-gray-400 mt-1">{progress}% Completed</p>
-                </div>
-                <div className="bg-brand/10 p-2 rounded-full text-brand">
-                  <PlayCircle className="w-6 h-6" />
-                </div>
-             </Link>
-           );
-        })}
-      </div>
-    </div>
-  );
-};
-
-const Watch = () => {
+const VerifyAccess = () => {
   const { courseId } = useParams();
-  const { courses, currentUser, saveVideoProgress, saveAiQuiz } = useStore();
-  const [activeVideo, setActiveVideo] = useState<Video | null>(null);
-  
-  // AI Quiz States
-  const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
-  const [activeQuiz, setActiveQuiz] = useState<AiGeneratedQuiz | null>(null);
-  const [showQuizModal, setShowQuizModal] = useState(false);
-  const [quizAnswers, setQuizAnswers] = useState<number[]>([]);
-  const [quizScore, setQuizScore] = useState<number | null>(null);
+  const { currentUser, grantTempAccess } = useStore();
+  const navigate = useNavigate();
 
-  const course = courses.find(c => c.id === courseId);
-  
-  const hasAccess = currentUser && (
-     currentUser.purchasedCourseIds.includes(courseId!) || 
-     (currentUser.tempAccess?.[courseId!] && new Date(currentUser.tempAccess[courseId!]) > new Date()) ||
-     (!course?.isPaid)
-  );
-
-  if (!course) return <Navigate to="/" />;
-  if (!hasAccess && course.isPaid) return <Navigate to={`/course/${courseId}`} />;
-  
   useEffect(() => {
-    if (!activeVideo && course.chapters.length > 0) {
-      let lastWatchedId: string | null = null;
-      let latestTime = 0;
-      
-      if (currentUser?.videoProgress) {
-         Object.entries(currentUser.videoProgress).forEach(([vidId, prog]) => {
-            const videoProgress = prog as VideoProgress;
-            const vidExists = course.chapters.some(ch => ch.videos.some(v => v.id === vidId));
-            if (vidExists && new Date(videoProgress.lastWatched).getTime() > latestTime) {
-               latestTime = new Date(videoProgress.lastWatched).getTime();
-               lastWatchedId = vidId;
-            }
-         });
-      }
-
-      if (lastWatchedId) {
-         const found = course.chapters.flatMap(c => c.videos).find(v => v.id === lastWatchedId);
-         if (found) setActiveVideo(found);
-      } else if (course.chapters[0].videos.length > 0) {
-         setActiveVideo(course.chapters[0].videos[0]);
-      }
+    if (!currentUser) { 
+        sessionStorage.setItem('pendingCourseVerification', courseId || '');
+        navigate('/login'); 
+        return; 
     }
-  }, [course]);
-
-  // Reset quiz state when video changes
-  useEffect(() => {
-    setActiveQuiz(null);
-    setShowQuizModal(false);
-    setQuizScore(null);
-  }, [activeVideo]);
-
-  const handleProgress = (time: number, duration: number) => {
-    if (activeVideo) {
-      saveVideoProgress(activeVideo.id, time, duration);
+    if (courseId) {
+        grantTempAccess(courseId);
+        sessionStorage.removeItem('pendingCourseVerification');
+        alert('Temporary Access Granted (24h)');
+        navigate(`/course/${courseId}`);
     }
-  };
+  }, [courseId, currentUser, navigate, grantTempAccess]);
 
-  const getInitialTime = () => {
-    if (activeVideo && currentUser?.videoProgress?.[activeVideo.id]) {
-      return currentUser.videoProgress[activeVideo.id].timestamp;
-    }
-    return 0;
-  };
+  return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-brand w-10 h-10" /></div>;
+};
 
-  // --- AI Quiz Logic ---
-  const handleGenerateQuiz = async () => {
-    if (!activeVideo || !course) return;
+const ExamManager = ({ course, onClose }: { course: Course; onClose: () => void }) => {
+    const { updateCourse } = useStore();
+    const [exams, setExams] = useState<Exam[]>(course.exams || []);
+    const [editingExamId, setEditingExamId] = useState<string | null>(null);
 
-    // Check if we already have a cached quiz for this video
-    const cachedQuiz = currentUser?.generatedQuizzes?.find(q => q.videoId === activeVideo.id);
-    if (cachedQuiz) {
-      setActiveQuiz(cachedQuiz);
-      setQuizAnswers(new Array(cachedQuiz.questions.length).fill(-1));
-      setShowQuizModal(true);
-      return;
-    }
+    const handleSave = () => {
+        updateCourse({ ...course, exams });
+        onClose();
+    };
 
-    setIsGeneratingQuiz(true);
-    try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const chapter = course.chapters.find(c => c.videos.some(v => v.id === activeVideo.id));
-      
-      const prompt = `You are an expert tutor. Create a conceptual mini-quiz for a student watching a lecture.
-      
-      Course: ${course.title}
-      Chapter: ${chapter?.title || 'General'}
-      Video Title: ${activeVideo.title}
-      
-      Task: Analyze these titles to infer the educational topic. Generate 3 multiple-choice questions to test understanding of this specific topic.
-      Format strictly as a JSON array of objects with keys: "id" (string), "question" (string), "options" (array of 4 strings), "correctAnswer" (number index 0-3).`;
+    const addExam = () => {
+        const newExam: Exam = { id: Date.now().toString(), title: "New Exam", questions: [] };
+        setExams([...exams, newExam]);
+        setEditingExamId(newExam.id);
+    };
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-        config: {
-          responseMimeType: 'application/json'
-        }
-      });
+    const updateExamTitle = (id: string, title: string) => {
+        setExams(exams.map(e => e.id === id ? { ...e, title } : e));
+    };
+    
+    const deleteExam = (id: string) => {
+        setExams(exams.filter(e => e.id !== id));
+    };
 
-      if (response.text) {
-        const questions = JSON.parse(response.text);
-        const newQuiz: AiGeneratedQuiz = {
-          videoId: activeVideo.id,
-          questions: questions,
-          generatedAt: new Date().toISOString()
-        };
-        
-        saveAiQuiz(newQuiz);
-        setActiveQuiz(newQuiz);
-        setQuizAnswers(new Array(newQuiz.questions.length).fill(-1));
-        setShowQuizModal(true);
-      }
-    } catch (e) {
-      console.error("Quiz Gen Error", e);
-      alert("Failed to generate quiz. Please check your internet connection.");
-    } finally {
-      setIsGeneratingQuiz(false);
-    }
-  };
+    const activeExam = exams.find(e => e.id === editingExamId);
 
-  const submitQuiz = () => {
-    if (!activeQuiz) return;
-    let score = 0;
-    activeQuiz.questions.forEach((q, i) => {
-      if (quizAnswers[i] === q.correctAnswer) score++;
-    });
-    setQuizScore(score);
-  };
+    const addQuestion = (examId: string) => {
+        const q: Question = { id: Date.now().toString(), question: "New Question", options: ["Option A", "Option B", "Option C", "Option D"], correctAnswer: 0 };
+        setExams(exams.map(e => e.id === examId ? { ...e, questions: [...e.questions, q] } : e));
+    };
 
-  return (
-     <div className="pb-24 pt-16 lg:h-screen lg:pb-0 lg:overflow-hidden flex flex-col lg:flex-row">
-        {/* Video Area */}
-        <div className="w-full lg:flex-1 bg-black sticky top-16 lg:static z-20 relative">
-           {activeVideo ? (
-             <VideoPlayer 
-               key={activeVideo.id} 
-               src={activeVideo.filename} 
-               onProgress={handleProgress}
-               initialTime={getInitialTime()}
-             />
-           ) : (
-             <div className="aspect-video bg-gray-900 flex items-center justify-center text-gray-500">
-                Select a lecture to play
-             </div>
-           )}
-           <div className="p-4 bg-white border-b lg:border-b-0 flex justify-between items-center">
-              <h1 className="font-bold text-lg text-gray-800">{activeVideo?.title || course.title}</h1>
-              
-              {/* AI Quiz Button */}
-              {activeVideo && (
-                <button 
-                  onClick={handleGenerateQuiz}
-                  disabled={isGeneratingQuiz}
-                  className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-2 rounded-full font-bold text-sm flex items-center gap-2 shadow-lg hover:shadow-xl transition-all disabled:opacity-70"
-                >
-                  {isGeneratingQuiz ? (
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  ) : (
-                    <Brain className="w-4 h-4" />
-                  )}
-                  {isGeneratingQuiz ? 'Analyzing...' : 'AI Quiz'}
-                </button>
-              )}
-           </div>
-        </div>
-        
-        {/* Playlist */}
-        <div className="w-full lg:w-96 bg-gray-50 h-full overflow-y-auto border-l">
-           <div className="p-4 border-b bg-white font-bold text-gray-700">Course Content</div>
-           <div className="p-2 space-y-2">
-              {course.chapters.map((chapter, cIdx) => (
-                 <div key={chapter.id} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                    <div className="p-3 bg-gray-50 font-bold text-sm text-gray-600 border-b flex justify-between">
-                       <span>{cIdx + 1}. {chapter.title}</span>
-                       <span className="text-[10px] bg-gray-200 px-2 py-0.5 rounded">{chapter.videos.length} videos</span>
-                    </div>
-                    <div>
-                       {chapter.videos.map((video, vIdx) => {
-                          const isCompleted = currentUser?.videoProgress?.[video.id]?.completed;
-                          return (
-                            <button 
-                              key={video.id}
-                              onClick={() => setActiveVideo(video)}
-                              className={`w-full text-left p-3 flex items-start gap-3 hover:bg-gray-50 transition-colors border-b last:border-0 ${activeVideo?.id === video.id ? 'bg-blue-50' : ''}`}
-                            >
-                               <div className="mt-1 relative">
-                                  {activeVideo?.id === video.id ? (
-                                    <PlayCircle className="w-4 h-4 text-brand" />
-                                  ) : isCompleted ? (
-                                    <CheckCircle className="w-4 h-4 text-green-500" />
-                                  ) : (
-                                    <div className="w-4 h-4 rounded-full border-2 border-gray-300" />
-                                  )}
-                               </div>
-                               <div>
-                                  <p className={`text-sm font-medium ${activeVideo?.id === video.id ? 'text-brand' : 'text-gray-700'}`}>{video.title}</p>
-                                  <p className="text-[10px] text-gray-400 mt-1">{video.duration}</p>
-                               </div>
-                            </button>
-                          );
-                       })}
-                       {chapter.notes.map(note => (
-                          <a 
-                            href={note.url} 
-                            target="_blank"
-                            key={note.id}
-                            className="w-full text-left p-3 flex items-start gap-3 hover:bg-gray-50 transition-colors border-b last:border-0 bg-red-50/30"
-                          >
-                             <FileText className="w-4 h-4 text-red-500 mt-1" />
-                             <div>
-                                <p className="text-sm font-medium text-gray-700">{note.title}</p>
-                                <p className="text-[10px] text-gray-400 mt-1">PDF Note</p>
-                             </div>
-                          </a>
-                       ))}
-                    </div>
-                 </div>
-              ))}
-           </div>
-        </div>
+    const updateQuestion = (examId: string, qIndex: number, field: string, val: any) => {
+         setExams(exams.map(e => {
+             if(e.id !== examId) return e;
+             const qs = [...e.questions];
+             qs[qIndex] = { ...qs[qIndex], [field]: val };
+             return { ...e, questions: qs };
+         }));
+    };
 
-        {/* AI Quiz Modal Overlay */}
-        {showQuizModal && activeQuiz && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
-             <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-                <div className="p-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white flex justify-between items-center">
-                   <div>
-                      <h3 className="font-bold text-lg flex items-center gap-2"><Brain className="w-5 h-5"/> Quick Recall</h3>
-                      <p className="text-xs opacity-90">Testing: {activeVideo?.title}</p>
-                   </div>
-                   <button onClick={() => setShowQuizModal(false)}><X className="w-6 h-6"/></button>
+    const updateOption = (examId: string, qIndex: number, optIndex: number, val: string) => {
+         setExams(exams.map(e => {
+             if(e.id !== examId) return e;
+             const qs = [...e.questions];
+             const opts = [...qs[qIndex].options];
+             opts[optIndex] = val;
+             qs[qIndex] = { ...qs[qIndex], options: opts };
+             return { ...e, questions: qs };
+         }));
+    };
+
+    return (
+        <div className="fixed inset-0 z-[70] bg-black/50 backdrop-blur flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-4xl h-[80vh] rounded-3xl p-6 flex flex-col shadow-2xl">
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-2xl font-bold font-display">Manage Exams: {course.title}</h2>
+                    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full"><X className="w-6 h-6"/></button>
                 </div>
                 
-                <div className="p-6 overflow-y-auto flex-1">
-                   {quizScore !== null ? (
-                      <div className="text-center py-8">
-                         <div className="text-5xl font-bold text-brand mb-2">{quizScore} / {activeQuiz.questions.length}</div>
-                         <p className="text-gray-500 mb-6">You scored {Math.round((quizScore / activeQuiz.questions.length) * 100)}%</p>
-                         <button 
-                           onClick={() => { setQuizScore(null); setQuizAnswers(new Array(activeQuiz.questions.length).fill(-1)); setShowQuizModal(false); }}
-                           className="bg-brand text-white px-6 py-2 rounded-full font-bold shadow-lg"
-                         >
-                           Continue Learning
-                         </button>
-                      </div>
-                   ) : (
-                      <div className="space-y-6">
-                         {activeQuiz.questions.map((q, qIdx) => (
-                            <div key={qIdx} className="space-y-2">
-                               <p className="font-bold text-gray-800 text-sm">{qIdx + 1}. {q.question}</p>
-                               <div className="space-y-1">
-                                  {q.options.map((opt, oIdx) => (
-                                     <button
-                                       key={oIdx}
-                                       onClick={() => {
-                                          const newAns = [...quizAnswers];
-                                          newAns[qIdx] = oIdx;
-                                          setQuizAnswers(newAns);
-                                       }}
-                                       className={`w-full text-left p-3 rounded-lg text-sm border transition-all ${quizAnswers[qIdx] === oIdx ? 'bg-purple-50 border-purple-500 text-purple-700 font-bold' : 'hover:bg-gray-50 border-gray-200'}`}
-                                     >
-                                        {opt}
-                                     </button>
-                                  ))}
-                               </div>
-                            </div>
-                         ))}
-                      </div>
-                   )}
-                </div>
-
-                {quizScore === null && (
-                   <div className="p-4 border-t bg-gray-50 flex justify-end">
-                      <button 
-                        onClick={submitQuiz}
-                        disabled={quizAnswers.includes(-1)}
-                        className="bg-brand text-white px-6 py-2 rounded-xl font-bold disabled:opacity-50 shadow-lg"
-                      >
-                         Submit Answers
-                      </button>
-                   </div>
-                )}
-             </div>
-          </div>
-        )}
-     </div>
-  );
-};
-
-// ... Content Manager Component ...
-const ContentManager = ({ course, onClose }: { course: Course, onClose: () => void }) => {
-  const { updateCourse } = useStore();
-  const [chapters, setChapters] = useState<Chapter[]>(course.chapters);
-  const [newChapterTitle, setNewChapterTitle] = useState('');
-  const [activeChapterId, setActiveChapterId] = useState<string | null>(chapters[0]?.id || null);
-  
-  // Adding Video/Note State
-  const [addType, setAddType] = useState<'video' | 'note' | null>(null);
-  const [newItemTitle, setNewItemTitle] = useState('');
-  const [newItemUrl, setNewItemUrl] = useState('');
-
-  const handleAddChapter = () => {
-    if (!newChapterTitle.trim()) return;
-    const newChapter: Chapter = {
-      id: Date.now().toString(),
-      title: newChapterTitle,
-      videos: [],
-      notes: []
-    };
-    const updatedChapters = [...chapters, newChapter];
-    setChapters(updatedChapters);
-    updateCourse({ ...course, chapters: updatedChapters });
-    setNewChapterTitle('');
-    setActiveChapterId(newChapter.id);
-  };
-
-  const handleAddItem = () => {
-    if (!newItemTitle.trim() || !newItemUrl.trim() || !activeChapterId) return;
-
-    const updatedChapters = chapters.map(ch => {
-      if (ch.id === activeChapterId) {
-        if (addType === 'video') {
-           const vid: Video = { id: Date.now().toString(), title: newItemTitle, filename: newItemUrl, duration: 'Unknown' };
-           return { ...ch, videos: [...ch.videos, vid] };
-        } else {
-           const note: Note = { id: Date.now().toString(), title: newItemTitle, url: newItemUrl };
-           return { ...ch, notes: [...ch.notes, note] };
-        }
-      }
-      return ch;
-    });
-
-    setChapters(updatedChapters);
-    updateCourse({ ...course, chapters: updatedChapters });
-    setAddType(null);
-    setNewItemTitle('');
-    setNewItemUrl('');
-  };
-
-  const handleDeleteItem = (chapterId: string, itemId: string, type: 'video' | 'note') => {
-     if(!confirm('Delete item?')) return;
-     const updatedChapters = chapters.map(ch => {
-        if(ch.id === chapterId) {
-           if(type === 'video') return { ...ch, videos: ch.videos.filter(v => v.id !== itemId) };
-           else return { ...ch, notes: ch.notes.filter(n => n.id !== itemId) };
-        }
-        return ch;
-     });
-     setChapters(updatedChapters);
-     updateCourse({ ...course, chapters: updatedChapters });
-  };
-
-  return (
-    <div className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex justify-center items-center p-4">
-       <div className="bg-white w-full max-w-4xl h-[90vh] rounded-2xl flex flex-col shadow-2xl overflow-hidden animate-fade-in">
-          <div className="p-4 border-b flex justify-between items-center bg-gray-50">
-             <h2 className="text-xl font-bold">Content: {course.title}</h2>
-             <button onClick={onClose}><X className="w-6 h-6" /></button>
-          </div>
-
-          <div className="flex-1 flex overflow-hidden">
-             {/* Chapter Sidebar */}
-             <div className="w-1/3 border-r bg-gray-50 flex flex-col">
-                <div className="p-4 border-b">
-                   <div className="flex gap-2">
-                      <input 
-                        className="flex-1 p-2 border rounded text-sm" 
-                        placeholder="Chapter Name" 
-                        value={newChapterTitle}
-                        onChange={e => setNewChapterTitle(e.target.value)}
-                      />
-                      <button onClick={handleAddChapter} className="bg-brand text-white p-2 rounded"><Plus className="w-4 h-4"/></button>
-                   </div>
-                </div>
-                <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                   {chapters.map(ch => (
-                      <button 
-                        key={ch.id}
-                        onClick={() => setActiveChapterId(ch.id)}
-                        className={`w-full text-left p-3 rounded-lg font-bold text-sm flex justify-between items-center ${activeChapterId === ch.id ? 'bg-white shadow-sm border border-gray-200 text-brand' : 'hover:bg-gray-100 text-gray-600'}`}
-                      >
-                         {ch.title}
-                         <span className="text-[10px] bg-gray-200 px-1.5 rounded text-gray-500">{ch.videos.length}</span>
-                      </button>
-                   ))}
-                </div>
-             </div>
-
-             {/* Content Area */}
-             <div className="flex-1 bg-white flex flex-col">
-                {activeChapterId ? (
-                   <>
-                      <div className="p-4 border-b flex justify-between items-center bg-gray-50/50">
-                         <h3 className="font-bold text-gray-700">
-                            {chapters.find(c => c.id === activeChapterId)?.title} Content
-                         </h3>
-                         <div className="flex gap-2">
-                            <button onClick={() => setAddType('video')} className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded text-xs font-bold flex items-center gap-1 hover:bg-blue-200"><PlayCircle className="w-3 h-3"/> Add Video</button>
-                            <button onClick={() => setAddType('note')} className="px-3 py-1.5 bg-red-100 text-red-700 rounded text-xs font-bold flex items-center gap-1 hover:bg-red-200"><FileText className="w-3 h-3"/> Add Note</button>
-                         </div>
-                      </div>
-
-                      <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                         {addType && (
-                            <div className="bg-gray-50 p-4 rounded-xl border border-dashed border-gray-300 mb-4 animate-fade-in">
-                               <h4 className="font-bold text-sm mb-2">Add {addType === 'video' ? 'Video' : 'Note'}</h4>
-                               <input className="w-full p-2 border rounded mb-2 text-sm" placeholder="Title" value={newItemTitle} onChange={e => setNewItemTitle(e.target.value)} />
-                               <input className="w-full p-2 border rounded mb-2 text-sm" placeholder={addType === 'video' ? "Video URL (MP4/YouTube)" : "PDF URL"} value={newItemUrl} onChange={e => setNewItemUrl(e.target.value)} />
-                               
-                               {addType === 'video' && (
-                                  <div className="mb-2">
-                                     <label className="text-xs text-gray-500 font-bold">OR Upload File</label>
-                                     <input type="file" accept="video/*" className="block w-full text-xs text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-brand file:text-white hover:file:bg-brand-dark mt-1" 
-                                        onChange={(e) => {
-                                           if (e.target.files?.[0]) {
-                                              const reader = new FileReader();
-                                              reader.onload = (ev) => setNewItemUrl(ev.target?.result as string);
-                                              reader.readAsDataURL(e.target.files[0]);
-                                              setNewItemTitle(e.target.files[0].name);
-                                           }
-                                        }}
-                                     />
-                                  </div>
-                               )}
-
-                               <div className="flex justify-end gap-2">
-                                  <button onClick={() => setAddType(null)} className="px-3 py-1 text-gray-500 text-sm font-bold">Cancel</button>
-                                  <button onClick={handleAddItem} className="px-3 py-1 bg-brand text-white rounded text-sm font-bold">Add</button>
-                               </div>
-                            </div>
-                         )}
-
-                         {chapters.find(c => c.id === activeChapterId)?.videos.map(v => (
-                            <div key={v.id} className="flex justify-between items-center p-3 border rounded-lg hover:bg-gray-50 group">
-                               <div className="flex items-center gap-3">
-                                  <PlayCircle className="w-5 h-5 text-gray-400" />
-                                  <span className="text-sm font-medium">{v.title}</span>
-                               </div>
-                               <button onClick={() => handleDeleteItem(activeChapterId, v.id, 'video')} className="text-gray-300 hover:text-red-500"><Trash2 className="w-4 h-4"/></button>
-                            </div>
-                         ))}
-                         {chapters.find(c => c.id === activeChapterId)?.notes.map(n => (
-                            <div key={n.id} className="flex justify-between items-center p-3 border rounded-lg bg-red-50/30 hover:bg-red-50 group">
-                               <div className="flex items-center gap-3">
-                                  <FileText className="w-5 h-5 text-red-400" />
-                                  <span className="text-sm font-medium">{n.title}</span>
-                               </div>
-                               <button onClick={() => handleDeleteItem(activeChapterId, n.id, 'note')} className="text-gray-300 hover:text-red-500"><Trash2 className="w-4 h-4"/></button>
-                            </div>
-                         ))}
-                      </div>
-                   </>
-                ) : (
-                   <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">Select a chapter to manage content</div>
-                )}
-             </div>
-          </div>
-       </div>
-    </div>
-  );
-};
-
-const ExamManager = ({ course, onClose }: { course: Course, onClose: () => void }) => {
-  const { updateCourse } = useStore();
-  const [exams, setExams] = useState<Exam[]>(course.exams || []);
-  const [activeExam, setActiveExam] = useState<Exam | null>(null);
-  
-  // Question State
-  const [qText, setQText] = useState('');
-  const [qOptions, setQOptions] = useState(['', '', '', '']);
-  const [qCorrect, setQCorrect] = useState(0);
-
-  const handleAddExam = () => {
-    const title = prompt("Enter Exam Title:");
-    if (!title) return;
-    const newExam: Exam = { id: Date.now().toString(), title, questions: [] };
-    const updated = [...exams, newExam];
-    setExams(updated);
-    updateCourse({ ...course, exams: updated });
-  };
-
-  const handleDeleteExam = (examId: string) => {
-    if (!confirm("Delete this exam?")) return;
-    const updated = exams.filter(e => e.id !== examId);
-    setExams(updated);
-    updateCourse({ ...course, exams: updated });
-    if (activeExam?.id === examId) setActiveExam(null);
-  };
-
-  const handleAddQuestion = () => {
-    if (!activeExam || !qText) return;
-    const newQ: Question = {
-      id: Date.now().toString(),
-      question: qText,
-      options: qOptions,
-      correctAnswer: qCorrect
-    };
-    const updatedQuestions = [...activeExam.questions, newQ];
-    const updatedExam = { ...activeExam, questions: updatedQuestions };
-    
-    // Update local state
-    setActiveExam(updatedExam);
-    
-    // Update list and global store
-    const updatedExams = exams.map(e => e.id === activeExam.id ? updatedExam : e);
-    setExams(updatedExams);
-    updateCourse({ ...course, exams: updatedExams });
-
-    // Reset form
-    setQText('');
-    setQOptions(['', '', '', '']);
-    setQCorrect(0);
-  };
-
-  const handleDeleteQuestion = (qId: string) => {
-    if (!activeExam) return;
-    const updatedQuestions = activeExam.questions.filter(q => q.id !== qId);
-    const updatedExam = { ...activeExam, questions: updatedQuestions };
-    
-    setActiveExam(updatedExam);
-    const updatedExams = exams.map(e => e.id === activeExam.id ? updatedExam : e);
-    setExams(updatedExams);
-    updateCourse({ ...course, exams: updatedExams });
-  };
-
-  return (
-    <div className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex justify-center items-center p-4">
-      <div className="bg-white w-full max-w-4xl h-[90vh] rounded-2xl flex flex-col shadow-2xl overflow-hidden animate-fade-in">
-        <div className="p-4 border-b flex justify-between items-center bg-gray-50">
-           <h2 className="text-xl font-bold">Exams: {course.title}</h2>
-           <button onClick={onClose}><X className="w-6 h-6" /></button>
-        </div>
-        
-        <div className="flex-1 flex overflow-hidden">
-          {/* Sidebar List of Exams */}
-          <div className="w-1/3 border-r bg-gray-50 flex flex-col p-4">
-             <button onClick={handleAddExam} className="w-full bg-brand text-white py-2 rounded-lg font-bold mb-4 flex items-center justify-center gap-2">
-               <Plus className="w-4 h-4" /> New Exam
-             </button>
-             <div className="space-y-2 overflow-y-auto flex-1">
-               {exams.map(exam => (
-                 <div key={exam.id} className={`p-3 rounded-lg border cursor-pointer flex justify-between items-center ${activeExam?.id === exam.id ? 'bg-white border-brand shadow-sm' : 'hover:bg-gray-100 border-transparent'}`} onClick={() => setActiveExam(exam)}>
-                    <span className="font-bold text-sm truncate">{exam.title}</span>
-                    <button onClick={(e) => { e.stopPropagation(); handleDeleteExam(exam.id); }} className="text-gray-400 hover:text-red-500"><Trash2 className="w-4 h-4"/></button>
-                 </div>
-               ))}
-               {exams.length === 0 && <p className="text-gray-400 text-center text-xs italic">No exams created.</p>}
-             </div>
-          </div>
-
-          {/* Exam Editor Area */}
-          <div className="flex-1 flex flex-col bg-white">
-             {activeExam ? (
-               <div className="flex-1 flex flex-col overflow-hidden">
-                  <div className="p-4 border-b bg-gray-50">
-                    <h3 className="font-bold text-lg mb-4">Add Question</h3>
-                    <div className="space-y-3">
-                      <input className="w-full p-2 border rounded text-sm" placeholder="Question Text" value={qText} onChange={e => setQText(e.target.value)} />
-                      <div className="grid grid-cols-2 gap-2">
-                        {qOptions.map((opt, i) => (
-                          <div key={i} className="flex items-center gap-1">
-                             <input type="radio" name="correct" checked={qCorrect === i} onChange={() => setQCorrect(i)} />
-                             <input className="flex-1 p-2 border rounded text-xs" placeholder={`Option ${i+1}`} value={opt} onChange={e => {
-                               const newOpts = [...qOptions];
-                               newOpts[i] = e.target.value;
-                               setQOptions(newOpts);
-                             }} />
-                          </div>
-                        ))}
-                      </div>
-                      <button onClick={handleAddQuestion} className="w-full bg-gray-800 text-white py-2 rounded font-bold text-sm">Add Question</button>
-                    </div>
-                  </div>
-                  
-                  <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                    {activeExam.questions.map((q, i) => (
-                      <div key={q.id} className="p-3 border rounded-lg bg-gray-50 relative group">
-                        <div className="pr-8">
-                           <p className="font-bold text-sm mb-1">{i+1}. {q.question}</p>
-                           <ul className="text-xs text-gray-600 pl-4 list-disc">
-                             {q.options.map((o, idx) => (
-                               <li key={idx} className={idx === q.correctAnswer ? 'text-green-600 font-bold' : ''}>{o}</li>
-                             ))}
-                           </ul>
+                <div className="flex-1 flex gap-6 overflow-hidden">
+                    <div className="w-1/3 border-r border-gray-100 pr-4 overflow-y-auto">
+                        <button onClick={addExam} className="w-full py-3 mb-4 bg-brand text-white rounded-xl font-bold flex items-center justify-center gap-2"><Plus className="w-4 h-4"/> New Exam</button>
+                        <div className="space-y-2">
+                            {exams.map(exam => (
+                                <div key={exam.id} onClick={() => setEditingExamId(exam.id)} className={`p-4 rounded-xl cursor-pointer border transition-all ${editingExamId === exam.id ? 'bg-indigo-50 border-brand' : 'bg-gray-50 border-transparent hover:bg-gray-100'}`}>
+                                    <input value={exam.title} onChange={(e) => updateExamTitle(exam.id, e.target.value)} className="bg-transparent font-bold text-gray-900 w-full focus:outline-none" onClick={e => e.stopPropagation()} />
+                                    <div className="flex justify-between items-center mt-2">
+                                        <span className="text-xs text-gray-500">{exam.questions.length} Questions</span>
+                                        <button onClick={(e) => { e.stopPropagation(); deleteExam(exam.id); }} className="text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4"/></button>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
-                        <button onClick={() => handleDeleteQuestion(q.id)} className="absolute top-2 right-2 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                    {activeExam.questions.length === 0 && <p className="text-center text-gray-400 text-sm mt-10">No questions added yet.</p>}
-                  </div>
-               </div>
-             ) : (
-               <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">Select an exam to edit</div>
-             )}
-          </div>
+                    </div>
+                    <div className="flex-1 overflow-y-auto pl-2">
+                        {activeExam ? (
+                            <div className="space-y-6">
+                                <div className="flex justify-between items-center">
+                                    <h3 className="font-bold text-lg">Questions for {activeExam.title}</h3>
+                                    <button onClick={() => addQuestion(activeExam.id)} className="text-brand text-sm font-bold bg-brand-light px-3 py-1.5 rounded-lg">+ Add Question</button>
+                                </div>
+                                {activeExam.questions.map((q, qIdx) => (
+                                    <div key={q.id} className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                                        <div className="flex gap-2 mb-2">
+                                            <span className="font-bold text-gray-400">Q{qIdx+1}</span>
+                                            <input className="flex-1 bg-white border border-gray-200 p-2 rounded-lg text-sm font-medium" value={q.question} onChange={e => updateQuestion(activeExam.id, qIdx, 'question', e.target.value)} placeholder="Question Text" />
+                                            <button onClick={() => {
+                                                const qs = [...activeExam.questions]; qs.splice(qIdx, 1);
+                                                setExams(exams.map(e => e.id === activeExam.id ? { ...e, questions: qs } : e));
+                                            }} className="text-red-400 p-2"><Trash2 className="w-4 h-4"/></button>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2 pl-6">
+                                            {q.options.map((opt, oIdx) => (
+                                                <div key={oIdx} className="flex items-center gap-2">
+                                                    <input type="radio" checked={q.correctAnswer === oIdx} onChange={() => updateQuestion(activeExam.id, qIdx, 'correctAnswer', oIdx)} name={`q-${q.id}`} className="text-brand focus:ring-brand" />
+                                                    <input className="flex-1 bg-white border border-gray-200 p-2 rounded-lg text-xs" value={opt} onChange={e => updateOption(activeExam.id, qIdx, oIdx, e.target.value)} placeholder={`Option ${oIdx+1}`} />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="h-full flex items-center justify-center text-gray-400">Select an exam to edit</div>
+                        )}
+                    </div>
+                </div>
+                <div className="mt-6 pt-4 border-t flex justify-end">
+                    <button onClick={handleSave} className="bg-gray-900 text-white px-8 py-3 rounded-xl font-bold hover:bg-black transition-colors">Save All Changes</button>
+                </div>
+            </div>
         </div>
-      </div>
-    </div>
-  );
+    );
+};
+
+const ContentManager = ({ course, onClose }: { course: Course; onClose: () => void }) => {
+    const { updateCourse } = useStore();
+    const [chapters, setChapters] = useState<Chapter[]>(course.chapters || []);
+    
+    const handleSave = () => {
+        updateCourse({ ...course, chapters });
+        onClose();
+    };
+
+    const addChapter = () => {
+        setChapters([...chapters, { id: Date.now().toString(), title: "New Chapter", videos: [], notes: [] }]);
+    };
+
+    const updateChapterTitle = (idx: number, title: string) => {
+        const newChapters = [...chapters];
+        newChapters[idx].title = title;
+        setChapters(newChapters);
+    };
+
+    const addVideo = (chapterIdx: number) => {
+        const newChapters = [...chapters];
+        newChapters[chapterIdx].videos.push({ id: Date.now().toString(), title: "New Video", filename: "", duration: "00:00" });
+        setChapters(newChapters);
+    };
+
+    const updateVideo = (cIdx: number, vIdx: number, field: string, val: string) => {
+        const newChapters = [...chapters];
+        newChapters[cIdx].videos[vIdx] = { ...newChapters[cIdx].videos[vIdx], [field]: val };
+        setChapters(newChapters);
+    };
+    
+    const deleteVideo = (cIdx: number, vIdx: number) => {
+        const newChapters = [...chapters];
+        newChapters[cIdx].videos.splice(vIdx, 1);
+        setChapters(newChapters);
+    };
+    
+    const deleteChapter = (idx: number) => {
+        const newChapters = [...chapters];
+        newChapters.splice(idx, 1);
+        setChapters(newChapters);
+    };
+
+    return (
+        <div className="fixed inset-0 z-[70] bg-black/50 backdrop-blur flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-4xl h-[80vh] rounded-3xl p-6 flex flex-col shadow-2xl">
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-2xl font-bold font-display">Manage Content: {course.title}</h2>
+                    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full"><X className="w-6 h-6"/></button>
+                </div>
+                <div className="flex-1 overflow-y-auto space-y-6 p-2">
+                    {chapters.map((chapter, cIdx) => (
+                        <div key={chapter.id} className="bg-gray-50 border border-gray-100 rounded-2xl p-4">
+                            <div className="flex justify-between items-center mb-4">
+                                <input className="bg-transparent text-lg font-bold text-gray-800 w-full focus:outline-none" value={chapter.title} onChange={e => updateChapterTitle(cIdx, e.target.value)} placeholder="Chapter Title" />
+                                <button onClick={() => deleteChapter(cIdx)} className="text-red-400 p-2 hover:bg-red-50 rounded"><Trash2 className="w-5 h-5"/></button>
+                            </div>
+                            <div className="space-y-3 pl-4 border-l-2 border-gray-200">
+                                {chapter.videos.map((video, vIdx) => (
+                                    <div key={video.id} className="bg-white p-3 rounded-xl border border-gray-100 grid grid-cols-1 md:grid-cols-3 gap-2 items-center">
+                                        <input className="p-2 border rounded" placeholder="Video Title" value={video.title} onChange={e => updateVideo(cIdx, vIdx, 'title', e.target.value)} />
+                                        <input className="p-2 border rounded" placeholder="Video URL (MP4/Youtube)" value={video.filename} onChange={e => updateVideo(cIdx, vIdx, 'filename', e.target.value)} />
+                                        <div className="flex items-center gap-2">
+                                            <input className="p-2 border rounded w-20" placeholder="Dur." value={video.duration} onChange={e => updateVideo(cIdx, vIdx, 'duration', e.target.value)} />
+                                            <button onClick={() => deleteVideo(cIdx, vIdx)} className="text-red-400 p-2"><Trash2 className="w-4 h-4"/></button>
+                                        </div>
+                                    </div>
+                                ))}
+                                <button onClick={() => addVideo(cIdx)} className="text-sm font-bold text-brand flex items-center gap-1 mt-2 hover:bg-brand-light px-3 py-1 rounded-lg w-max"><Plus className="w-4 h-4"/> Add Video</button>
+                            </div>
+                        </div>
+                    ))}
+                    <button onClick={addChapter} className="w-full py-4 border-2 border-dashed border-gray-300 rounded-2xl text-gray-400 font-bold hover:border-brand hover:text-brand transition-colors">+ Add Chapter</button>
+                </div>
+                <div className="mt-6 pt-4 border-t flex justify-end">
+                    <button onClick={handleSave} className="bg-gray-900 text-white px-8 py-3 rounded-xl font-bold hover:bg-black transition-colors">Save Content</button>
+                </div>
+            </div>
+        </div>
+    );
 };
 
 const AdminPanel = () => {
@@ -1503,21 +762,15 @@ const AdminPanel = () => {
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [managingExamsCourse, setManagingExamsCourse] = useState<Course | null>(null);
   const [managingContentCourse, setManagingContentCourse] = useState<Course | null>(null);
-  
-  // User Management State
+  const [isShortening, setIsShortening] = useState(false);
   const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'USER' });
-
-  // Settings State
   const [localSettings, setLocalSettings] = useState(settings);
   const [adminCreds, setAdminCreds] = useState({ email: currentUser?.email || '', password: currentUser?.password || '' });
-  
-  // Banner State
   const [newBannerImage, setNewBannerImage] = useState<string>('');
 
   if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.EDITOR)) {
     return <Navigate to="/" />;
   }
-
   const handleSaveSettings = () => {
     if (!currentUser) return;
     updateSettings(localSettings);
@@ -1526,365 +779,273 @@ const AdminPanel = () => {
     }
     alert('Settings and Credentials saved successfully!');
   };
-
   const handleAddUser = () => {
-    if(!newUser.name || !newUser.email || !newUser.password) {
-      alert("Please fill all fields");
-      return;
-    }
-    addUser({
-      id: Date.now().toString(),
-      name: newUser.name,
-      email: newUser.email,
-      password: newUser.password,
-      role: newUser.role as UserRole,
-      purchasedCourseIds: [],
-      phone: '0000000000'
-    });
-    setNewUser({ name: '', email: '', password: '', role: 'USER' });
-    alert("User created successfully");
+     if(!newUser.name || !newUser.email || !newUser.password) { alert("Please fill all fields"); return; }
+     addUser({ id: Date.now().toString(), name: newUser.name, email: newUser.email, password: newUser.password, role: newUser.role as UserRole, purchasedCourseIds: [], phone: '0000000000' });
+     setNewUser({ name: '', email: '', password: '', role: 'USER' });
+     alert("User created successfully");
   };
-
   const handleBannerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      try {
-        const base64 = await convertToBase64(e.target.files[0]);
-        setNewBannerImage(base64);
-      } catch (err) {
-        console.error("Error converting image", err);
-      }
+      try { const base64 = await convertToBase64(e.target.files[0]); setNewBannerImage(base64); } catch (err) { console.error(err); }
     }
   };
-
   const handleCourseImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0] && editingCourse) {
-      try {
-        const base64 = await convertToBase64(e.target.files[0]);
-        setEditingCourse({ ...editingCourse, image: base64 });
-      } catch (err) {
-        console.error("Error converting image", err);
-      }
+      try { const base64 = await convertToBase64(e.target.files[0]); setEditingCourse({ ...editingCourse, image: base64 }); } catch (err) { console.error(err); }
     }
   };
-
-  // Logic to handle saving a course (create new or update existing)
   const handleSaveCourse = () => {
     if (!editingCourse) return;
-    
-    // Check if course already exists in the list
     const exists = courses.some(c => c.id === editingCourse.id);
-    
-    if (exists) {
-      updateCourse(editingCourse);
-    } else {
-      addCourse(editingCourse);
-    }
+    if (exists) updateCourse(editingCourse); else addCourse(editingCourse);
     setEditingCourse(null);
+  };
+  const deleteCourseSafe = (id: string) => deleteCourse(id);
+  const deleteUserSafe = (id: string) => deleteUser(id);
+  const handleAutoShortenLink = async () => {
+    if (!editingCourse) return;
+    if (!settings.linkShortenerApiKey) { alert("Please configure Link Shortener API Key in Settings first."); return; }
+    setIsShortening(true);
+    const courseId = editingCourse.id || Date.now().toString();
+    if(editingCourse.id !== courseId) setEditingCourse(prev => prev ? {...prev, id: courseId} : null);
+    const baseUrl = window.location.href.split('#')[0];
+    const verifyUrl = `${baseUrl}#/verify/${courseId}`;
+    const shortenerUrl = settings.linkShortenerApiUrl || 'https://reel2earn.com/api';
+    const apiUrl = `${shortenerUrl}?api=${settings.linkShortenerApiKey}&url=${encodeURIComponent(verifyUrl)}`;
+    try {
+        const response = await fetch(apiUrl);
+        const data = await response.json();
+        if (data.status === 'success' || data.shortenedUrl) {
+            const shortLink = data.shortenedUrl;
+            setEditingCourse(prev => prev ? { ...prev, shortenerLink: shortLink } : null);
+        } else { alert('Shortener API Error: ' + (data.message || 'Unknown error')); }
+    } catch (e) { console.error(e); alert("Failed to shorten link. Check console for CORS errors or API validity."); } finally { setIsShortening(false); }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-16 pb-20">
+    <div className="min-h-screen bg-gray-50 pt-20 pb-20">
       <div className="bg-white shadow-sm border-b sticky top-16 z-10 overflow-x-auto">
-        <div className="flex p-2 min-w-max">
+        <div className="flex p-2 min-w-max gap-2 justify-center">
           {['dashboard', 'courses', 'users', 'settings'].map(tab => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab as any)}
-              className={`px-4 py-2 rounded-lg font-bold capitalize mr-2 transition-colors ${activeTab === tab ? 'bg-brand text-white' : 'text-gray-500 hover:bg-gray-100'}`}
-            >
-              {tab}
-            </button>
+            <button key={tab} onClick={() => setActiveTab(tab as any)} className={`px-6 py-2.5 rounded-xl font-bold capitalize transition-all ${activeTab === tab ? 'bg-brand text-white shadow-lg shadow-brand/20' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}>{tab}</button>
           ))}
         </div>
       </div>
-
-      <div className="p-4">
+      <div className="p-6 max-w-7xl mx-auto">
         {activeTab === 'dashboard' && (
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-              <h3 className="text-gray-500 text-sm font-bold uppercase">Total Users</h3>
-              <p className="text-3xl font-bold text-brand mt-2">{users.length}</p>
-            </div>
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-              <h3 className="text-gray-500 text-sm font-bold uppercase">Active Courses</h3>
-              <p className="text-3xl font-bold text-green-600 mt-2">{courses.length}</p>
-            </div>
-            <div className="col-span-2 bg-white p-6 rounded-xl shadow-sm border border-gray-100 h-64">
-              <h3 className="text-gray-800 font-bold mb-4">User Growth</h3>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={users.map((u, i) => ({ name: `Day ${i+1}`, users: i+1 }))}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" hide />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="users" fill={settings.uiColor || '#0284C7'} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-white p-8 rounded-3xl shadow-card border border-gray-100"><h3 className="text-gray-400 text-xs font-bold uppercase tracking-widest">Total Users</h3><p className="text-5xl font-display font-bold text-gray-900 mt-4">{users.length}</p></div>
+            <div className="bg-white p-8 rounded-3xl shadow-card border border-gray-100"><h3 className="text-gray-400 text-xs font-bold uppercase tracking-widest">Active Batches</h3><p className="text-5xl font-display font-bold text-green-600 mt-4">{courses.length}</p></div>
+            <div className="col-span-1 md:col-span-2 bg-white p-8 rounded-3xl shadow-card border border-gray-100 h-80"><h3 className="text-gray-900 font-bold mb-6 font-display text-xl">User Growth</h3><ResponsiveContainer width="100%" height="100%"><BarChart data={users.map((u, i) => ({ name: `Day ${i+1}`, users: i+1 }))}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" /><XAxis dataKey="name" hide /><YAxis axisLine={false} tickLine={false} /><Tooltip cursor={{fill: 'transparent'}} contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 30px rgba(0,0,0,0.1)'}} /><Bar dataKey="users" fill={settings.uiColor || '#4F46E5'} radius={[4, 4, 0, 0]} barSize={40} /></BarChart></ResponsiveContainer></div>
           </div>
         )}
-
         {activeTab === 'courses' && (
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-               <h2 className="font-bold text-lg">Manage Courses</h2>
-               <button 
-                  onClick={() => {
-                    const newCourse: Course = {
-                      id: Date.now().toString(),
-                      title: 'New Course',
-                      description: 'Description...',
-                      price: 0,
-                      mrp: 1000,
-                      image: 'https://via.placeholder.com/300',
-                      category: 'General',
-                      createdAt: new Date().toISOString(),
-                      chapters: [],
-                      isPaid: false
-                    };
-                    setEditingCourse(newCourse); // Just open modal, don't add yet
-                  }}
-                  className="bg-brand text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2"
-               >
-                 <Plus className="w-4 h-4" /> Add New
-               </button>
+          <div className="space-y-6">
+            <div className="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+               <h2 className="font-display font-bold text-xl text-gray-900 pl-2">Manage Courses</h2>
+               <button onClick={() => { setEditingCourse({ id: Date.now().toString(), title: 'New Course', description: 'Description...', price: 0, mrp: 1000, image: 'https://via.placeholder.com/300', category: 'General', createdAt: new Date().toISOString(), chapters: [], isPaid: false }); }} className="bg-gray-900 text-white px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-brand transition-colors shadow-lg shadow-gray-900/20"><Plus className="w-5 h-5" /> Add New Batch</button>
             </div>
             {courses.map(course => (
-              <div key={course.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4">
-                <div className="flex items-center gap-3 w-full md:w-auto">
-                  <img src={course.image} className="w-12 h-12 rounded object-cover" />
-                  <div>
-                    <h3 className="font-bold text-sm">{course.title}</h3>
-                    <div className="flex gap-2 mt-1">
-                      <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${course.isPaid ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>
-                        {course.isPaid ? 'LOCKED' : 'FREE'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex gap-2 w-full md:w-auto justify-end">
-                  <button onClick={() => setManagingContentCourse(course)} className="px-3 py-2 bg-blue-50 text-blue-600 font-bold text-xs rounded hover:bg-blue-100 flex items-center gap-1">
-                     <PlayCircle className="w-4 h-4" /> Content
-                  </button>
-                  <button onClick={() => setManagingExamsCourse(course)} className="px-3 py-2 bg-purple-50 text-purple-600 font-bold text-xs rounded hover:bg-purple-100 flex items-center gap-1">
-                     <ClipboardList className="w-4 h-4" /> Exams
-                  </button>
-                  <button onClick={() => setEditingCourse(course)} className="p-2 text-gray-500 hover:bg-gray-100 rounded">
-                    <Edit className="w-5 h-5" />
-                  </button>
-                  <button onClick={() => deleteCourse(course.id)} className="p-2 text-red-500 hover:bg-red-50 rounded">
-                    <Trash2 className="w-5 h-5" />
-                  </button>
-                </div>
+              <div key={course.id} className="bg-white p-5 rounded-3xl shadow-card border border-gray-100 flex flex-col md:flex-row justify-between items-center gap-6">
+                <div className="flex items-center gap-4 w-full md:w-auto"><img src={course.image} className="w-20 h-20 rounded-2xl object-cover shadow-sm" /><div><h3 className="font-bold text-lg text-gray-900">{course.title}</h3><div className="flex gap-2 mt-2"><span className={`text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wider ${course.isPaid ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>{course.isPaid ? 'LOCKED' : 'FREE'}</span><span className="text-[10px] px-2.5 py-1 rounded-full font-bold bg-gray-100 text-gray-600 uppercase tracking-wider">{course.category}</span></div></div></div>
+                <div className="flex gap-2 w-full md:w-auto justify-end"><button onClick={() => setManagingContentCourse(course)} className="px-4 py-2 bg-blue-50 text-blue-600 font-bold text-xs rounded-xl hover:bg-blue-100 flex items-center gap-2 transition-colors"><PlayCircle className="w-4 h-4" /> Content</button><button onClick={() => setManagingExamsCourse(course)} className="px-4 py-2 bg-purple-50 text-purple-600 font-bold text-xs rounded-xl hover:bg-purple-100 flex items-center gap-2 transition-colors"><ClipboardList className="w-4 h-4" /> Exams</button><button onClick={() => setEditingCourse(course)} className="p-2.5 text-gray-500 hover:bg-gray-100 rounded-xl transition-colors"><Edit className="w-5 h-5" /></button><button onClick={() => deleteCourseSafe(course.id)} className="p-2.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"><Trash2 className="w-5 h-5" /></button></div>
               </div>
             ))}
           </div>
         )}
-
         {activeTab === 'users' && (
            <div className="space-y-6">
-             {/* Create User/Manager Section */}
-             <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-               <h3 className="font-bold text-gray-800 mb-3">Create New User / Manager</h3>
-               <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-                 <input className="p-2 border rounded" placeholder="Name" value={newUser.name} onChange={e => setNewUser({...newUser, name: e.target.value})} />
-                 <input className="p-2 border rounded" placeholder="Email" value={newUser.email} onChange={e => setNewUser({...newUser, email: e.target.value})} />
-                 <input className="p-2 border rounded" placeholder="Password" value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})} />
-                 <select className="p-2 border rounded bg-white" value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})}>
-                   <option value="USER">Student</option>
-                   <option value="EDITOR">Manager/Editor</option>
-                   <option value="ADMIN">Admin</option>
-                 </select>
-                 <button onClick={handleAddUser} className="bg-brand text-white font-bold rounded hover:bg-brand-dark">Create</button>
-               </div>
-             </div>
-
-             <div className="space-y-3">
-               <h3 className="font-bold text-gray-800">Existing Users</h3>
-               {users.map(u => (
-                 <div key={u.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
-                   <div>
-                     <p className="font-bold">{u.name}</p>
-                     <p className="text-xs text-gray-500">{u.email}</p>
-                     <span className={`text-[10px] px-2 py-0.5 rounded ${u.role === 'ADMIN' ? 'bg-red-100 text-red-700' : u.role === 'EDITOR' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100'}`}>
-                        {u.role}
-                     </span>
-                   </div>
-                   {u.role !== UserRole.ADMIN && (
-                     <button onClick={() => deleteUser(u.id)} className="text-red-500 hover:bg-red-50 p-2 rounded">
-                       <Trash2 className="w-4 h-4" />
-                     </button>
-                   )}
-                 </div>
-               ))}
-             </div>
+             <div className="bg-white p-6 rounded-3xl shadow-card border border-gray-100"><h3 className="font-bold text-gray-900 mb-4 font-display text-lg">Create New User / Manager</h3><div className="grid grid-cols-1 md:grid-cols-5 gap-3"><input className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm" placeholder="Name" value={newUser.name} onChange={e => setNewUser({...newUser, name: e.target.value})} /><input className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm" placeholder="Email" value={newUser.email} onChange={e => setNewUser({...newUser, email: e.target.value})} /><input className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm" placeholder="Password" value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})} /><select className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm" value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})}><option value="USER">Student</option><option value="EDITOR">Manager/Editor</option><option value="ADMIN">Admin</option></select><button onClick={handleAddUser} className="bg-brand text-white font-bold rounded-xl hover:bg-brand-dark shadow-lg shadow-brand/20">Create</button></div></div>
+             <div className="space-y-3"><h3 className="font-bold text-gray-500 uppercase tracking-widest text-xs ml-2">Existing Users</h3>{users.map(u => (<div key={u.id} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex justify-between items-center"><div><p className="font-bold text-gray-900">{u.name}</p><p className="text-xs text-gray-500">{u.email}</p><span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase mt-1 inline-block ${u.role === 'ADMIN' ? 'bg-red-100 text-red-700' : u.role === 'EDITOR' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'}`}>{u.role}</span></div>{u.role !== UserRole.ADMIN && (<button onClick={() => deleteUserSafe(u.id)} className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>)}</div>))}</div>
            </div>
         )}
-
         {activeTab === 'settings' && (
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 space-y-6">
-            <div className="border-b pb-6">
-               <h2 className="font-bold text-lg mb-4 text-brand">Branding</h2>
-               <div className="space-y-4">
-                 <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Website Name</label>
-                    <input type="text" className="w-full p-2 border rounded" value={localSettings.appName} onChange={e => setLocalSettings({...localSettings, appName: e.target.value})} />
-                 </div>
-                 <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">UI Color Theme</label>
-                    <div className="flex gap-2">
-                      <input type="color" className="h-10 w-20 p-1 border rounded" value={localSettings.uiColor || '#0284C7'} onChange={e => setLocalSettings({...localSettings, uiColor: e.target.value})} />
-                      <div className="text-xs text-gray-400 flex items-center">Pick a brand color</div>
-                    </div>
-                 </div>
-               </div>
-            </div>
-            
-            <div className="border-b pb-6">
-              <h2 className="font-bold text-lg mb-4 text-brand">App Banners</h2>
-              <div className="mb-4">
-                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Upload New Banner</label>
-                 <div className="flex gap-2">
-                    <input type="file" accept="image/*" className="flex-1 text-sm text-gray-500" onChange={handleBannerUpload} />
-                    <button 
-                      onClick={() => {
-                         if(newBannerImage) {
-                           addBanner({ id: Date.now().toString(), image: newBannerImage, link: '#' });
-                           setNewBannerImage('');
-                           alert('Banner added!');
-                         }
-                      }}
-                      className="bg-brand text-white px-4 py-2 rounded text-xs font-bold disabled:opacity-50"
-                      disabled={!newBannerImage}
-                    >
-                      Add
-                    </button>
-                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                 {banners.map(b => (
-                    <div key={b.id} className="relative group">
-                       <img src={b.image} className="w-full h-24 object-cover rounded-lg" />
-                       <button onClick={() => deleteBanner(b.id)} className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Trash2 className="w-4 h-4" />
-                       </button>
-                    </div>
-                 ))}
-              </div>
-            </div>
-
-            <div className="border-b pb-6">
-               <h2 className="font-bold text-lg mb-4 text-brand">Admin Credentials</h2>
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                 <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Admin Email</label>
-                    <input type="email" className="w-full p-2 border rounded" value={adminCreds.email} onChange={e => { setAdminCreds({...adminCreds, email: e.target.value}); setLocalSettings({...localSettings, adminEmail: e.target.value}); }} />
-                 </div>
-                 <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Admin Password</label>
-                    <input type="text" className="w-full p-2 border rounded" value={adminCreds.password} onChange={e => setAdminCreds({...adminCreds, password: e.target.value})} />
-                 </div>
-               </div>
-            </div>
-
-            <div className="border-b pb-6">
-               <h2 className="font-bold text-lg mb-4 text-brand">Integrations</h2>
-               <div className="mt-4">
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Link Shortener API URL (Reel2Earn)</label>
-                  <input type="text" className="w-full p-2 border rounded" value={localSettings.linkShortenerApiUrl || ''} onChange={e => setLocalSettings({...localSettings, linkShortenerApiUrl: e.target.value})} />
-               </div>
-
-               <div className="mt-4">
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Link Shortener API Key</label>
-                  <input type="text" className="w-full p-2 border rounded" value={localSettings.linkShortenerApiKey || ''} onChange={e => setLocalSettings({...localSettings, linkShortenerApiKey: e.target.value})} />
-               </div>
-
-               <div className="mt-4">
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Ads Code (HTML/Script)</label>
-                  <textarea className="w-full p-2 border rounded h-24 font-mono text-xs" value={localSettings.adsCode || ''} onChange={e => setLocalSettings({...localSettings, adsCode: e.target.value})} placeholder="<script>...</script>" />
-               </div>
-            </div>
-
-            <button onClick={handleSaveSettings} className="w-full bg-brand text-white py-4 rounded-xl font-bold shadow-lg hover:bg-brand-dark transition-colors">Save All Changes</button>
+          <div className="bg-white p-8 rounded-3xl shadow-card border border-gray-100 space-y-8">
+            <div className="border-b border-gray-100 pb-8"><h2 className="font-display font-bold text-xl mb-6 text-brand">Branding</h2><div className="space-y-4"><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Website Name</label><input type="text" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl" value={localSettings.appName} onChange={e => setLocalSettings({...localSettings, appName: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">UI Color Theme</label><div className="flex gap-4 items-center"><input type="color" className="h-12 w-24 p-1 border rounded-xl cursor-pointer" value={localSettings.uiColor || '#4F46E5'} onChange={e => setLocalSettings({...localSettings, uiColor: e.target.value})} /><div className="text-sm text-gray-500">Select your brand's primary color</div></div></div></div></div>
+            <div className="border-b border-gray-100 pb-8"><h2 className="font-display font-bold text-xl mb-6 text-brand">App Banners</h2><div className="mb-6"><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Upload New Banner</label><div className="flex gap-3"><input type="file" accept="image/*" className="flex-1 p-2 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-500" onChange={handleBannerUpload} /><button onClick={() => { if(newBannerImage) { addBanner({ id: Date.now().toString(), image: newBannerImage, link: '#' }); setNewBannerImage(''); alert('Banner added!'); } }} className="bg-gray-900 text-white px-6 py-2 rounded-xl text-xs font-bold disabled:opacity-50 hover:bg-black transition-colors" disabled={!newBannerImage}>Add</button></div></div><div className="grid grid-cols-2 gap-4">{banners.map(b => (<div key={b.id} className="relative group rounded-xl overflow-hidden shadow-sm"><img src={b.image} className="w-full h-24 object-cover" /><div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"><button onClick={() => deleteBanner(b.id)} className="bg-red-500 text-white p-2 rounded-full hover:bg-red-600"><Trash2 className="w-4 h-4" /></button></div></div>))}</div></div>
+            <div className="border-b border-gray-100 pb-8"><h2 className="font-display font-bold text-xl mb-6 text-brand">Admin Credentials</h2><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Admin Email</label><input type="email" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl" value={adminCreds.email} onChange={e => { setAdminCreds({...adminCreds, email: e.target.value}); setLocalSettings({...localSettings, adminEmail: e.target.value}); }} /></div><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Admin Password</label><input type="text" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl" value={adminCreds.password} onChange={e => setAdminCreds({...adminCreds, password: e.target.value})} /></div></div></div>
+            <div className="border-b border-gray-100 pb-8"><h2 className="font-display font-bold text-xl mb-6 text-brand">Integrations</h2><div className="space-y-6"><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Link Shortener API URL (Reel2Earn)</label><input type="text" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-mono" value={localSettings.linkShortenerApiUrl || ''} onChange={e => setLocalSettings({...localSettings, linkShortenerApiUrl: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Link Shortener API Key</label><input type="text" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-mono" value={localSettings.linkShortenerApiKey || ''} onChange={e => setLocalSettings({...localSettings, linkShortenerApiKey: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Ads Code (HTML/Script)</label><textarea className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl h-24 font-mono text-xs" value={localSettings.adsCode || ''} onChange={e => setLocalSettings({...localSettings, adsCode: e.target.value})} placeholder="<script>...</script>" /></div></div></div>
+            <button onClick={handleSaveSettings} className="w-full bg-brand text-white py-4 rounded-2xl font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition-all transform hover:scale-[1.01]">Save All Changes</button>
           </div>
         )}
       </div>
-
-      {/* Edit Course Modal */}
       {editingCourse && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-lg rounded-2xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <h3 className="text-xl font-bold mb-4">{courses.some(c => c.id === editingCourse.id) ? 'Edit Batch' : 'Create New Batch'}</h3>
-            
-            <div className="space-y-3">
-              <input type="text" placeholder="Title" className="w-full p-3 border rounded-lg" value={editingCourse.title} onChange={e => setEditingCourse({...editingCourse, title: e.target.value})} />
-              <textarea placeholder="Description" className="w-full p-3 border rounded-lg h-24" value={editingCourse.description} onChange={e => setEditingCourse({...editingCourse, description: e.target.value})} />
-              
-              <div className="grid grid-cols-2 gap-4">
-                 <div className="flex items-center gap-2 border p-3 rounded-lg cursor-pointer" onClick={() => setEditingCourse({...editingCourse, isPaid: !editingCourse.isPaid})}>
-                    <input type="checkbox" checked={editingCourse.isPaid || false} onChange={() => {}} className="w-5 h-5 text-brand" />
-                    <span className="font-bold">Is Locked?</span>
-                 </div>
-                 <input type="text" placeholder="Access Key (Required)" className="w-full p-3 border rounded-lg font-bold uppercase" value={editingCourse.accessKey || ''} onChange={e => setEditingCourse({...editingCourse, accessKey: e.target.value.toUpperCase()})} />
-              </div>
-
-              {/* Shortener Link Section */}
-              <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg">
-                 <label className="block text-xs font-bold text-blue-700 uppercase mb-1">Shortener Link (For 24h Access)</label>
-                 <input 
-                   type="text" 
-                   placeholder="e.g. https://gplinks.co/..." 
-                   className="w-full p-2 border rounded text-sm mb-2" 
-                   value={editingCourse.shortenerLink || ''} 
-                   onChange={e => setEditingCourse({...editingCourse, shortenerLink: e.target.value})} 
-                 />
-                 <p className="text-[10px] text-gray-500">
-                    <strong>Instructions:</strong> Create a link in your shortener that redirects to: <br/>
-                    <code className="bg-gray-200 px-1 rounded select-all">{window.location.origin}/#/verify/{editingCourse.id || 'COURSE_ID'}</code>
-                 </p>
-              </div>
-
-              {/* Image Upload for Course */}
-              <div>
-                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Thumbnail Image</label>
-                 <div className="flex items-center gap-2 mb-2">
-                    <img src={editingCourse.image || 'https://via.placeholder.com/100'} className="w-16 h-16 rounded object-cover border" />
-                    <input type="file" accept="image/*" onChange={handleCourseImageUpload} className="text-sm text-gray-500" />
-                 </div>
-                 <input type="text" placeholder="Or enter Image URL" className="w-full p-3 border rounded-lg text-sm" value={editingCourse.image} onChange={e => setEditingCourse({...editingCourse, image: e.target.value})} />
-              </div>
-              
-              <input type="text" placeholder="Category" className="w-full p-3 border rounded-lg" value={editingCourse.category} onChange={e => setEditingCourse({...editingCourse, category: e.target.value})} />
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in">
+          <div className="bg-white w-full max-w-lg rounded-3xl p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <h3 className="text-2xl font-display font-bold mb-6 text-gray-900">{courses.some(c => c.id === editingCourse.id) ? 'Edit Batch' : 'Create New Batch'}</h3>
+            <div className="space-y-4">
+              <input type="text" placeholder="Batch Title" className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl font-medium focus:ring-2 focus:ring-brand/50 outline-none" value={editingCourse.title} onChange={e => setEditingCourse({...editingCourse, title: e.target.value})} />
+              <textarea placeholder="Description" className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl h-32 focus:ring-2 focus:ring-brand/50 outline-none resize-none" value={editingCourse.description} onChange={e => setEditingCourse({...editingCourse, description: e.target.value})} />
+              <div className="grid grid-cols-2 gap-4"><div className="flex items-center gap-3 border border-gray-200 p-4 rounded-2xl cursor-pointer hover:bg-gray-50" onClick={() => setEditingCourse({...editingCourse, isPaid: !editingCourse.isPaid})}><input type="checkbox" checked={editingCourse.isPaid || false} onChange={() => {}} className="w-5 h-5 text-brand rounded focus:ring-brand" /><span className="font-bold text-sm text-gray-700">Is Locked?</span></div><input type="text" placeholder="ACCESS KEY" className="w-full p-4 border border-gray-200 rounded-2xl font-bold uppercase text-center tracking-widest" value={editingCourse.accessKey || ''} onChange={e => setEditingCourse({...editingCourse, accessKey: e.target.value.toUpperCase()})} /></div>
+              <div className="p-5 bg-indigo-50 border border-indigo-100 rounded-2xl"><label className="block text-xs font-bold text-indigo-800 uppercase tracking-wider mb-2">Verification Link (24h Access)</label><div className="flex gap-2 mb-2"><input type="text" placeholder="Short link will appear here..." className="flex-1 p-3 bg-white border border-indigo-200 rounded-xl text-sm" value={editingCourse.shortenerLink || ''} onChange={e => setEditingCourse({...editingCourse, shortenerLink: e.target.value})} /><button onClick={handleAutoShortenLink} disabled={isShortening} className="px-4 bg-indigo-600 text-white rounded-xl font-bold text-xs flex items-center gap-1 hover:bg-indigo-700 disabled:opacity-50 transition-colors" title="Auto-create link using Reel2Earn API">{isShortening ? <Loader2 className="w-4 h-4 animate-spin"/> : <Wand2 className="w-4 h-4" />} Auto</button></div><p className="text-[10px] text-indigo-400">Use 'Auto' to generate a short link using your API Key, or paste manually.</p></div>
+              <div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Thumbnail</label><div className="flex items-center gap-3 mb-3"><img src={editingCourse.image || 'https://via.placeholder.com/100'} className="w-20 h-20 rounded-2xl object-cover border border-gray-200" /><label className="flex-1 cursor-pointer bg-gray-50 hover:bg-gray-100 border border-gray-200 border-dashed rounded-2xl h-20 flex flex-col items-center justify-center text-gray-500 transition-colors"><Upload className="w-5 h-5 mb-1"/><span className="text-xs font-bold">Upload Image</span><input type="file" accept="image/*" onChange={handleCourseImageUpload} className="hidden" /></label></div><input type="text" placeholder="Or enter Image URL" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs" value={editingCourse.image} onChange={e => setEditingCourse({...editingCourse, image: e.target.value})} /></div>
+              <input type="text" placeholder="Category (e.g. Science, Maths)" className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl font-medium" value={editingCourse.category} onChange={e => setEditingCourse({...editingCourse, category: e.target.value})} />
             </div>
-
-            <div className="flex gap-3 mt-6">
-              <button onClick={() => setEditingCourse(null)} className="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-100 rounded-lg">Cancel</button>
-              <button onClick={handleSaveCourse} className="flex-1 py-3 bg-brand text-white font-bold rounded-lg shadow-lg">Save Changes</button>
-            </div>
+            <div className="flex gap-4 mt-8"><button onClick={() => setEditingCourse(null)} className="flex-1 py-4 text-gray-500 font-bold hover:bg-gray-50 rounded-2xl transition-colors">Cancel</button><button onClick={handleSaveCourse} className="flex-1 py-4 bg-brand text-white font-bold rounded-2xl shadow-lg shadow-brand/30 hover:bg-brand-dark transition-all">Save Changes</button></div>
           </div>
         </div>
       )}
-
-      {/* Exam Manager Modal */}
-      {managingExamsCourse && (
-         <ExamManager 
-            course={managingExamsCourse} 
-            onClose={() => setManagingExamsCourse(null)} 
-         />
-      )}
-
-      {/* Content Manager Modal */}
-      {managingContentCourse && (
-         <ContentManager
-            course={managingContentCourse}
-            onClose={() => setManagingContentCourse(null)}
-         />
-      )}
+      {managingExamsCourse && (<ExamManager course={managingExamsCourse} onClose={() => setManagingExamsCourse(null)} />)}
+      {managingContentCourse && (<ContentManager course={managingContentCourse} onClose={() => setManagingContentCourse(null)} />)}
     </div>
   );
 };
 
-// ... Profile (same) ...
+const MyCourses = () => {
+    const { courses, currentUser } = useStore();
+    if(!currentUser) return <Navigate to="/login" />;
+    const myCourses = courses.filter(c => currentUser.purchasedCourseIds.includes(c.id));
+    const tempAccessCourses = courses.filter(c => {
+         const expiry = currentUser.tempAccess?.[c.id];
+         return expiry && new Date(expiry) > new Date();
+    });
+    const allCourses = Array.from(new Set([...myCourses, ...tempAccessCourses]));
+    return (
+        <div className="min-h-screen bg-gray-50 p-6 pt-24 pb-24">
+            <h2 className="text-2xl font-display font-bold text-gray-900 mb-6">My Batches</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {allCourses.length === 0 ? (
+                    <div className="col-span-2 text-center py-20 text-gray-400">No courses yet.</div>
+                ) : allCourses.map(course => (
+                    <Link to={`/course/${course.id}`} key={course.id} className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 flex gap-4 hover:shadow-md transition-all">
+                        <img src={course.image} className="w-24 h-24 rounded-2xl object-cover bg-gray-100" />
+                        <div className="flex-1">
+                            <h3 className="font-bold text-gray-900 mb-1">{course.title}</h3>
+                            <div className="w-full bg-gray-100 h-2 rounded-full mt-2 overflow-hidden"><div className="bg-brand h-full w-0" /></div>
+                            <span className="text-[10px] text-gray-400 font-bold uppercase mt-1 block">Start Learning</span>
+                        </div>
+                    </Link>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+const Watch = () => {
+    const { courseId } = useParams();
+    const { courses } = useStore();
+    const [currentVideoUrl, setCurrentVideoUrl] = useState<string>('');
+    const course = courses.find(c => c.id === courseId);
+    
+    useEffect(() => {
+        if(course?.chapters[0]?.videos[0]) setCurrentVideoUrl(course.chapters[0].videos[0].filename);
+    }, [course]);
+
+    if (!course) return <Navigate to="/" />;
+
+    return (
+        <div className="min-h-screen bg-black text-white flex flex-col md:flex-row">
+            <div className="flex-1 flex flex-col">
+                <div className="w-full aspect-video bg-black">
+                     {currentVideoUrl ? <VideoPlayer src={currentVideoUrl} /> : <div className="h-full flex items-center justify-center">Select a video</div>}
+                </div>
+                <div className="p-4"><h1 className="text-xl font-bold">{course.title}</h1></div>
+            </div>
+            <div className="w-full md:w-80 bg-gray-900 overflow-y-auto h-[50vh] md:h-screen">
+                <div className="p-4 font-bold border-b border-gray-800">Course Content</div>
+                {course.chapters.map(chap => (
+                    <div key={chap.id}>
+                        <div className="bg-gray-800 px-4 py-2 text-sm font-bold text-gray-400">{chap.title}</div>
+                        {chap.videos.map(v => (
+                            <button key={v.id} onClick={() => setCurrentVideoUrl(v.filename)} className={`w-full text-left px-4 py-3 hover:bg-gray-800 flex gap-3 items-center ${currentVideoUrl === v.filename ? 'bg-gray-800 text-brand' : ''}`}>
+                                <PlayCircle className="w-4 h-4" />
+                                <span className="text-sm line-clamp-1">{v.title}</span>
+                            </button>
+                        ))}
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+const CourseDetail = () => {
+    const { id } = useParams();
+    const { courses, currentUser, enrollCourse } = useStore();
+    const navigate = useNavigate();
+    const course = courses.find(c => c.id === id);
+    
+    if (!course) return <Navigate to="/" />;
+    
+    const hasAccess = currentUser?.purchasedCourseIds.includes(course.id) || 
+                      (currentUser?.tempAccess?.[course.id] && new Date(currentUser.tempAccess[course.id]) > new Date());
+    
+    return (
+        <div className="min-h-screen bg-gray-50 pb-24">
+            <div className="relative h-64 md:h-80">
+                <img src={course.image} className="w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-gradient-to-t from-gray-900 to-transparent"></div>
+                <div className="absolute bottom-0 left-0 p-6 text-white">
+                    <span className="bg-brand text-xs font-bold px-2 py-1 rounded mb-2 inline-block">{course.category}</span>
+                    <h1 className="text-3xl font-bold mb-2">{course.title}</h1>
+                    <p className="opacity-90 max-w-xl text-sm">{course.description}</p>
+                </div>
+            </div>
+            <div className="p-4 max-w-4xl mx-auto -mt-8 relative z-10">
+                <div className="bg-white rounded-3xl shadow-lg p-6 mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
+                     <div>
+                         <p className="text-sm text-gray-500">Total Price</p>
+                         <div className="text-2xl font-bold text-gray-900">{course.price === 0 ? 'FREE' : `₹${course.price}`} <span className="text-sm text-gray-400 line-through font-normal">₹{course.mrp}</span></div>
+                     </div>
+                     {!hasAccess ? (
+                        <button onClick={() => { if(course.isPaid) alert("Please contact admin for access key."); else enrollCourse(course.id); }} className="bg-brand text-white px-8 py-3 rounded-xl font-bold hover:bg-brand-dark shadow-lg shadow-brand/30 w-full md:w-auto">
+                            {course.isPaid ? 'Unlock Now' : 'Join for Free'}
+                        </button>
+                     ) : (
+                        <button className="bg-green-600 text-white px-8 py-3 rounded-xl font-bold cursor-default shadow-lg shadow-green-600/30 w-full md:w-auto flex items-center justify-center gap-2">
+                            <CheckCircle className="w-5 h-5" /> Enrolled
+                        </button>
+                     )}
+                </div>
+                
+                {hasAccess && (
+                    <div className="grid grid-cols-2 gap-4 mb-6">
+                         <Link to={`/watch/${course.id}`} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-center flex-col gap-2 hover:border-brand transition-colors">
+                            <PlayCircle className="w-8 h-8 text-brand" />
+                            <span className="font-bold text-gray-800">Start Watching</span>
+                         </Link>
+                         <Link to={`/exam/${course.id}`} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-center flex-col gap-2 hover:border-brand transition-colors">
+                            <ClipboardList className="w-8 h-8 text-purple-600" />
+                            <span className="font-bold text-gray-800">Take Exam</span>
+                         </Link>
+                    </div>
+                )}
+
+                <div className="space-y-4">
+                    <h3 className="font-bold text-lg text-gray-900">Course Content</h3>
+                    {course.chapters.map((chap, i) => (
+                        <div key={i} className="bg-white border border-gray-100 rounded-2xl overflow-hidden">
+                             <div className="p-4 bg-gray-50 font-bold text-gray-800 flex justify-between items-center">
+                                 <span>{chap.title}</span>
+                                 <span className="text-xs text-gray-500">{chap.videos.length} Videos</span>
+                             </div>
+                             {hasAccess ? (
+                                <div className="divide-y divide-gray-100">
+                                    {chap.videos.map((vid, j) => (
+                                        <div key={j} className="p-4 flex gap-3 items-center hover:bg-gray-50 transition-colors">
+                                            <PlayCircle className="w-5 h-5 text-gray-400" />
+                                            <div className="flex-1">
+                                                <p className="text-sm font-bold text-gray-800">{vid.title}</p>
+                                                <p className="text-xs text-gray-400">{vid.duration}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                             ) : (
+                                <div className="p-6 text-center text-gray-400 text-sm flex flex-col items-center">
+                                    <Lock className="w-6 h-6 mb-2 opacity-50" />
+                                    <span>Content Locked</span>
+                                </div>
+                             )}
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const Profile = () => {
    const { currentUser, updateUser, logout } = useStore();
    const [isEditing, setIsEditing] = useState(false);
@@ -1898,51 +1059,55 @@ const Profile = () => {
    };
 
    return (
-      <div className="pb-24 pt-16 p-4 bg-gray-50 min-h-screen">
-         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6">
-            <div className="h-24 bg-brand relative">
-               <div className="absolute -bottom-10 left-6 w-20 h-20 rounded-full bg-white p-1 shadow-md">
-                  <div className="w-full h-full rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-2xl font-bold">
-                     {currentUser.name.charAt(0).toUpperCase()}
-                  </div>
-               </div>
-            </div>
-            <div className="pt-12 pb-6 px-6">
-               <div className="flex justify-between items-start">
-                  <div>
-                     <h2 className="text-xl font-bold">{currentUser.name}</h2>
-                     <p className="text-gray-500 text-sm">{currentUser.email}</p>
-                  </div>
-                  <button onClick={() => isEditing ? handleSave() : setIsEditing(true)} className="text-brand font-bold text-sm">
-                     {isEditing ? 'Save' : 'Edit'}
-                  </button>
-               </div>
+      <div className="pb-24 pt-20 p-6 bg-gray-50 min-h-screen">
+         <div className="bg-white rounded-3xl shadow-card border border-gray-100 overflow-hidden mb-6 relative">
+            <div className="h-32 bg-gradient-to-r from-brand to-indigo-600"></div>
+            <div className="px-8 pb-8">
+                <div className="flex justify-between items-end -mt-12 mb-4">
+                    <div className="w-24 h-24 rounded-full bg-white p-1.5 shadow-lg">
+                        <div className="w-full h-full rounded-full bg-gray-100 flex items-center justify-center text-brand text-3xl font-display font-bold">
+                            {currentUser.name.charAt(0).toUpperCase()}
+                        </div>
+                    </div>
+                    <button onClick={() => isEditing ? handleSave() : setIsEditing(true)} className="text-brand font-bold text-sm bg-brand-light px-4 py-2 rounded-xl hover:bg-brand/10 transition-colors">
+                        {isEditing ? 'Save Details' : 'Edit Profile'}
+                    </button>
+                </div>
                
-               {isEditing && (
-                  <div className="mt-4 space-y-3">
-                     <input className="w-full p-2 border rounded" value={data.name} onChange={e => setData({...data, name: e.target.value})} placeholder="Name" />
-                     <input className="w-full p-2 border rounded" value={data.phone} onChange={e => setData({...data, phone: e.target.value})} placeholder="Phone" />
+               {!isEditing ? (
+                   <div>
+                        <h2 className="text-2xl font-display font-bold text-gray-900">{currentUser.name}</h2>
+                        <p className="text-gray-500 font-medium">{currentUser.email}</p>
+                        <p className="text-gray-400 text-sm mt-1">{currentUser.phone}</p>
+                   </div>
+               ) : (
+                  <div className="space-y-4 mt-2">
+                     <input className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl" value={data.name} onChange={e => setData({...data, name: e.target.value})} placeholder="Name" />
+                     <input className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl" value={data.phone} onChange={e => setData({...data, phone: e.target.value})} placeholder="Phone" />
                   </div>
                )}
             </div>
          </div>
          
-         <h3 className="font-bold text-lg mb-3">Exam Results</h3>
-         <div className="space-y-3">
+         <h3 className="font-display font-bold text-xl mb-4 text-gray-900">Exam Results</h3>
+         <div className="space-y-4">
             {currentUser.examResults && currentUser.examResults.length > 0 ? currentUser.examResults.map((res, i) => (
-               <div key={i} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
+               <div key={i} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex justify-between items-center">
                   <div>
-                     <p className="font-bold text-gray-800">Exam Score</p>
-                     <p className="text-xs text-gray-500">{new Date(res.date).toLocaleDateString()}</p>
+                     <p className="font-bold text-gray-900">Exam Score</p>
+                     <p className="text-xs text-gray-500 font-medium">{new Date(res.date).toLocaleDateString()}</p>
                   </div>
-                  <div className="text-xl font-bold text-brand">{res.score}/{res.totalQuestions}</div>
+                  <div className="text-2xl font-display font-bold text-brand">{res.score}<span className="text-gray-400 text-base">/{res.totalQuestions}</span></div>
                </div>
             )) : (
-               <div className="text-center py-6 text-gray-400 bg-white rounded-xl border border-dashed">No exams taken yet</div>
+               <div className="text-center py-10 text-gray-400 bg-white rounded-3xl border border-dashed border-gray-200">
+                   <ClipboardList className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                   <p>No exams taken yet</p>
+               </div>
             )}
          </div>
 
-         <button onClick={logout} className="w-full mt-8 py-3 text-red-600 font-bold bg-white border border-red-100 rounded-xl hover:bg-red-50">
+         <button onClick={logout} className="w-full mt-8 py-4 text-red-600 font-bold bg-white border-2 border-red-50 rounded-2xl hover:bg-red-50 transition-colors shadow-sm">
             Log Out
          </button>
       </div>

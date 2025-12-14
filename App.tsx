@@ -16,6 +16,33 @@ import { GoogleGenAI } from "@google/genai";
 
 declare var process: { env: { API_KEY: string } };
 
+// --- Helper Functions ---
+const convertToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = error => reject(error);
+  });
+};
+
+const parseDuration = (duration: string) => {
+  const match = duration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
+  if (!match) return '00:00';
+  const hours = (parseInt(match[1] || '0'));
+  const minutes = (parseInt(match[2] || '0'));
+  const seconds = (parseInt(match[3] || '0'));
+  
+  let str = '';
+  if (hours > 0) {
+    str += hours + ':' + minutes.toString().padStart(2, '0') + ':';
+  } else {
+    str += minutes + ':';
+  }
+  str += seconds.toString().padStart(2, '0');
+  return str;
+};
+
 // --- Theme Handler ---
 const ThemeHandler = () => {
   const { settings } = useStore();
@@ -52,16 +79,6 @@ const ThemeHandler = () => {
   return null;
 };
 
-// --- Helper Functions ---
-const convertToBase64 = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = error => reject(error);
-  });
-};
-
 // --- Components ---
 
 const Logo = ({ dark = false }: { dark?: boolean }) => {
@@ -86,6 +103,9 @@ const AdContainer = () => {
     </div>
   );
 };
+
+// ... (Existing components like CountdownTimer, Header, BottomNav, Login, HomePage, CourseListing, RevealKey, VerifyAccess remain unchanged) ...
+// Since I can't elide, I must include them.
 
 const CountdownTimer = ({ expiryDate }: { expiryDate: string }) => {
   const [timeLeft, setTimeLeft] = useState<{h: number, m: number, s: number} | null>(null);
@@ -228,8 +248,6 @@ const BottomNav = () => {
     </div>
   );
 };
-
-// --- Pages ---
 
 const Login = () => {
   const [isSignup, setIsSignup] = useState(false);
@@ -451,6 +469,8 @@ const HomePage = () => {
     </div>
   );
 };
+
+// ... CourseListing, RevealKey, VerifyAccess, ExamManager are here ...
 
 const CourseListing = () => {
   const { courses } = useStore();
@@ -675,10 +695,11 @@ const ExamManager = ({ course, onClose }: { course: Course; onClose: () => void 
 };
 
 const ContentManager = ({ course, onClose }: { course: Course; onClose: () => void }) => {
-    const { updateCourse } = useStore();
+    const { updateCourse, settings } = useStore();
     const [chapters, setChapters] = useState<Chapter[]>(course.chapters || []);
     const [showImport, setShowImport] = useState(false);
     const [jsonInput, setJsonInput] = useState('');
+    const [loadingDetails, setLoadingDetails] = useState<string | null>(null);
     
     const handleSave = () => {
         updateCourse({ ...course, chapters });
@@ -718,6 +739,55 @@ const ContentManager = ({ course, onClose }: { course: Course; onClose: () => vo
             }));
             
             alert("File selected! Note: This creates a local preview link only reachable on this device. For permanent access, please upload to a cloud service and use the public URL.");
+        }
+    };
+
+    const handleAutoFill = async (cIdx: number, vIdx: number) => {
+        const video = chapters[cIdx].videos[vIdx];
+        if (!video.filename) return;
+
+        // Simple YouTube ID extraction
+        let videoId = '';
+        if (video.filename.includes('youtube.com/watch?v=')) {
+            videoId = video.filename.split('v=')[1]?.split('&')[0];
+        } else if (video.filename.includes('youtu.be/')) {
+            videoId = video.filename.split('youtu.be/')[1];
+        }
+
+        if (!videoId) {
+            alert("Could not extract YouTube ID. Ensure URL is standard format.");
+            return;
+        }
+
+        if (!settings.videoApiKey) {
+            alert("Please set Video API Key in Settings first.");
+            return;
+        }
+
+        setLoadingDetails(`${cIdx}-${vIdx}`);
+        
+        try {
+            const response = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id=${videoId}&key=${settings.videoApiKey}`);
+            const data = await response.json();
+
+            if (data.items && data.items.length > 0) {
+                const info = data.items[0];
+                const title = info.snippet.title;
+                const duration = parseDuration(info.contentDetails.duration);
+
+                setChapters(prev => {
+                    const newCh = [...prev];
+                    newCh[cIdx].videos[vIdx] = { ...newCh[cIdx].videos[vIdx], title, duration };
+                    return newCh;
+                });
+            } else {
+                throw new Error("Video not found or API Error");
+            }
+        } catch (e: any) {
+            console.error(e);
+            alert("Failed to fetch details. Check API Key and internet connection.");
+        } finally {
+            setLoadingDetails(null);
         }
     };
 
@@ -833,6 +903,18 @@ const ContentManager = ({ course, onClose }: { course: Course; onClose: () => vo
                                                 value={video.filename} 
                                                 onChange={e => updateVideo(cIdx, vIdx, 'filename', e.target.value)} 
                                             />
+                                            
+                                            {/* API Auto Fill Button */}
+                                            <button 
+                                                onClick={() => handleAutoFill(cIdx, vIdx)}
+                                                disabled={loadingDetails === `${cIdx}-${vIdx}`}
+                                                className="px-3 py-2.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-xl text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-1"
+                                                title="Auto-fill Title & Duration from YouTube"
+                                            >
+                                                {loadingDetails === `${cIdx}-${vIdx}` ? <Loader2 className="w-3 h-3 animate-spin"/> : <Wand2 className="w-3 h-3" />} 
+                                                Auto
+                                            </button>
+
                                             <div className="relative">
                                                 <input 
                                                     type="file" 
@@ -1003,7 +1085,7 @@ const AdminPanel = () => {
             <div className="border-b border-gray-100 pb-8"><h2 className="font-display font-bold text-xl mb-6 text-brand">Branding</h2><div className="space-y-4"><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Website Name</label><input type="text" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900" value={localSettings.appName} onChange={e => setLocalSettings({...localSettings, appName: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">UI Color Theme</label><div className="flex gap-4 items-center"><input type="color" className="h-12 w-24 p-1 border rounded-xl cursor-pointer" value={localSettings.uiColor || '#4F46E5'} onChange={e => setLocalSettings({...localSettings, uiColor: e.target.value})} /><div className="text-sm text-gray-500">Select your brand's primary color</div></div></div></div></div>
             <div className="border-b border-gray-100 pb-8"><h2 className="font-display font-bold text-xl mb-6 text-brand">App Banners</h2><div className="mb-6"><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Upload New Banner</label><div className="flex gap-3"><input type="file" accept="image/*" className="flex-1 p-2 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-500" onChange={handleBannerUpload} /><button onClick={() => { if(newBannerImage) { addBanner({ id: Date.now().toString(), image: newBannerImage, link: '#' }); setNewBannerImage(''); alert('Banner added!'); } }} className="bg-gray-900 text-white px-6 py-2 rounded-xl text-xs font-bold disabled:opacity-50 hover:bg-black transition-colors" disabled={!newBannerImage}>Add</button></div></div><div className="grid grid-cols-2 gap-4">{banners.map(b => (<div key={b.id} className="relative group rounded-xl overflow-hidden shadow-sm"><img src={b.image} className="w-full h-24 object-cover" /><div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"><button onClick={() => deleteBanner(b.id)} className="bg-red-500 text-white p-2 rounded-full hover:bg-red-600"><Trash2 className="w-4 h-4" /></button></div></div>))}</div></div>
             <div className="border-b border-gray-100 pb-8"><h2 className="font-display font-bold text-xl mb-6 text-brand">Admin Credentials</h2><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Admin Email</label><input type="email" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900" value={adminCreds.email} onChange={e => { setAdminCreds({...adminCreds, email: e.target.value}); setLocalSettings({...localSettings, adminEmail: e.target.value}); }} /></div><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Admin Password</label><input type="text" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900" value={adminCreds.password} onChange={e => setAdminCreds({...adminCreds, password: e.target.value})} /></div></div></div>
-            <div className="border-b border-gray-100 pb-8"><h2 className="font-display font-bold text-xl mb-6 text-brand">Integrations</h2><div className="space-y-6"><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Link Shortener API URL (Reel2Earn)</label><input type="text" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-mono text-gray-900" value={localSettings.linkShortenerApiUrl || ''} onChange={e => setLocalSettings({...localSettings, linkShortenerApiUrl: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Link Shortener API Key</label><input type="text" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-mono text-gray-900" value={localSettings.linkShortenerApiKey || ''} onChange={e => setLocalSettings({...localSettings, linkShortenerApiKey: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Ads Code (HTML/Script)</label><textarea className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl h-24 font-mono text-xs text-gray-900" value={localSettings.adsCode || ''} onChange={e => setLocalSettings({...localSettings, adsCode: e.target.value})} placeholder="<script>...</script>" /></div></div></div>
+            <div className="border-b border-gray-100 pb-8"><h2 className="font-display font-bold text-xl mb-6 text-brand">Integrations</h2><div className="space-y-6"><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Link Shortener API URL (Reel2Earn)</label><input type="text" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-mono text-gray-900" value={localSettings.linkShortenerApiUrl || ''} onChange={e => setLocalSettings({...localSettings, linkShortenerApiUrl: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Link Shortener API Key</label><input type="text" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-mono text-gray-900" value={localSettings.linkShortenerApiKey || ''} onChange={e => setLocalSettings({...localSettings, linkShortenerApiKey: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Video API Key (Youtube/Metadata)</label><input type="text" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-mono text-gray-900" value={localSettings.videoApiKey || ''} onChange={e => setLocalSettings({...localSettings, videoApiKey: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Ads Code (HTML/Script)</label><textarea className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl h-24 font-mono text-xs text-gray-900" value={localSettings.adsCode || ''} onChange={e => setLocalSettings({...localSettings, adsCode: e.target.value})} placeholder="<script>...</script>" /></div></div></div>
             <button onClick={handleSaveSettings} className="w-full bg-brand text-white py-4 rounded-2xl font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition-all transform hover:scale-[1.01]">Save All Changes</button>
           </div>
         )}
@@ -1258,6 +1340,8 @@ const Watch = () => {
         </div>
     );
 };
+
+// ... CourseDetail, Profile remain unchanged in structure ...
 
 const CourseDetail = () => {
     const { id } = useParams();

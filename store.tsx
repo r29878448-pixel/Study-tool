@@ -103,7 +103,8 @@ const INITIAL_SETTINGS: AppSettings = {
   linkShortenerApiUrl: 'https://reel2earn.com/api',
   linkShortenerApiKey: '886b2438df276766a961e805be231bcf791b9433',
   telegramBotToken: '',
-  adsCode: ''
+  adsCode: '',
+  videoApiKey: '4OUPlckDLJWkKNScjReuPV4kklAhSzSCaxWCtFtJWzQ'
 };
 
 export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {

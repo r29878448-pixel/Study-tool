@@ -127,4 +127,5 @@ export interface AppSettings {
   linkShortenerApiKey?: string;
   telegramBotToken?: string;
   adsCode?: string; // HTML/JS code for ads
+  videoApiKey?: string; // Key for Video Metadata API (e.g., YouTube)
 }

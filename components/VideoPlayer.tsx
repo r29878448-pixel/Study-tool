@@ -1,7 +1,7 @@
 
 import React, { useRef, useState, useEffect } from 'react';
 import { 
-  Play, Pause, Volume2, VolumeX, Maximize, Minimize, Settings, Download, Lock 
+  Play, Pause, Volume2, VolumeX, Maximize, Minimize, Settings, Download, Lock, Loader2
 } from './Icons';
 
 interface VideoPlayerProps {
@@ -24,6 +24,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const [showControls, setShowControls] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isYoutube = src.includes('youtube.com') || src.includes('youtu.be') || src.includes('youtube-nocookie.com');
@@ -34,6 +35,41 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
        videoRef.current.currentTime = initialTime;
     }
   }, [initialTime]);
+
+  // Keyboard Shortcuts & Events
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only react if the container is focused or body is focused (not typing in an input)
+      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
+      if (!containerRef.current?.contains(document.activeElement) && document.activeElement !== document.body) return;
+
+      switch(e.key) {
+        case ' ':
+        case 'k':
+          e.preventDefault();
+          togglePlay();
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          if (videoRef.current) {
+            videoRef.current.currentTime += 5;
+          }
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          if (videoRef.current) {
+            videoRef.current.currentTime -= 5;
+          }
+          break;
+        case 'f':
+          toggleFullscreen();
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isPlaying]); // Re-bind if needed, or better, use ref for isPlaying if complicated
 
   useEffect(() => {
     const handleContextMenu = (e: MouseEvent) => e.preventDefault();
@@ -58,12 +94,13 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
 
   const togglePlay = () => {
     if (isLocked || !videoRef.current || isYoutube) return;
-    if (isPlaying) {
-      videoRef.current.pause();
+    if (videoRef.current.paused) {
+      videoRef.current.play().catch(e => console.error("Play error", e));
+      setIsPlaying(true);
     } else {
-      videoRef.current.play();
+      videoRef.current.pause();
+      setIsPlaying(false);
     }
-    setIsPlaying(!isPlaying);
   };
 
   const handleTimeUpdate = () => {
@@ -157,9 +194,11 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
   return (
     <div 
       ref={containerRef}
-      className="relative group w-full bg-black rounded-lg overflow-hidden shadow-lg aspect-video select-none"
+      tabIndex={0}
+      className="relative group w-full bg-black rounded-lg overflow-hidden shadow-lg aspect-video select-none outline-none"
       onMouseMove={handleMouseMove}
       onMouseLeave={() => isPlaying && setShowControls(false)}
+      onDoubleClick={toggleFullscreen}
     >
       <video
         ref={videoRef}
@@ -170,12 +209,21 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
         onLoadedMetadata={handleLoadedMetadata}
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
+        onWaiting={() => setIsLoading(true)}
+        onCanPlay={() => setIsLoading(false)}
         onClick={togglePlay}
         controlsList="nodownload" // Built-in download disabled, using custom
       />
       
-      {/* Center Play Button Overlay */}
-      {!isPlaying && (
+      {/* Loading Spinner */}
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/20 z-20 pointer-events-none">
+           <Loader2 className="w-12 h-12 text-white animate-spin opacity-80" />
+        </div>
+      )}
+
+      {/* Center Play Button Overlay (Only show if NOT playing and NOT loading) */}
+      {!isPlaying && !isLoading && (
         <div 
           className="absolute inset-0 flex items-center justify-center bg-black/30 cursor-pointer z-10"
           onClick={togglePlay}

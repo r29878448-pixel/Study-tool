@@ -1288,7 +1288,27 @@ const CourseDetail = () => {
                          <div className="text-2xl font-bold text-gray-900">{course.price === 0 ? 'FREE' : `₹${course.price}`} <span className="text-sm text-gray-400 line-through font-normal">₹{course.mrp}</span></div>
                      </div>
                      {!hasAccess ? (
-                        <button onClick={() => { if(course.isPaid) alert("Please contact admin for access key."); else enrollCourse(course.id); }} className="bg-brand text-white px-8 py-3 rounded-xl font-bold hover:bg-brand-dark shadow-lg shadow-brand/30 w-full md:w-auto">
+                        <button 
+                            onClick={() => { 
+                                if (!currentUser) {
+                                    alert("Please login to enroll.");
+                                    navigate('/login');
+                                    return;
+                                }
+                                if(course.isPaid) {
+                                    const key = prompt("Enter Access Key:");
+                                    if(key === course.accessKey) {
+                                        enrollCourse(course.id);
+                                        alert("Success! Batch Unlocked.");
+                                    } else if (key !== null) {
+                                        alert("Invalid Access Key.");
+                                    }
+                                } else { 
+                                    enrollCourse(course.id); 
+                                } 
+                            }} 
+                            className="bg-brand text-white px-8 py-3 rounded-xl font-bold hover:bg-brand-dark shadow-lg shadow-brand/30 w-full md:w-auto"
+                        >
                             {course.isPaid ? 'Unlock Now' : 'Join for Free'}
                         </button>
                      ) : (
@@ -1322,13 +1342,17 @@ const CourseDetail = () => {
                              {hasAccess ? (
                                 <div className="divide-y divide-gray-100">
                                     {chap.videos.map((vid, j) => (
-                                        <div key={j} className="p-4 flex gap-3 items-center hover:bg-gray-50 transition-colors">
+                                        <Link 
+                                            to={`/watch/${course.id}`} 
+                                            key={j} 
+                                            className="p-4 flex gap-3 items-center hover:bg-gray-50 transition-colors cursor-pointer"
+                                        >
                                             <PlayCircle className="w-5 h-5 text-gray-400" />
                                             <div className="flex-1">
                                                 <p className="text-sm font-bold text-gray-800">{vid.title}</p>
                                                 <p className="text-xs text-gray-400">{vid.duration}</p>
                                             </div>
-                                        </div>
+                                        </Link>
                                     ))}
                                 </div>
                              ) : (

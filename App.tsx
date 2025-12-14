@@ -5,7 +5,7 @@ import {
   Home, BookOpen, User, HelpCircle, Menu, LogOut, 
   Search, PlayCircle, Lock, LayoutDashboard, Users, CreditCard, Settings, Plus, Trash2, Edit, Save, X, ChevronDown, ChevronUp,
   MessageCircle, CloudDownload, CheckCircle, Shield, Upload, FileText, Download, Youtube, Link as LinkIcon, Image as ImageIcon, Globe,
-  ClipboardList, Timer, Code, DollarSign, Clock, Eye, Smartphone, MoreVertical, Key, Copy, ExternalLink, Play, Bot, Brain, Wand2, Loader2, List
+  ClipboardList, Timer, Code, DollarSign, Clock, Eye, Smartphone, MoreVertical, Key, Copy, ExternalLink, Play, Bot, Brain, Wand2, Loader2, List, ArrowLeft
 } from './components/Icons';
 import VideoPlayer from './components/VideoPlayer';
 import ChatBot from './components/ChatBot';
@@ -349,12 +349,12 @@ const Login = () => {
             <>
               <input 
                 type="text" placeholder="Full Name" required 
-                className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-brand focus:bg-white transition-all text-gray-900 font-medium placeholder:text-gray-400"
+                className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-brand focus:bg-white transition-all text-gray-900 font-medium placeholder:text-gray-500"
                 value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})}
               />
               <input 
                 type="tel" placeholder="Phone Number" required 
-                className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-brand focus:bg-white transition-all text-gray-900 font-medium placeholder:text-gray-400"
+                className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-brand focus:bg-white transition-all text-gray-900 font-medium placeholder:text-gray-500"
                 value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})}
               />
             </>
@@ -362,12 +362,12 @@ const Login = () => {
           
           <input 
             type="text" placeholder="Email Address" required 
-            className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-brand focus:bg-white transition-all text-gray-900 font-medium placeholder:text-gray-400"
+            className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-brand focus:bg-white transition-all text-gray-900 font-medium placeholder:text-gray-500"
             value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})}
           />
           <input 
             type="password" placeholder="Password" required 
-            className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-brand focus:bg-white transition-all text-gray-900 font-medium placeholder:text-gray-400"
+            className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-brand focus:bg-white transition-all text-gray-900 font-medium placeholder:text-gray-500"
             value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})}
           />
           
@@ -419,7 +419,7 @@ const HomePage = () => {
             <input 
                 type="text" 
                 placeholder="What do you want to learn today?" 
-                className="w-full pl-12 pr-4 py-4 bg-white rounded-2xl shadow-sm border border-gray-100 focus:outline-none focus:ring-2 focus:ring-brand/50 transition-all text-gray-900 placeholder-gray-400 font-medium"
+                className="w-full pl-12 pr-4 py-4 bg-white rounded-2xl shadow-sm border border-gray-100 focus:outline-none focus:ring-2 focus:ring-brand/50 transition-all text-gray-900 placeholder:text-gray-500 font-medium"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -778,460 +778,9 @@ const ExamManager = ({ course, onClose }: { course: Course; onClose: () => void 
     );
 };
 
-const ContentManager = ({ course, onClose }: { course: Course; onClose: () => void }) => {
-    // ... (Existing ContentManager code unchanged)
-    const { updateCourse, settings } = useStore();
-    const [chapters, setChapters] = useState<Chapter[]>(course.chapters || []);
-    const [showImport, setShowImport] = useState(false);
-    const [jsonInput, setJsonInput] = useState('');
-    const [loadingDetails, setLoadingDetails] = useState<string | null>(null);
-    
-    const handleSave = () => {
-        updateCourse({ ...course, chapters });
-        onClose();
-    };
-
-    const addChapter = () => {
-        setChapters([...chapters, { id: Date.now().toString(), title: "New Subject", videos: [], notes: [] }]);
-    };
-
-    const updateChapterTitle = (idx: number, title: string) => {
-        const newChapters = [...chapters];
-        newChapters[idx].title = title;
-        setChapters(newChapters);
-    };
-
-    const addVideo = (chapterIdx: number) => {
-        const newChapters = [...chapters];
-        newChapters[chapterIdx].videos.push({ id: Date.now().toString(), title: "New Video", filename: "", duration: "00:00" });
-        setChapters(newChapters);
-    };
-
-    // Helper to simulate video import by getting file metadata and creating object URL
-    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, cIdx: number, vIdx: number) => {
-        if (e.target.files && e.target.files[0]) {
-            const file = e.target.files[0];
-            const videoUrl = URL.createObjectURL(file);
-            const videoTitle = file.name.replace(/\.[^/.]+$/, "");
-
-            setChapters(prev => prev.map((ch, i) => {
-                if (i !== cIdx) return ch;
-                const newVideos = ch.videos.map((v, j) => {
-                    if (j !== vIdx) return v;
-                    return { ...v, title: videoTitle, filename: videoUrl, duration: 'Unknown' };
-                });
-                return { ...ch, videos: newVideos };
-            }));
-            
-            alert("File selected! Note: This creates a local preview link only reachable on this device. For permanent access, please upload to a cloud service and use the public URL.");
-        }
-    };
-
-    const handleAutoFill = async (cIdx: number, vIdx: number) => {
-        const video = chapters[cIdx].videos[vIdx];
-        if (!video.filename) return;
-
-        // Simple YouTube ID extraction
-        let videoId = '';
-        if (video.filename.includes('youtube.com/watch?v=')) {
-            videoId = video.filename.split('v=')[1]?.split('&')[0];
-        } else if (video.filename.includes('youtu.be/')) {
-            videoId = video.filename.split('youtu.be/')[1];
-        }
-
-        if (!videoId) {
-            alert("Could not extract YouTube ID. Ensure URL is standard format.");
-            return;
-        }
-
-        if (!settings.videoApiKey) {
-            alert("Please set Video API Key in Settings first.");
-            return;
-        }
-
-        setLoadingDetails(`${cIdx}-${vIdx}`);
-        
-        try {
-            const response = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id=${videoId}&key=${settings.videoApiKey}`);
-            const data = await response.json();
-
-            if (data.items && data.items.length > 0) {
-                const info = data.items[0];
-                const title = info.snippet.title;
-                const duration = parseDuration(info.contentDetails.duration);
-
-                setChapters(prev => {
-                    const newCh = [...prev];
-                    newCh[cIdx].videos[vIdx] = { ...newCh[cIdx].videos[vIdx], title, duration };
-                    return newCh;
-                });
-            } else {
-                throw new Error("Video not found or API Error");
-            }
-        } catch (e: any) {
-            console.error(e);
-            alert("Failed to fetch details. Check API Key and internet connection.");
-        } finally {
-            setLoadingDetails(null);
-        }
-    };
-
-    const updateVideo = (cIdx: number, vIdx: number, field: string, val: string) => {
-        const newChapters = [...chapters];
-        newChapters[cIdx].videos[vIdx] = { ...newChapters[cIdx].videos[vIdx], [field]: val };
-        setChapters(newChapters);
-    };
-    
-    const deleteVideo = (cIdx: number, vIdx: number) => {
-        const newChapters = [...chapters];
-        newChapters[cIdx].videos.splice(vIdx, 1);
-        setChapters(newChapters);
-    };
-    
-    const deleteChapter = (idx: number) => {
-        const newChapters = [...chapters];
-        newChapters.splice(idx, 1);
-        setChapters(newChapters);
-    };
-
-    const handleBulkImport = () => {
-        try {
-            const parsed = JSON.parse(jsonInput);
-            if (Array.isArray(parsed)) {
-                // Validate minimal structure
-                const valid = parsed.every(c => c.title && Array.isArray(c.videos));
-                if (valid) {
-                    setChapters([...chapters, ...parsed]);
-                    setShowImport(false);
-                    setJsonInput('');
-                    alert("Import Successful!");
-                } else {
-                    alert("Invalid JSON format. Expected array of objects with 'title' and 'videos' array.");
-                }
-            }
-        } catch (e) {
-            alert("Invalid JSON syntax.");
-        }
-    };
-
-    return (
-        <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur flex items-center justify-center p-4 animate-fade-in">
-            <div className="bg-white w-full max-w-5xl h-[85vh] rounded-3xl p-6 flex flex-col shadow-2xl overflow-hidden">
-                <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-bold font-display text-gray-900">Manage Subjects: {course.title}</h2>
-                    <div className="flex gap-2">
-                        <button onClick={() => setShowImport(!showImport)} className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl font-bold text-sm hover:bg-indigo-100 transition-colors">
-                            {showImport ? 'Cancel Import' : 'Bulk Import JSON'}
-                        </button>
-                        <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full"><X className="w-6 h-6"/></button>
-                    </div>
-                </div>
-
-                {showImport && (
-                    <div className="mb-6 p-4 bg-gray-50 rounded-2xl border border-gray-200">
-                        <p className="text-xs text-gray-500 mb-2 font-bold uppercase">Paste JSON Array (Subjects & Videos)</p>
-                        <textarea 
-                            className="w-full h-32 p-3 text-xs font-mono bg-white border border-gray-200 rounded-xl mb-3 focus:outline-none focus:border-brand text-gray-900"
-                            placeholder='[{"title": "Physics", "videos": [{"title": "Intro", "filename": "https://..."}]}]'
-                            value={jsonInput}
-                            onChange={e => setJsonInput(e.target.value)}
-                        />
-                        <button onClick={handleBulkImport} className="bg-gray-900 text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-black">Import Data</button>
-                    </div>
-                )}
-
-                <div className="flex-1 overflow-y-auto space-y-6 pr-2">
-                    {chapters.length === 0 && !showImport && (
-                        <div className="text-center py-20 border-2 border-dashed border-gray-200 rounded-3xl">
-                            <p className="text-gray-400 font-bold">No subjects added yet.</p>
-                            <button onClick={addChapter} className="mt-4 text-brand font-bold hover:underline">Add First Subject</button>
-                        </div>
-                    )}
-
-                    {chapters.map((chapter, cIdx) => (
-                        <div key={chapter.id} className="bg-white border border-gray-100 rounded-3xl p-5 shadow-sm relative group">
-                            <div className="flex justify-between items-center mb-4 border-b border-gray-50 pb-3">
-                                <div className="flex items-center gap-3 flex-1">
-                                    <span className="bg-brand/10 text-brand text-xs font-bold px-2 py-1 rounded">Subject {cIdx + 1}</span>
-                                    <input 
-                                        className="bg-transparent text-lg font-bold text-gray-800 w-full focus:outline-none placeholder-gray-300" 
-                                        value={chapter.title} 
-                                        onChange={e => updateChapterTitle(cIdx, e.target.value)} 
-                                        placeholder="Subject Name (e.g. Mathematics)" 
-                                    />
-                                </div>
-                                <button onClick={() => deleteChapter(cIdx)} className="text-gray-300 hover:text-red-500 p-2 transition-colors"><Trash2 className="w-5 h-5"/></button>
-                            </div>
-                            
-                            <div className="space-y-3">
-                                {chapter.videos.map((video, vIdx) => (
-                                    <div key={video.id} className="bg-gray-50 p-4 rounded-2xl border border-gray-200 flex flex-col gap-3 group/video">
-                                        <div className="flex gap-2">
-                                            <input 
-                                                className="flex-1 p-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-brand/20 outline-none text-gray-900" 
-                                                placeholder="Video Title" 
-                                                value={video.title} 
-                                                onChange={e => updateVideo(cIdx, vIdx, 'title', e.target.value)} 
-                                            />
-                                            <input 
-                                                className="w-24 p-2.5 bg-white border border-gray-200 rounded-xl text-sm text-center text-gray-900" 
-                                                placeholder="Duration" 
-                                                value={video.duration} 
-                                                onChange={e => updateVideo(cIdx, vIdx, 'duration', e.target.value)} 
-                                            />
-                                            <button onClick={() => deleteVideo(cIdx, vIdx)} className="text-gray-400 hover:text-red-500 p-2"><Trash2 className="w-4 h-4"/></button>
-                                        </div>
-                                        <div className="flex gap-2 items-center">
-                                            <input 
-                                                className="flex-1 p-2.5 bg-white border border-gray-200 rounded-xl text-xs font-mono text-gray-600 focus:ring-2 focus:ring-brand/20 outline-none" 
-                                                placeholder="Paste Video URL (YouTube, MP4 Link)" 
-                                                value={video.filename} 
-                                                onChange={e => updateVideo(cIdx, vIdx, 'filename', e.target.value)} 
-                                            />
-                                            
-                                            {/* API Auto Fill Button */}
-                                            <button 
-                                                onClick={() => handleAutoFill(cIdx, vIdx)}
-                                                disabled={loadingDetails === `${cIdx}-${vIdx}`}
-                                                className="px-3 py-2.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-xl text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-1"
-                                                title="Auto-fill Title & Duration from YouTube"
-                                            >
-                                                {loadingDetails === `${cIdx}-${vIdx}` ? <Loader2 className="w-3 h-3 animate-spin"/> : <Wand2 className="w-3 h-3" />} 
-                                                Auto
-                                            </button>
-
-                                            <div className="relative">
-                                                <input 
-                                                    type="file" 
-                                                    accept="video/*"
-                                                    id={`file-${cIdx}-${vIdx}`}
-                                                    className="hidden" 
-                                                    onChange={(e) => handleFileSelect(e, cIdx, vIdx)}
-                                                />
-                                                <label 
-                                                    htmlFor={`file-${cIdx}-${vIdx}`}
-                                                    className="cursor-pointer px-3 py-2.5 bg-gray-200 hover:bg-gray-300 rounded-xl text-xs font-bold text-gray-700 whitespace-nowrap flex items-center gap-1 transition-colors"
-                                                    title="Select local file to auto-fill title (Preview Only)"
-                                                >
-                                                    <Upload className="w-3 h-3" /> Select File
-                                                </label>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                                <button onClick={() => addVideo(cIdx)} className="w-full py-3 border-2 border-dashed border-indigo-100 bg-indigo-50/50 text-indigo-600 rounded-xl text-sm font-bold hover:bg-indigo-50 hover:border-indigo-300 transition-all flex items-center justify-center gap-2">
-                                    <Plus className="w-4 h-4"/> Add Video Lesson
-                                </button>
-                            </div>
-                        </div>
-                    ))}
-                    
-                    <button onClick={addChapter} className="w-full py-4 bg-gray-900 text-white rounded-2xl font-bold shadow-lg shadow-gray-900/20 hover:bg-black transition-all transform hover:scale-[1.01] flex items-center justify-center gap-2">
-                        <Plus className="w-5 h-5"/> Create New Subject
-                    </button>
-                </div>
-                <div className="mt-6 pt-4 border-t flex justify-end bg-white">
-                    <button onClick={handleSave} className="bg-brand text-white px-8 py-3 rounded-xl font-bold hover:bg-brand-dark transition-colors shadow-lg shadow-brand/30">Save Changes</button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const AdminPanel = () => {
-  const { currentUser, settings, updateSettings, courses, users, addCourse, updateCourse, deleteCourse, deleteUser, updateUser, addBanner, deleteBanner, addUser, banners } = useStore();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'courses' | 'users' | 'settings'>('dashboard');
-  const [editingCourse, setEditingCourse] = useState<Course | null>(null);
-  const [managingExamsCourse, setManagingExamsCourse] = useState<Course | null>(null);
-  const [managingContentCourse, setManagingContentCourse] = useState<Course | null>(null);
-  const [isShortening, setIsShortening] = useState(false);
-  const [shortenerError, setShortenerError] = useState('');
-  const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'USER' });
-  const [localSettings, setLocalSettings] = useState(settings);
-  const [adminCreds, setAdminCreds] = useState({ email: currentUser?.email || '', password: currentUser?.password || '' });
-  const [newBannerImage, setNewBannerImage] = useState<string>('');
-
-  if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.EDITOR)) {
-    return <Navigate to="/" />;
-  }
-  const handleSaveSettings = () => {
-    if (!currentUser) return;
-    updateSettings(localSettings);
-    if (adminCreds.email !== currentUser.email || adminCreds.password !== currentUser.password) {
-       updateUser({ email: adminCreds.email, password: adminCreds.password });
-    }
-    alert('Settings and Credentials saved successfully!');
-  };
-  const handleAddUser = () => {
-     if(!newUser.name || !newUser.email || !newUser.password) { alert("Please fill all fields"); return; }
-     addUser({ id: Date.now().toString(), name: newUser.name, email: newUser.email, password: newUser.password, role: newUser.role as UserRole, purchasedCourseIds: [], phone: '0000000000' });
-     setNewUser({ name: '', email: '', password: '', role: 'USER' });
-     alert("User created successfully");
-  };
-  const handleBannerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      try { const base64 = await convertToBase64(e.target.files[0]); setNewBannerImage(base64); } catch (err) { console.error(err); }
-    }
-  };
-  const handleCourseImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0] && editingCourse) {
-      try { const base64 = await convertToBase64(e.target.files[0]); setEditingCourse({ ...editingCourse, image: base64 }); } catch (err) { console.error(err); }
-    }
-  };
-  const handleSaveCourse = () => {
-    if (!editingCourse) return;
-    const exists = courses.some(c => c.id === editingCourse.id);
-    if (exists) updateCourse(editingCourse); else addCourse(editingCourse);
-    setEditingCourse(null);
-  };
-  const deleteCourseSafe = (id: string) => deleteCourse(id);
-  const deleteUserSafe = (id: string) => deleteUser(id);
-  
-  const handleAutoShortenLink = async () => {
-    if (!editingCourse) return;
-    setShortenerError('');
-    if (!settings.linkShortenerApiKey) { alert("Please configure Link Shortener API Key in Settings first."); return; }
-    
-    setIsShortening(true);
-    const courseId = editingCourse.id || Date.now().toString();
-    // Ensure ID is set
-    if(editingCourse.id !== courseId) setEditingCourse(prev => prev ? {...prev, id: courseId} : null);
-    
-    // Auto-detect current host to generate the correct destination URL
-    const baseUrl = window.location.origin + window.location.pathname;
-    const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
-    // CRITICAL: Ensure /#/ fragment is properly appended for HashRouter
-    const verifyUrl = `${cleanBaseUrl}/#/verify/${courseId}`;
-    
-    const shortenerUrl = settings.linkShortenerApiUrl || 'https://reel2earn.com/api';
-    const finalApiUrl = `${shortenerUrl}?api=${settings.linkShortenerApiKey}&url=${encodeURIComponent(verifyUrl)}`;
-
-    try {
-        const response = await fetch(finalApiUrl);
-        const data = await response.json();
-        
-        if (data.status === 'success' || data.shortenedUrl) {
-            const shortLink = data.shortenedUrl;
-            setEditingCourse(prev => prev ? { ...prev, shortenerLink: shortLink } : null);
-        } else { 
-            throw new Error(data.message || 'Unknown error');
-        }
-    } catch (e: any) { 
-        console.error("Shortener Error:", e);
-        setShortenerError(finalApiUrl); 
-        alert(`Shortener failed: ${e.message || e}. \n\nA manual link has been generated below.`);
-    } finally { 
-        setIsShortening(false); 
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-gray-50 pt-20 pb-20">
-      <div className="bg-white shadow-sm border-b sticky top-16 z-10 overflow-x-auto">
-        <div className="flex p-2 min-w-max gap-2 justify-center">
-          {['dashboard', 'courses', 'users', 'settings'].map(tab => (
-            <button key={tab} onClick={() => setActiveTab(tab as any)} className={`px-6 py-2.5 rounded-xl font-bold capitalize transition-all ${activeTab === tab ? 'bg-brand text-white shadow-lg shadow-brand/20' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}>{tab}</button>
-          ))}
-        </div>
-      </div>
-      <div className="p-6 max-w-7xl mx-auto">
-        {activeTab === 'dashboard' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white p-8 rounded-3xl shadow-card border border-gray-100"><h3 className="text-gray-400 text-xs font-bold uppercase tracking-widest">Total Users</h3><p className="text-5xl font-display font-bold text-gray-900 mt-4">{users.length}</p></div>
-            <div className="bg-white p-8 rounded-3xl shadow-card border border-gray-100"><h3 className="text-gray-400 text-xs font-bold uppercase tracking-widest">Active Batches</h3><p className="text-5xl font-display font-bold text-green-600 mt-4">{courses.length}</p></div>
-            <div className="col-span-1 md:col-span-2 bg-white p-8 rounded-3xl shadow-card border border-gray-100 h-80"><h3 className="text-gray-900 font-bold mb-6 font-display text-xl">User Growth</h3><ResponsiveContainer width="100%" height="100%"><BarChart data={users.map((u, i) => ({ name: `Day ${i+1}`, users: i+1 }))}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" /><XAxis dataKey="name" hide /><YAxis axisLine={false} tickLine={false} /><Tooltip cursor={{fill: 'transparent'}} contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 30px rgba(0,0,0,0.1)'}} /><Bar dataKey="users" fill={settings.uiColor || '#4F46E5'} radius={[4, 4, 0, 0]} barSize={40} /></BarChart></ResponsiveContainer></div>
-          </div>
-        )}
-        {activeTab === 'courses' && (
-          <div className="space-y-6">
-            <div className="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
-               <h2 className="font-display font-bold text-xl text-gray-900 pl-2">Manage Courses</h2>
-               <button onClick={() => { setEditingCourse({ id: Date.now().toString(), title: 'New Course', description: 'Description...', price: 0, mrp: 1000, image: 'https://via.placeholder.com/300', category: 'General', createdAt: new Date().toISOString(), chapters: [], isPaid: false }); }} className="bg-gray-900 text-white px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-brand transition-colors shadow-lg shadow-gray-900/20"><Plus className="w-5 h-5" /> Add New Batch</button>
-            </div>
-            {courses.map(course => (
-              <div key={course.id} className="bg-white p-5 rounded-3xl shadow-card border border-gray-100 flex flex-col md:flex-row justify-between items-center gap-6">
-                <div className="flex items-center gap-4 w-full md:w-auto"><img src={course.image} className="w-20 h-20 rounded-2xl object-cover shadow-sm" /><div><h3 className="font-bold text-lg text-gray-900">{course.title}</h3><div className="flex gap-2 mt-2"><span className={`text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wider ${course.isPaid ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>{course.isPaid ? 'LOCKED' : 'FREE'}</span><span className="text-[10px] px-2.5 py-1 rounded-full font-bold bg-gray-100 text-gray-600 uppercase tracking-wider">{course.category}</span></div></div></div>
-                <div className="flex gap-2 w-full md:w-auto justify-end"><button onClick={() => setManagingContentCourse(course)} className="px-4 py-2 bg-blue-50 text-blue-600 font-bold text-xs rounded-xl hover:bg-blue-100 flex items-center gap-2 transition-colors"><PlayCircle className="w-4 h-4" /> Content</button><button onClick={() => setManagingExamsCourse(course)} className="px-4 py-2 bg-purple-50 text-purple-600 font-bold text-xs rounded-xl hover:bg-purple-100 flex items-center gap-2 transition-colors"><ClipboardList className="w-4 h-4" /> Exams</button><button onClick={() => setEditingCourse(course)} className="p-2.5 text-gray-500 hover:bg-gray-100 rounded-xl transition-colors"><Edit className="w-5 h-5" /></button><button onClick={() => deleteCourseSafe(course.id)} className="p-2.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"><Trash2 className="w-5 h-5" /></button></div>
-              </div>
-            ))}
-          </div>
-        )}
-        {activeTab === 'users' && (
-           <div className="space-y-6">
-             <div className="bg-white p-6 rounded-3xl shadow-card border border-gray-100"><h3 className="font-bold text-gray-900 mb-4 font-display text-lg">Create New User / Manager</h3><div className="grid grid-cols-1 md:grid-cols-5 gap-3"><input className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900" placeholder="Name" value={newUser.name} onChange={e => setNewUser({...newUser, name: e.target.value})} /><input className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900" placeholder="Email" value={newUser.email} onChange={e => setNewUser({...newUser, email: e.target.value})} /><input className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900" placeholder="Password" value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})} /><select className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900" value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})}><option value="USER">Student</option><option value="EDITOR">Manager/Editor</option><option value="ADMIN">Admin</option></select><button onClick={handleAddUser} className="bg-brand text-white font-bold rounded-xl hover:bg-brand-dark shadow-lg shadow-brand/20">Create</button></div></div>
-             <div className="space-y-3"><h3 className="font-bold text-gray-500 uppercase tracking-widest text-xs ml-2">Existing Users</h3>{users.map(u => (<div key={u.id} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex justify-between items-center"><div><p className="font-bold text-gray-900">{u.name}</p><p className="text-xs text-gray-500">{u.email}</p><span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase mt-1 inline-block ${u.role === 'ADMIN' ? 'bg-red-100 text-red-700' : u.role === 'EDITOR' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'}`}>{u.role}</span></div>{u.role !== UserRole.ADMIN && (<button onClick={() => deleteUserSafe(u.id)} className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>)}</div>))}</div>
-           </div>
-        )}
-        {activeTab === 'settings' && (
-          <div className="bg-white p-8 rounded-3xl shadow-card border border-gray-100 space-y-8">
-            <div className="border-b border-gray-100 pb-8"><h2 className="font-display font-bold text-xl mb-6 text-brand">Branding</h2><div className="space-y-4"><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Website Name</label><input type="text" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900" value={localSettings.appName} onChange={e => setLocalSettings({...localSettings, appName: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">UI Color Theme</label><div className="flex gap-4 items-center"><input type="color" className="h-12 w-24 p-1 border rounded-xl cursor-pointer" value={localSettings.uiColor || '#4F46E5'} onChange={e => setLocalSettings({...localSettings, uiColor: e.target.value})} /><div className="text-sm text-gray-500">Select your brand's primary color</div></div></div></div></div>
-            <div className="border-b border-gray-100 pb-8"><h2 className="font-display font-bold text-xl mb-6 text-brand">App Banners</h2><div className="mb-6"><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Upload New Banner</label><div className="flex gap-3"><input type="file" accept="image/*" className="flex-1 p-2 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-500" onChange={handleBannerUpload} /><button onClick={() => { if(newBannerImage) { addBanner({ id: Date.now().toString(), image: newBannerImage, link: '#' }); setNewBannerImage(''); alert('Banner added!'); } }} className="bg-gray-900 text-white px-6 py-2 rounded-xl text-xs font-bold disabled:opacity-50 hover:bg-black transition-colors" disabled={!newBannerImage}>Add</button></div></div><div className="grid grid-cols-2 gap-4">{banners.map(b => (<div key={b.id} className="relative group rounded-xl overflow-hidden shadow-sm"><img src={b.image} className="w-full h-24 object-cover" /><div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"><button onClick={() => deleteBanner(b.id)} className="bg-red-500 text-white p-2 rounded-full hover:bg-red-600"><Trash2 className="w-4 h-4" /></button></div></div>))}</div></div>
-            <div className="border-b border-gray-100 pb-8"><h2 className="font-display font-bold text-xl mb-6 text-brand">Admin Credentials</h2><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Admin Email</label><input type="email" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900" value={adminCreds.email} onChange={e => { setAdminCreds({...adminCreds, email: e.target.value}); setLocalSettings({...localSettings, adminEmail: e.target.value}); }} /></div><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Admin Password</label><input type="text" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900" value={adminCreds.password} onChange={e => setAdminCreds({...adminCreds, password: e.target.value})} /></div></div></div>
-            <div className="border-b border-gray-100 pb-8"><h2 className="font-display font-bold text-xl mb-6 text-brand">Integrations</h2><div className="space-y-6"><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Link Shortener API URL (Reel2Earn)</label><input type="text" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-mono text-gray-900" value={localSettings.linkShortenerApiUrl || ''} onChange={e => setLocalSettings({...localSettings, linkShortenerApiUrl: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Link Shortener API Key</label><input type="text" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-mono text-gray-900" value={localSettings.linkShortenerApiKey || ''} onChange={e => setLocalSettings({...localSettings, linkShortenerApiKey: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Video API Key (Youtube/Metadata)</label><input type="text" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-mono text-gray-900" value={localSettings.videoApiKey || ''} onChange={e => setLocalSettings({...localSettings, videoApiKey: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Ads Code (HTML/Script)</label><textarea className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl h-24 font-mono text-xs text-gray-900" value={localSettings.adsCode || ''} onChange={e => setLocalSettings({...localSettings, adsCode: e.target.value})} placeholder="<script>...</script>" /></div></div></div>
-            <div className="border-b border-gray-100 pb-8"><h2 className="font-display font-bold text-xl mb-6 text-brand">Support Contact</h2><div className="grid grid-cols-1 gap-6"><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Telegram / WhatsApp Contact</label><input type="text" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900" value={localSettings.supportPhone || ''} onChange={e => setLocalSettings({...localSettings, supportPhone: e.target.value})} placeholder="@username or +91..." /></div></div></div>
-            <button onClick={handleSaveSettings} className="w-full bg-brand text-white py-4 rounded-2xl font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition-all transform hover:scale-[1.01]">Save All Changes</button>
-          </div>
-        )}
-      </div>
-      {editingCourse && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in">
-          <div className="bg-white w-full max-w-lg rounded-3xl p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <h3 className="text-2xl font-display font-bold mb-6 text-gray-900">{courses.some(c => c.id === editingCourse.id) ? 'Edit Batch' : 'Create New Batch'}</h3>
-            <div className="space-y-4">
-              <input type="text" placeholder="Batch Title" className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl font-medium focus:ring-2 focus:ring-brand/50 outline-none text-gray-900" value={editingCourse.title} onChange={e => setEditingCourse({...editingCourse, title: e.target.value})} />
-              <textarea placeholder="Description" className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl h-32 focus:ring-2 focus:ring-brand/50 outline-none resize-none text-gray-900" value={editingCourse.description} onChange={e => setEditingCourse({...editingCourse, description: e.target.value})} />
-              <div className="grid grid-cols-2 gap-4"><div className="flex items-center gap-3 border border-gray-200 p-4 rounded-2xl cursor-pointer hover:bg-gray-50" onClick={() => setEditingCourse({...editingCourse, isPaid: !editingCourse.isPaid})}><input type="checkbox" checked={editingCourse.isPaid || false} onChange={() => {}} className="w-5 h-5 text-brand rounded focus:ring-brand" /><span className="font-bold text-sm text-gray-700">Is Locked?</span></div><input type="text" placeholder="ACCESS KEY" className="w-full p-4 border border-gray-200 rounded-2xl font-bold uppercase text-center tracking-widest text-gray-900" value={editingCourse.accessKey || ''} onChange={e => setEditingCourse({...editingCourse, accessKey: e.target.value.toUpperCase()})} /></div>
-              <div className="p-5 bg-indigo-50 border border-indigo-100 rounded-2xl"><label className="block text-xs font-bold text-indigo-800 uppercase tracking-wider mb-2">Verification Link (24h Access)</label><div className="flex gap-2 mb-2"><input type="text" placeholder="Short link will appear here..." className="flex-1 p-3 bg-white border border-indigo-200 rounded-xl text-sm text-gray-900" value={editingCourse.shortenerLink || ''} onChange={e => setEditingCourse({...editingCourse, shortenerLink: e.target.value})} /><button onClick={handleAutoShortenLink} disabled={isShortening} className="px-4 bg-indigo-600 text-white rounded-xl font-bold text-xs flex items-center gap-1 hover:bg-indigo-700 disabled:opacity-50 transition-colors" title="Auto-create link using Reel2Earn API">{isShortening ? <Loader2 className="w-4 h-4 animate-spin"/> : <Wand2 className="w-4 h-4" />} Auto</button></div><p className="text-[10px] text-indigo-400">Use 'Auto' to generate a short link using your API Key, or paste manually.</p>{shortenerError && <div className="mt-2 p-2 bg-red-100 text-red-700 text-xs rounded border border-red-200"><strong>Auto-shorten failed (Browser Blocked).</strong> <a href={shortenerError} target="_blank" rel="noopener noreferrer" className="underline font-bold">Click here to open shortener manually</a></div>}</div>
-              
-              {/* Telegram Channel Link Input */}
-              <input type="text" placeholder="Telegram Channel Link (for notes/updates)" className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl font-medium text-gray-900" value={editingCourse.telegramChannelLink || ''} onChange={e => setEditingCourse({...editingCourse, telegramChannelLink: e.target.value})} />
-
-              <div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Thumbnail</label><div className="flex items-center gap-3 mb-3"><img src={editingCourse.image || 'https://via.placeholder.com/100'} className="w-20 h-20 rounded-2xl object-cover border border-gray-200" /><label className="flex-1 cursor-pointer bg-gray-50 hover:bg-gray-100 border border-gray-200 border-dashed rounded-2xl h-20 flex flex-col items-center justify-center text-gray-500 transition-colors"><Upload className="w-5 h-5 mb-1"/><span className="text-xs font-bold">Upload Image</span><input type="file" accept="image/*" onChange={handleCourseImageUpload} className="hidden" /></label></div><input type="text" placeholder="Or enter Image URL" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-900" value={editingCourse.image} onChange={e => setEditingCourse({...editingCourse, image: e.target.value})} /></div>
-              <input type="text" placeholder="Category (e.g. Science, Maths)" className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl font-medium text-gray-900" value={editingCourse.category} onChange={e => setEditingCourse({...editingCourse, category: e.target.value})} />
-            </div>
-            <div className="flex gap-4 mt-8"><button onClick={() => setEditingCourse(null)} className="flex-1 py-4 text-gray-500 font-bold hover:bg-gray-50 rounded-2xl transition-colors">Cancel</button><button onClick={handleSaveCourse} className="flex-1 py-4 bg-brand text-white font-bold rounded-2xl shadow-lg shadow-brand/30 hover:bg-brand-dark transition-all">Save Changes</button></div>
-          </div>
-        </div>
-      )}
-      {managingExamsCourse && (<ExamManager course={managingExamsCourse} onClose={() => setManagingExamsCourse(null)} />)}
-      {managingContentCourse && (<ContentManager course={managingContentCourse} onClose={() => setManagingContentCourse(null)} />)}
-    </div>
-  );
-};
-
-const MyCourses = () => {
-    const { courses, currentUser } = useStore();
-    if(!currentUser) return <Navigate to="/login" />;
-    const myCourses = courses.filter(c => currentUser.purchasedCourseIds.includes(c.id));
-    const tempAccessCourses = courses.filter(c => {
-         const expiry = currentUser.tempAccess?.[c.id];
-         return expiry && new Date(expiry) > new Date();
-    });
-    const allCourses = Array.from(new Set([...myCourses, ...tempAccessCourses]));
-    return (
-        <div className="min-h-screen bg-gray-50 p-6 pt-24 pb-24">
-            <h2 className="text-2xl font-display font-bold text-gray-900 mb-6">My Batches</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                {allCourses.length === 0 ? (
-                    <div className="col-span-2 text-center py-20 text-gray-400">No courses yet.</div>
-                ) : allCourses.map(course => (
-                    <Link to={`/course/${course.id}`} key={course.id} className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 flex gap-4 hover:shadow-md transition-all">
-                        <img src={course.image} className="w-24 h-24 rounded-2xl object-cover bg-gray-100" />
-                        <div className="flex-1">
-                            <h3 className="font-bold text-gray-900 mb-1">{course.title}</h3>
-                            <div className="w-full bg-gray-100 h-2 rounded-full mt-2 overflow-hidden"><div className="bg-brand h-full w-0" /></div>
-                            <span className="text-[10px] text-gray-400 font-bold uppercase mt-1 block">Start Learning</span>
-                        </div>
-                    </Link>
-                ))}
-            </div>
-        </div>
-    );
-};
-
 const Watch = () => {
     const { courseId } = useParams();
-    const { courses, currentUser, saveAiQuiz } = useStore();
+    const { courses, currentUser, saveAiQuiz, saveVideoProgress } = useStore();
     const [currentVideoUrl, setCurrentVideoUrl] = useState<string>('');
     const [currentVideo, setCurrentVideo] = useState<Video | null>(null);
     const [quizQuestions, setQuizQuestions] = useState<Question[]>([]);
@@ -1239,6 +788,7 @@ const Watch = () => {
     const [quizLoading, setQuizLoading] = useState(false);
     const [quizScore, setQuizScore] = useState<number | null>(null);
     const [userAnswers, setUserAnswers] = useState<number[]>([]);
+    const navigate = useNavigate();
 
     const course = courses.find(c => c.id === courseId);
     
@@ -1309,7 +859,18 @@ const Watch = () => {
         <div className="min-h-screen bg-black text-white flex flex-col md:flex-row">
             <div className="flex-1 flex flex-col relative">
                 <div className="w-full aspect-video bg-black">
-                     {currentVideoUrl ? <VideoPlayer src={currentVideoUrl} /> : <div className="h-full flex items-center justify-center">Select a video</div>}
+                     {currentVideoUrl ? (
+                        <VideoPlayer 
+                            src={currentVideoUrl} 
+                            onBack={() => navigate(`/course/${courseId}`)}
+                            initialTime={currentUser?.videoProgress?.[currentVideo?.id || '']?.timestamp || 0}
+                            onProgress={(time, duration) => {
+                                if(currentVideo) saveVideoProgress(currentVideo.id, time, duration);
+                            }}
+                        />
+                     ) : (
+                        <div className="h-full flex items-center justify-center">Select a video</div>
+                     )}
                 </div>
                 <div className="p-4 flex justify-between items-center bg-gray-900 border-b border-gray-800">
                     <div>
@@ -1468,8 +1029,9 @@ const CourseDetail = () => {
     };
 
     // 3. Fallback: Automatically grant access if user returns after >10 seconds
+    // Using setInterval to aggressively check if time has passed, ensuring it works even if visibility change event is missed
     useEffect(() => {
-        const checkAccess = () => {
+        const interval = setInterval(() => {
             const pending = localStorage.getItem(PENDING_ACCESS_KEY);
             if (pending) {
                 const elapsed = Date.now() - parseInt(pending);
@@ -1477,30 +1039,13 @@ const CourseDetail = () => {
                 if (elapsed > 10000) { 
                     grantTempAccess(course.id);
                     localStorage.removeItem(PENDING_ACCESS_KEY);
+                    clearInterval(interval);
                     alert("Verification successful! Temporary access granted.");
                 }
             }
-        };
+        }, 1000); // Check every second
 
-        // Check immediately on mount (in case of page reload)
-        checkAccess();
-
-        // Check when user switches back to this tab
-        const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible') {
-                checkAccess();
-            }
-        };
-
-        const handleFocus = () => checkAccess();
-
-        document.addEventListener("visibilitychange", handleVisibilityChange);
-        window.addEventListener("focus", handleFocus);
-
-        return () => {
-            document.removeEventListener("visibilitychange", handleVisibilityChange);
-            window.removeEventListener("focus", handleFocus);
-        };
+        return () => clearInterval(interval);
     }, [course.id, grantTempAccess, PENDING_ACCESS_KEY]);
 
     const getContactLink = () => {
@@ -1563,7 +1108,7 @@ const CourseDetail = () => {
                                     <input 
                                         type="text" 
                                         placeholder="Enter Premium Key" 
-                                        className="flex-1 p-3 rounded-xl border border-indigo-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 uppercase font-mono"
+                                        className="flex-1 p-3 rounded-xl border border-indigo-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 uppercase font-mono text-gray-900"
                                         value={keyInput}
                                         onChange={(e) => setKeyInput(e.target.value)}
                                     />
@@ -1686,8 +1231,8 @@ const Profile = () => {
                    </div>
                ) : (
                   <div className="space-y-4 mt-2">
-                     <input className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900" value={data.name} onChange={e => setData({...data, name: e.target.value})} placeholder="Name" />
-                     <input className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900" value={data.phone} onChange={e => setData({...data, phone: e.target.value})} placeholder="Phone" />
+                     <input className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder:text-gray-500" value={data.name} onChange={e => setData({...data, name: e.target.value})} placeholder="Name" />
+                     <input className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder:text-gray-500" value={data.phone} onChange={e => setData({...data, phone: e.target.value})} placeholder="Phone" />
                   </div>
                )}
             </div>
@@ -1716,6 +1261,407 @@ const Profile = () => {
          </button>
       </div>
    );
+};
+
+const MyCourses = () => {
+  const { currentUser, courses } = useStore();
+  
+  if (!currentUser) return <Navigate to="/login" />;
+
+  const myCourses = courses.filter(c => 
+    currentUser.purchasedCourseIds.includes(c.id) || 
+    (currentUser.tempAccess?.[c.id] && new Date(currentUser.tempAccess[c.id]) > new Date())
+  );
+
+  return (
+    <div className="pb-24 pt-24 p-6 min-h-screen bg-gray-50">
+      <h2 className="text-2xl font-display font-bold text-gray-900 mb-6">My Batches</h2>
+      {myCourses.length === 0 ? (
+         <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-gray-200">
+             <BookOpen className="w-12 h-12 mx-auto text-gray-300 mb-4"/>
+             <p className="text-gray-500 font-medium">You haven't enrolled in any batches yet.</p>
+             <Link to="/courses" className="mt-4 inline-block text-brand font-bold hover:underline">Browse Batches</Link>
+         </div>
+      ) : (
+         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {myCourses.map(course => {
+               const isTemp = !currentUser.purchasedCourseIds.includes(course.id) && currentUser.tempAccess?.[course.id];
+               const expiry = isTemp ? currentUser.tempAccess?.[course.id] : null;
+
+               return (
+               <Link to={`/course/${course.id}`} key={course.id} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex gap-4 hover:border-brand transition-colors group relative overflow-hidden">
+                  <div className="w-24 h-24 rounded-2xl bg-gray-100 overflow-hidden flex-none">
+                     <img src={course.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
+                  </div>
+                  <div className="flex-1 flex flex-col justify-center">
+                     <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">{course.category}</span>
+                     <h3 className="font-bold text-gray-900 leading-tight mb-2">{course.title}</h3>
+                     <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1 text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded w-fit">
+                            <CheckCircle className="w-3 h-3" /> Active
+                        </div>
+                        {expiry && (
+                            <div className="text-[10px] font-bold text-orange-500 bg-orange-50 px-2 py-1 rounded">
+                                Exp: {new Date(expiry).toLocaleDateString()}
+                            </div>
+                        )}
+                     </div>
+                  </div>
+               </Link>
+            )})}
+         </div>
+      )}
+    </div>
+  );
+};
+
+const AdminPanel = () => {
+    const { currentUser, courses, users, banners, settings, addCourse, updateCourse, deleteCourse, addBanner, deleteBanner, updateSettings, addUser, deleteUser } = useStore();
+    const [tab, setTab] = useState<'courses' | 'users' | 'banners' | 'settings'>('courses');
+    const [showCourseModal, setShowCourseModal] = useState(false);
+    const [editingCourse, setEditingCourse] = useState<Course | null>(null);
+    const [showExamManager, setShowExamManager] = useState<Course | null>(null);
+    
+    // User Management State
+    const [showUserModal, setShowUserModal] = useState(false);
+    
+    // Link Generation State
+    const [isGeneratingLink, setIsGeneratingLink] = useState(false);
+    const linkInputRef = useRef<HTMLInputElement>(null);
+    
+    if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.EDITOR)) return <Navigate to="/" />;
+
+    const handleSaveCourse = (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        const formData = new FormData(e.currentTarget);
+        const courseData: any = {
+            id: editingCourse?.id || Date.now().toString(),
+            title: formData.get('title') as string,
+            description: formData.get('description') as string,
+            image: formData.get('image') as string,
+            category: formData.get('category') as string,
+            price: Number(formData.get('price')),
+            mrp: Number(formData.get('mrp')),
+            isPaid: formData.get('isPaid') === 'on',
+            accessKey: formData.get('accessKey') as string,
+            telegramChannelLink: formData.get('telegramChannelLink') as string,
+            shortenerLink: formData.get('shortenerLink') as string,
+            chapters: editingCourse?.chapters || [],
+            exams: editingCourse?.exams || [],
+            createdAt: editingCourse?.createdAt || new Date().toISOString()
+        };
+
+        if (editingCourse) updateCourse(courseData);
+        else addCourse(courseData);
+        
+        setShowCourseModal(false);
+        setEditingCourse(null);
+    };
+
+    const handleAddUser = (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        const formData = new FormData(e.currentTarget);
+        addUser({
+            id: Date.now().toString(),
+            name: formData.get('name') as string,
+            email: formData.get('email') as string,
+            password: formData.get('password') as string,
+            phone: formData.get('phone') as string,
+            role: formData.get('role') as UserRole,
+            purchasedCourseIds: [],
+            examResults: []
+        });
+        setShowUserModal(false);
+    };
+
+    const handleGenerateLink = async () => {
+        if(!settings.linkShortenerApiKey || !settings.linkShortenerApiUrl) {
+            alert("Please configure Link Shortener in Settings first!");
+            return;
+        }
+
+        const courseId = editingCourse?.id;
+        if(!courseId) {
+             alert("Please save the batch first, then edit it to generate a link.");
+             return;
+        }
+
+        setIsGeneratingLink(true);
+        try {
+            // Robust URL Construction
+            let baseUrl = settings.linkShortenerApiUrl.trim();
+            // Remove trailing slash if present to avoid //
+            if(baseUrl.endsWith('/')) baseUrl = baseUrl.slice(0, -1);
+
+            const destinationUrl = `${window.location.origin}/#/verify/${courseId}`;
+            const encodedDest = encodeURIComponent(destinationUrl);
+            
+            // Determine correct separator
+            const separator = baseUrl.includes('?') ? '&' : '?';
+            
+            // Build final URL: baseUrl?api=KEY&url=DEST
+            const fetchUrl = `${baseUrl}${separator}api=${settings.linkShortenerApiKey}&url=${encodedDest}`;
+            
+            // Try fetching
+            const response = await fetch(fetchUrl);
+            const data = await response.json();
+            
+            if(data.status === 'success' || data.shortenedUrl || data.shortlink) {
+                const shortUrl = data.shortenedUrl || data.shortlink || data.url;
+                if(linkInputRef.current) {
+                    linkInputRef.current.value = shortUrl;
+                }
+            } else {
+                console.error("API Error Data:", data);
+                // JSON.stringify the error so the user sees exactly what the API returned
+                alert(`Failed to generate link. API Response: ${JSON.stringify(data)}`);
+            }
+        } catch(e) {
+            console.error(e);
+            alert("Network error or CORS issue. Please manually shorten this URL: " + window.location.href.split('#')[0] + "#/verify/" + courseId);
+        } finally {
+            setIsGeneratingLink(false);
+        }
+    };
+
+    return (
+        <div className="pb-24 pt-24 p-6 min-h-screen bg-gray-50">
+             <div className="flex justify-between items-center mb-6">
+                <h1 className="text-3xl font-display font-bold text-gray-900">Admin Panel</h1>
+             </div>
+
+             <div className="flex gap-2 overflow-x-auto pb-4 mb-4 no-scrollbar">
+                 {['courses', 'users', 'banners', 'settings'].map(t => (
+                     <button key={t} onClick={() => setTab(t as any)} className={`px-5 py-2.5 rounded-xl font-bold capitalize whitespace-nowrap transition-all ${tab === t ? 'bg-brand text-white shadow-lg shadow-brand/30' : 'bg-white text-gray-600 shadow-sm'}`}>
+                         {t}
+                     </button>
+                 ))}
+             </div>
+             
+             {tab === 'courses' && (
+                 <div className="space-y-4">
+                     <button onClick={() => { setEditingCourse(null); setShowCourseModal(true); }} className="w-full py-4 bg-white border-2 border-dashed border-gray-300 rounded-2xl text-gray-400 font-bold flex items-center justify-center gap-2 hover:border-brand hover:text-brand transition-all">
+                        <Plus className="w-5 h-5" /> Add New Batch
+                     </button>
+                     {courses.map(c => (
+                         <div key={c.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row gap-4 items-start md:items-center">
+                             <img src={c.image} className="w-16 h-16 rounded-lg object-cover bg-gray-100" />
+                             <div className="flex-1">
+                                 <h3 className="font-bold text-gray-900">{c.title}</h3>
+                                 <p className="text-xs text-gray-500">{c.chapters.length} Chapters • {c.isPaid ? `₹${c.price}` : 'Free'}</p>
+                             </div>
+                             <div className="flex gap-2">
+                                 <button onClick={() => setShowExamManager(c)} className="p-2 text-purple-600 bg-purple-50 rounded-lg hover:bg-purple-100" title="Manage Exams"><ClipboardList className="w-4 h-4" /></button>
+                                 <button onClick={() => { setEditingCourse(c); setShowCourseModal(true); }} className="p-2 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100" title="Edit"><Edit className="w-4 h-4" /></button>
+                                 <button onClick={() => { if(confirm('Delete course?')) deleteCourse(c.id); }} className="p-2 text-red-600 bg-red-50 rounded-lg hover:bg-red-100" title="Delete"><Trash2 className="w-4 h-4" /></button>
+                             </div>
+                         </div>
+                     ))}
+                 </div>
+             )}
+
+             {tab === 'users' && (
+                 <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+                     <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
+                         <span className="font-bold text-gray-700">All Users ({users.length})</span>
+                         {/* MANAGER MAKER FUNCTION */}
+                         <button onClick={() => setShowUserModal(true)} className="text-xs bg-brand text-white px-4 py-2 rounded-lg font-bold shadow-lg shadow-brand/20 hover:scale-105 transition-transform flex items-center gap-1">
+                             <Plus className="w-3 h-3" /> Create User / Manager
+                         </button>
+                     </div>
+                     <div className="divide-y divide-gray-100">
+                         {users.map(u => (
+                             <div key={u.id} className="p-4 flex justify-between items-center hover:bg-gray-50">
+                                 <div>
+                                     <div className="flex items-center gap-2">
+                                         <p className="font-bold text-sm text-gray-900">{u.name}</p>
+                                         <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase ${u.role === UserRole.ADMIN ? 'bg-red-100 text-red-600' : u.role === UserRole.EDITOR ? 'bg-purple-100 text-purple-600' : 'bg-gray-100 text-gray-500'}`}>
+                                             {u.role}
+                                         </span>
+                                     </div>
+                                     <p className="text-xs text-gray-500">{u.email}</p>
+                                 </div>
+                                 {u.role !== UserRole.ADMIN && (
+                                     <button onClick={() => { if(confirm('Delete user?')) deleteUser(u.id); }} className="text-gray-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                                 )}
+                             </div>
+                         ))}
+                     </div>
+                 </div>
+             )}
+
+             {tab === 'banners' && (
+                 <div className="space-y-4">
+                     <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                         <h3 className="font-bold mb-4 text-gray-900">Add Banner</h3>
+                         <form onSubmit={(e) => {
+                             e.preventDefault();
+                             const form = e.currentTarget;
+                             addBanner({ id: Date.now().toString(), image: form.image.value, link: form.link.value });
+                             form.reset();
+                         }} className="flex gap-2">
+                             <input name="image" placeholder="Image URL" className="flex-1 bg-gray-50 px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder:text-gray-500" required />
+                             <input name="link" placeholder="Link (Optional)" className="flex-1 bg-gray-50 px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder:text-gray-500" />
+                             <button className="bg-brand text-white px-4 py-2 rounded-xl font-bold text-sm">Add</button>
+                         </form>
+                     </div>
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                         {banners.map(b => (
+                             <div key={b.id} className="relative aspect-video rounded-xl overflow-hidden group">
+                                 <img src={b.image} className="w-full h-full object-cover" />
+                                 <button onClick={() => deleteBanner(b.id)} className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-4 h-4" /></button>
+                             </div>
+                         ))}
+                     </div>
+                 </div>
+             )}
+
+             {tab === 'settings' && (
+                 <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                     <form onSubmit={(e) => {
+                         e.preventDefault();
+                         const formData = new FormData(e.currentTarget);
+                         updateSettings({
+                             ...settings,
+                             appName: formData.get('appName') as string,
+                             adminEmail: formData.get('adminEmail') as string,
+                             supportPhone: formData.get('supportPhone') as string,
+                             uiColor: formData.get('uiColor') as string,
+                             videoApiKey: formData.get('videoApiKey') as string,
+                             linkShortenerApiUrl: formData.get('linkShortenerApiUrl') as string,
+                             linkShortenerApiKey: formData.get('linkShortenerApiKey') as string,
+                             adsCode: formData.get('adsCode') as string
+                         });
+                         alert('Settings Saved!');
+                     }} className="space-y-4">
+                         <div>
+                             <label className="text-xs font-bold text-gray-500 uppercase">App Name</label>
+                             <input name="appName" defaultValue={settings.appName} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" />
+                         </div>
+                         <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="text-xs font-bold text-gray-500 uppercase">Brand Color</label>
+                                <div className="flex gap-2 mt-1">
+                                    <input type="color" name="uiColor" defaultValue={settings.uiColor} className="h-10 w-10 rounded-lg cursor-pointer" />
+                                    <input type="text" defaultValue={settings.uiColor} className="flex-1 p-2 bg-gray-50 border border-gray-200 rounded-xl uppercase text-gray-900 placeholder:text-gray-500" readOnly />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold text-gray-500 uppercase">Admin Email</label>
+                                <input name="adminEmail" defaultValue={settings.adminEmail} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" />
+                            </div>
+                         </div>
+                         <div>
+                             <label className="text-xs font-bold text-gray-500 uppercase">Support Contact (Phone or Telegram)</label>
+                             <input name="supportPhone" defaultValue={settings.supportPhone} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" />
+                         </div>
+                         <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                             <h4 className="font-bold text-gray-900 mb-3 text-sm">Link Shortener Configuration</h4>
+                             <div className="grid gap-3">
+                                 <div>
+                                     <label className="text-xs font-bold text-gray-500 uppercase">API URL (e.g. reel2earn.com/api)</label>
+                                     <input name="linkShortenerApiUrl" defaultValue={settings.linkShortenerApiUrl} placeholder="https://..." className="w-full p-3 bg-white border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" />
+                                 </div>
+                                 <div>
+                                     <label className="text-xs font-bold text-gray-500 uppercase">API Key</label>
+                                     <input name="linkShortenerApiKey" defaultValue={settings.linkShortenerApiKey} className="w-full p-3 bg-white border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" />
+                                 </div>
+                             </div>
+                         </div>
+                         <div>
+                             <label className="text-xs font-bold text-gray-500 uppercase">Ad Code (HTML)</label>
+                             <textarea name="adsCode" defaultValue={settings.adsCode} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl mt-1 font-mono text-xs text-gray-900 placeholder:text-gray-500" rows={3} />
+                         </div>
+                         <button className="w-full bg-brand text-white py-3 rounded-xl font-bold">Save Settings</button>
+                     </form>
+                 </div>
+             )}
+
+             {/* Course Modal */}
+             {showCourseModal && (
+                 <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+                     <div className="bg-white w-full max-w-lg rounded-3xl p-6 max-h-[90vh] overflow-y-auto">
+                         <h2 className="text-xl font-bold mb-4 text-gray-900">{editingCourse ? 'Edit Batch' : 'New Batch'}</h2>
+                         <form onSubmit={handleSaveCourse} className="space-y-3">
+                             <input name="title" defaultValue={editingCourse?.title} placeholder="Batch Title" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required />
+                             <textarea name="description" defaultValue={editingCourse?.description} placeholder="Description" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" rows={2} required />
+                             <input name="image" defaultValue={editingCourse?.image} placeholder="Image URL" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required />
+                             <input name="category" defaultValue={editingCourse?.category} placeholder="Category (e.g. Science)" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required />
+                             <div className="grid grid-cols-2 gap-3">
+                                 <input type="number" name="price" defaultValue={editingCourse?.price} placeholder="Price" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" />
+                                 <input type="number" name="mrp" defaultValue={editingCourse?.mrp} placeholder="MRP" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" />
+                             </div>
+                             <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-xl">
+                                 <input type="checkbox" name="isPaid" defaultChecked={editingCourse?.isPaid} id="isPaid" className="w-5 h-5 accent-brand" />
+                                 <label htmlFor="isPaid" className="font-medium text-gray-700">Premium Course (Locked)</label>
+                             </div>
+                             <input name="accessKey" defaultValue={editingCourse?.accessKey} placeholder="Access Key (if Premium)" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" />
+                             <input name="telegramChannelLink" defaultValue={editingCourse?.telegramChannelLink} placeholder="Telegram Channel Link (Optional)" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" />
+                             
+                             <div className="flex gap-2">
+                                <input 
+                                    name="shortenerLink" 
+                                    ref={linkInputRef}
+                                    defaultValue={editingCourse?.shortenerLink} 
+                                    placeholder="Temp Access Short Link" 
+                                    className="flex-1 p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" 
+                                />
+                                {editingCourse && (
+                                    <button 
+                                        type="button" 
+                                        onClick={handleGenerateLink}
+                                        disabled={isGeneratingLink}
+                                        className="bg-gray-100 text-gray-600 px-3 rounded-xl font-bold text-xs hover:bg-gray-200 disabled:opacity-50"
+                                    >
+                                        {isGeneratingLink ? <Loader2 className="w-4 h-4 animate-spin"/> : 'Generate'}
+                                    </button>
+                                )}
+                             </div>
+                             
+                             <div className="flex gap-3 pt-4">
+                                 <button type="button" onClick={() => setShowCourseModal(false)} className="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-100 rounded-xl">Cancel</button>
+                                 <button type="submit" className="flex-1 py-3 bg-brand text-white font-bold rounded-xl shadow-lg shadow-brand/20">Save Batch</button>
+                             </div>
+                         </form>
+                     </div>
+                 </div>
+             )}
+
+             {/* Add User Modal (Manager Maker) */}
+             {showUserModal && (
+                 <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+                     <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl">
+                         <h2 className="text-xl font-bold mb-4 text-gray-900">Add New User</h2>
+                         <form onSubmit={handleAddUser} className="space-y-3">
+                             <input name="name" placeholder="Full Name" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required />
+                             <input name="email" type="email" placeholder="Email Address" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required />
+                             <input name="phone" placeholder="Phone Number" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" />
+                             <input name="password" type="password" placeholder="Password" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required />
+                             
+                             <div>
+                                 <label className="text-xs font-bold text-gray-500 uppercase ml-1">Role</label>
+                                 <select name="role" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 mt-1">
+                                     <option value={UserRole.USER}>Student (User)</option>
+                                     <option value={UserRole.EDITOR}>Editor (Manager)</option>
+                                     <option value={UserRole.ADMIN}>Admin</option>
+                                 </select>
+                             </div>
+
+                             <div className="flex gap-3 pt-4">
+                                 <button type="button" onClick={() => setShowUserModal(false)} className="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-100 rounded-xl">Cancel</button>
+                                 <button type="submit" className="flex-1 py-3 bg-brand text-white font-bold rounded-xl shadow-lg shadow-brand/20">Create User</button>
+                             </div>
+                         </form>
+                     </div>
+                 </div>
+             )}
+
+             {/* Exam Manager Modal Reuse */}
+             {showExamManager && (
+                 <ExamManager course={showExamManager} onClose={() => setShowExamManager(null)} />
+             )}
+        </div>
+    );
 };
 
 const MainContent = () => {

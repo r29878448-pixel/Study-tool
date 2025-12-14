@@ -1,7 +1,6 @@
-
 import React, { useRef, useState, useEffect } from 'react';
 import { 
-  Play, Pause, Volume2, VolumeX, Maximize, Minimize, Settings, Download, Lock, Loader2
+  Play, Pause, Volume2, VolumeX, Maximize, Minimize, Settings, Download, Lock, Loader2, ArrowLeft
 } from './Icons';
 
 interface VideoPlayerProps {
@@ -10,9 +9,10 @@ interface VideoPlayerProps {
   isLocked?: boolean;
   onProgress?: (currentTime: number, duration: number) => void;
   initialTime?: number;
+  onBack?: () => void;
 }
 
-const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProgress, initialTime }) => {
+const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProgress, initialTime, onBack }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -27,11 +27,15 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
   const [isLoading, setIsLoading] = useState(false);
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const isYoutube = src.includes('youtube.com') || src.includes('youtu.be') || src.includes('youtube-nocookie.com');
+  // Determine if source is a direct video file or an embed/iframe
+  // We assume it's a direct file if it ends in common video extensions.
+  // Otherwise, we treat it as an embed (YouTube, Vimeo, AI Video Generators).
+  const isDirectFile = /\.(mp4|webm|ogg|mov|m4v)$/i.test(src);
+  const isEmbed = !isDirectFile;
 
   // Set initial time if provided (e.g. from saved progress)
   useEffect(() => {
-    if (videoRef.current && initialTime) {
+    if (videoRef.current && initialTime && initialTime > 0) {
        videoRef.current.currentTime = initialTime;
     }
   }, [initialTime]);
@@ -39,9 +43,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
   // Keyboard Shortcuts & Events
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Only react if the container is focused or body is focused (not typing in an input)
       if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
-      // If we are not fullscreen, only react if body or player is focused
       if (!isFullscreen && !containerRef.current?.contains(document.activeElement) && document.activeElement !== document.body) return;
 
       switch(e.key) {
@@ -77,16 +79,16 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
     const handleContextMenu = (e: MouseEvent) => e.preventDefault();
     const videoElement = videoRef.current;
     
-    if (videoElement && !isYoutube) {
+    if (videoElement && isDirectFile) {
       videoElement.addEventListener('contextmenu', handleContextMenu);
     }
     
     return () => {
-      if (videoElement && !isYoutube) {
+      if (videoElement && isDirectFile) {
         videoElement.removeEventListener('contextmenu', handleContextMenu);
       }
     };
-  }, [isYoutube]);
+  }, [isDirectFile]);
 
   const formatTime = (time: number) => {
     const minutes = Math.floor(time / 60);
@@ -95,7 +97,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
   };
 
   const togglePlay = () => {
-    if (isLocked || !videoRef.current || isYoutube) return;
+    if (isLocked || !videoRef.current || isEmbed) return;
     if (videoRef.current.paused) {
       videoRef.current.play().catch(e => console.error("Play error", e));
       setIsPlaying(true);
@@ -118,7 +120,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
   const handleLoadedMetadata = () => {
     if (videoRef.current) {
       setDuration(videoRef.current.duration);
-      if (initialTime) videoRef.current.currentTime = initialTime;
+      if (initialTime && initialTime > 0) videoRef.current.currentTime = initialTime;
     }
   };
 
@@ -158,7 +160,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
   };
 
   const handleMouseMove = () => {
-    if (isYoutube) return;
+    if (isEmbed) return;
     setShowControls(true);
     if (controlsTimeoutRef.current) {
       clearTimeout(controlsTimeoutRef.current);
@@ -177,16 +179,25 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
     );
   }
 
-  // YouTube Player (Iframe)
-  if (isYoutube) {
+  // Generic Embed Player (YouTube, Vimeo, AI Generated, etc.)
+  if (isEmbed) {
     return (
-      <div className="w-full aspect-video bg-black rounded-lg overflow-hidden shadow-lg">
+      <div className="w-full aspect-video bg-black rounded-lg overflow-hidden shadow-lg relative">
+        {onBack && (
+            <button 
+                onClick={onBack}
+                className="absolute top-4 left-4 z-50 p-2 bg-black/50 rounded-full text-white hover:bg-black/70 transition-colors"
+            >
+                <ArrowLeft className="w-5 h-5" />
+            </button>
+        )}
         <iframe 
           src={src} 
           title="Video Player"
           className="w-full h-full"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen
+          // Add sandbox permissions if needed for certain AI players, but default is usually fine
         ></iframe>
       </div>
     );
@@ -217,6 +228,16 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
         controlsList="nodownload" // Built-in download disabled, using custom
       />
       
+      {/* Back Button */}
+      {onBack && (
+        <button 
+            onClick={onBack}
+            className={`absolute top-4 left-4 z-30 p-2 bg-black/40 backdrop-blur-sm rounded-full text-white hover:bg-black/60 transition-all ${showControls || !isPlaying ? 'opacity-100' : 'opacity-0'} duration-300`}
+        >
+            <ArrowLeft className="w-6 h-6" />
+        </button>
+      )}
+
       {/* Loading Spinner */}
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/20 z-20 pointer-events-none">

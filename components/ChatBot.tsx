@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageCircle, X, Send, Bot, Mic, Image as ImageIcon } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
@@ -81,7 +80,10 @@ const ChatBot = () => {
     const userMessage = inputValue;
     const currentImage = selectedImage;
 
-    setMessages(prev => [...prev, { role: 'user', text: userMessage, image: currentImage || undefined }]);
+    // Optimistically add user message
+    const updatedMessages: Message[] = [...messages, { role: 'user', text: userMessage, image: currentImage || undefined }];
+    setMessages(updatedMessages);
+    
     setInputValue('');
     setSelectedImage(null);
     setIsLoading(true);
@@ -89,29 +91,29 @@ const ChatBot = () => {
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       
-      const parts: any[] = [];
+      // Construct history for context
+      // Skip the initial greeting if it's just static text, or include it if desired.
+      // We start from index 1 (skipping first static model message) or 0 depending on logic.
+      // Here we map all previous messages to the 'contents' format.
       
-      if (userMessage) {
-        parts.push({ text: userMessage });
-      }
-
-      if (currentImage) {
-        // Remove data URL prefix for API
-        const base64Data = currentImage.split(',')[1];
-        const mimeType = currentImage.split(';')[0].split(':')[1];
-        parts.push({
-          inlineData: {
-            mimeType: mimeType,
-            data: base64Data
+      const contents = updatedMessages.map(msg => {
+          const parts: any[] = [{ text: msg.text }];
+          if (msg.image) {
+             const base64Data = msg.image.split(',')[1];
+             const mimeType = msg.image.split(';')[0].split(':')[1];
+             parts.push({
+                inlineData: { mimeType, data: base64Data }
+             });
           }
-        });
-      }
+          return {
+             role: msg.role,
+             parts: parts
+          };
+      });
 
       const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
-        contents: {
-          parts: parts
-        },
+        contents: contents,
         config: {
           systemInstruction: "You are an expert school teacher named 'AI Teacher'. Your goal is to help students learn effectively. \n\n**IMPORTANT RULES:**\n1. **Language:** You must strictly answer in **Hinglish** (a mix of Hindi and English) by default. Example: 'Haan, main samajha sakta hoon. Is concept ko aise samjho...'\n2. **No Unnecessary Code:** Do not use markdown code blocks (```) or write programming code unless the student EXPLICITLY asks for a coding solution (like 'Write a Java program'). For normal questions, just use text.\n3. **Tone:** Speak naturally, kindly, and professionally. Do not sound like a robot.\n4. **Teaching Style:** Use real-world analogies suitable for Indian students. Guide them to the answer conceptually before giving the solution.\n5. **Subjects:** Help with Math, Science, English, and Social Studies.",
         },
@@ -230,7 +232,7 @@ const ChatBot = () => {
 
               {/* Text Input */}
               <textarea 
-                className="flex-1 bg-gray-100 rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand/50 text-gray-900 resize-none max-h-24 no-scrollbar"
+                className="flex-1 bg-gray-100 rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand/50 text-gray-900 placeholder:text-gray-500 resize-none max-h-24 no-scrollbar"
                 placeholder="Ask in Hinglish..."
                 rows={1}
                 value={inputValue}

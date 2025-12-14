@@ -100,14 +100,18 @@ const CountdownTimer = ({ expiryDate }: { expiryDate: string }) => {
     return () => clearInterval(timer);
   }, [expiryDate]);
 
-  if (!timeLeft) return <span className="text-red-500 font-bold">Expired</span>;
+  if (!timeLeft) return <span className="text-red-500 font-bold text-xs bg-red-50 px-2 py-1 rounded">Expired</span>;
 
   return (
-    <div className="flex gap-1 items-center font-mono font-bold text-lg text-brand bg-blue-50 px-3 py-1 rounded-lg border border-blue-100">
-      <Timer className="w-5 h-5 mr-1" />
-      <span>{timeLeft.h.toString().padStart(2, '0')}</span>:
-      <span>{timeLeft.m.toString().padStart(2, '0')}</span>:
-      <span>{timeLeft.s.toString().padStart(2, '0')}</span>
+    <div className="flex gap-1 items-center font-mono font-bold text-sm text-brand bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100 shadow-sm">
+      <Timer className="w-4 h-4 mr-1" />
+      <div className="flex items-center gap-0.5">
+        <span className="bg-white px-1 rounded text-gray-800">{timeLeft.h.toString().padStart(2, '0')}</span>
+        <span className="text-gray-400">:</span>
+        <span className="bg-white px-1 rounded text-gray-800">{timeLeft.m.toString().padStart(2, '0')}</span>
+        <span className="text-gray-400">:</span>
+        <span className="bg-white px-1 rounded text-gray-800">{timeLeft.s.toString().padStart(2, '0')}</span>
+      </div>
     </div>
   );
 };
@@ -127,8 +131,12 @@ const Header = () => {
         </div>
         
         <Link to="/profile">
-          <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center border border-white/30 text-sm font-bold">
-            {currentUser ? currentUser.name.charAt(0).toUpperCase() : <User className="w-5 h-5" />}
+          <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center border border-white/30 text-sm font-bold overflow-hidden">
+            {currentUser ? (
+              currentUser.name.charAt(0).toUpperCase()
+            ) : (
+              <User className="w-5 h-5" />
+            )}
           </div>
         </Link>
       </header>
@@ -141,10 +149,10 @@ const Header = () => {
             <div className="h-40 bg-brand flex flex-col justify-center px-6 text-white relative overflow-hidden">
                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full translate-x-10 -translate-y-10"></div>
                <div className="w-14 h-14 rounded-full bg-white text-brand flex items-center justify-center mb-3 text-2xl font-bold shadow-md">
-                {currentUser?.name.charAt(0).toUpperCase()}
+                {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : <User />}
                </div>
-               <p className="font-bold truncate text-lg">{currentUser?.name}</p>
-               <p className="text-sm opacity-80 truncate">{currentUser?.email}</p>
+               <p className="font-bold truncate text-lg">{currentUser?.name || 'Guest'}</p>
+               <p className="text-sm opacity-80 truncate">{currentUser?.email || 'Please login'}</p>
             </div>
             <nav className="flex-1 overflow-y-auto py-4">
               <Link to="/" onClick={() => setShowMenu(false)} className="flex items-center px-6 py-3 text-gray-700 hover:bg-gray-100 border-l-4 border-transparent hover:border-brand transition-all">
@@ -213,6 +221,13 @@ const Login = () => {
 
   useEffect(() => {
     if (currentUser) {
+      // Check for pending verification
+      const pendingCourse = sessionStorage.getItem('pendingCourseVerification');
+      if (pendingCourse) {
+         navigate(`/verify/${pendingCourse}`);
+         return;
+      }
+
       if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.EDITOR) {
         navigate('/admin');
       } else {
@@ -498,28 +513,40 @@ const RevealKey = () => {
 // Route to handle automatic verification after returning from shortener
 const VerifyAccess = () => {
   const { courseId } = useParams();
-  const { grantTempAccess, courses } = useStore();
+  const { grantTempAccess, courses, currentUser } = useStore();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (courseId) {
-      const course = courses.find(c => c.id === courseId);
-      if(course) {
-        grantTempAccess(courseId);
-        navigate('/course/' + courseId, { replace: true });
-        // Optional: Show a toast here if a toast library existed
-        alert("Verification Successful! 24 Hours Access Granted.");
-      } else {
-        navigate('/');
-      }
+    if (!courseId) return;
+
+    if (!currentUser) {
+       // If not logged in, we must redirect to login, but we need to remember where to go back
+       // Store intent in Session Storage
+       sessionStorage.setItem('pendingCourseVerification', courseId);
+       navigate('/login');
+       return;
     }
-  }, [courseId, courses, grantTempAccess, navigate]);
+
+    const course = courses.find(c => c.id === courseId);
+    if(course) {
+      grantTempAccess(courseId);
+      // Clear any pending verification
+      sessionStorage.removeItem('pendingCourseVerification');
+      // Show success (optional, could use a toast)
+      // alert("Verification Successful! 24 Hours Access Granted."); 
+      // Redirect to course
+      navigate('/course/' + courseId, { replace: true });
+    } else {
+      navigate('/');
+    }
+  }, [courseId, courses, grantTempAccess, navigate, currentUser]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
        <div className="text-center">
          <div className="w-16 h-16 border-4 border-brand border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
          <h2 className="text-xl font-bold text-gray-800">Verifying Access...</h2>
+         <p className="text-gray-500 text-sm mt-2">Please wait while we unlock your content.</p>
        </div>
     </div>
   );
@@ -571,6 +598,14 @@ const CourseDetail = () => {
   };
 
   const handleGenerateTempAccess = () => {
+    if (!currentUser) {
+       // Redirect to login but warn user
+       if(confirm("You must be logged in to get temporary access. Login now?")) {
+          navigate('/login');
+       }
+       return;
+    }
+
     if (!course.shortenerLink) {
        alert("No shortener link configured for this course.");
        return;
@@ -586,34 +621,29 @@ const CourseDetail = () => {
      }
 
      setIsLoadingShortLink(true);
-     // Use the base URL including hash, but we need to ensure the redirect works correctly
-     // Reel2Earn usually redirects to a URL. 
-     // We construct a URL that points to our /reveal/:key page
      const baseUrl = window.location.href.split('#')[0];
      const revealUrl = `${baseUrl}#/reveal/${course.accessKey}`;
      
-     // Reel2Earn API call
-     // Use settings.linkShortenerApiUrl if available, else default to known endpoint or just allow config
      const shortenerUrl = settings.linkShortenerApiUrl || 'https://reel2earn.com/api';
      const apiUrl = `${shortenerUrl}?api=${settings.linkShortenerApiKey}&url=${encodeURIComponent(revealUrl)}`;
 
      try {
+       // Try fetching directly first
        const res = await fetch(apiUrl);
        const data = await res.json();
        
        if (data.status === 'success' && data.shortenedUrl) {
           window.open(data.shortenedUrl, '_blank');
        } else {
-          // If API returns plain text link or fails silently
-          console.warn('API Response:', data);
-          // Fallback mechanism: direct open if API key is invalid or quota exceeded (for demo)
-          alert("Link shortener service unavailable. Opening direct verification for demo.");
-          window.open(revealUrl, '_blank');
+          // Fallback: Open reveal directly if API fails
+          console.warn('Shortener API failed or returned error:', data);
+          window.open(revealUrl, '_blank'); 
        }
      } catch (e) {
-       console.error(e);
-       alert("Network error connecting to shortener. Opening reveal page directly for demo.");
-       window.open(revealUrl, '_blank');
+       console.error("Shortener API Fetch Error (likely CORS):", e);
+       // Silent Fallback for CORS issues - just open the reveal URL directly 
+       // In a real app, you would need a backend proxy to avoid CORS
+       window.open(revealUrl, '_blank'); 
      } finally {
        setIsLoadingShortLink(false);
      }
@@ -824,7 +854,7 @@ const MyCourses = () => {
     const allVideos = course.chapters.flatMap(c => c.videos);
     const totalVideos = allVideos.length;
     if (totalVideos === 0) return 0;
-    const completedCount = allVideos.filter(v => currentUser.videoProgress?.[v.id]?.completed).length;
+    const completedCount = allVideos.filter(v => currentUser?.videoProgress?.[v.id]?.completed).length;
     return Math.round((completedCount / totalVideos) * 100);
   };
 

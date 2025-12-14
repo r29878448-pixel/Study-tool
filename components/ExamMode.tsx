@@ -27,12 +27,20 @@ const ExamMode = () => {
   const [score, setScore] = useState(0);
   const [isAiGenerated, setIsAiGenerated] = useState(false);
   const [resumePrompt, setResumePrompt] = useState<ExamProgress | null>(null);
+  
+  // Track if we've already checked for saved progress to prevent loops
+  const hasCheckedProgress = useRef(false);
 
   // Validate Course
   if (!course) return <Navigate to="/" />;
 
-  // Check for saved progress on mount
+  // Check for saved progress on mount (and when user data loads)
   useEffect(() => {
+    // CRITICAL FIX: If we are already in 'taking' or 'review' mode, do NOT check for saved progress.
+    // This prevents the auto-save mechanism (which updates currentUser) from re-triggering this check
+    // and incorrectly showing the "Resume" screen in the middle of an exam.
+    if (view !== 'selection') return;
+
     if (currentUser?.savedExamProgress) {
       const saved = currentUser.savedExamProgress.find(p => p.courseId === course.id);
       if (saved) {
@@ -40,8 +48,7 @@ const ExamMode = () => {
         return; 
       }
     }
-    setView('selection'); 
-  }, [course, currentUser]);
+  }, [course, currentUser, view]);
 
   // Timer Logic
   useEffect(() => {
@@ -65,12 +72,15 @@ const ExamMode = () => {
     if (view === 'taking' && !loading && !isFinished && questions.length > 0) {
       const timeout = setTimeout(() => {
         saveProgress();
-      }, 1000);
+      }, 2000); // Increased to 2s debounce
       return () => clearTimeout(timeout);
     }
-  }, [answers, currentQuestionIdx]); 
+  }, [answers, currentQuestionIdx, timeLeft]); // Added timeLeft to ensure regular saves
 
   const saveProgress = () => {
+    // Don't save if 0 time left
+    if (timeLeft <= 0) return;
+    
     saveExamProgress({
       courseId: course.id,
       questions,
@@ -180,7 +190,7 @@ const ExamMode = () => {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
          <div className="bg-white p-8 rounded-3xl shadow-xl max-w-sm w-full text-center animate-fade-in">
-            <h2 className="text-2xl font-display font-bold mb-2">Resume Exam?</h2>
+            <h2 className="text-2xl font-display font-bold mb-2 text-gray-900">Resume Exam?</h2>
             <p className="text-gray-500 mb-6 text-sm">
                You have an unfinished exam saved on {new Date(resumePrompt.lastSaved).toLocaleDateString()}.
             </p>

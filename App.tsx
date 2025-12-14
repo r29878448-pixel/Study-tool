@@ -614,7 +614,7 @@ const ExamManager = ({ course, onClose }: { course: Course; onClose: () => void 
         <div className="fixed inset-0 z-[70] bg-black/50 backdrop-blur flex items-center justify-center p-4 animate-fade-in">
             <div className="bg-white w-full max-w-4xl h-[80vh] rounded-3xl p-6 flex flex-col shadow-2xl overflow-hidden">
                 <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-bold font-display">Manage Exams: {course.title}</h2>
+                    <h2 className="text-2xl font-bold font-display text-gray-900">Manage Exams: {course.title}</h2>
                     <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full"><X className="w-6 h-6"/></button>
                 </div>
                 
@@ -637,14 +637,14 @@ const ExamManager = ({ course, onClose }: { course: Course; onClose: () => void 
                         {activeExam ? (
                             <div className="space-y-6">
                                 <div className="flex justify-between items-center">
-                                    <h3 className="font-bold text-lg">Questions for {activeExam.title}</h3>
+                                    <h3 className="font-bold text-lg text-gray-900">Questions for {activeExam.title}</h3>
                                     <button onClick={() => addQuestion(activeExam.id)} className="text-brand text-sm font-bold bg-brand-light px-3 py-1.5 rounded-lg">+ Add Question</button>
                                 </div>
                                 {activeExam.questions.map((q, qIdx) => (
                                     <div key={q.id} className="bg-gray-50 p-4 rounded-xl border border-gray-100">
                                         <div className="flex gap-2 mb-2">
                                             <span className="font-bold text-gray-400">Q{qIdx+1}</span>
-                                            <input className="flex-1 bg-white border border-gray-200 p-2 rounded-lg text-sm font-medium" value={q.question} onChange={e => updateQuestion(activeExam.id, qIdx, 'question', e.target.value)} placeholder="Question Text" />
+                                            <input className="flex-1 bg-white border border-gray-200 p-2 rounded-lg text-sm font-medium text-gray-900" value={q.question} onChange={e => updateQuestion(activeExam.id, qIdx, 'question', e.target.value)} placeholder="Question Text" />
                                             <button onClick={() => {
                                                 const qs = [...activeExam.questions]; qs.splice(qIdx, 1);
                                                 setExams(exams.map(e => e.id === activeExam.id ? { ...e, questions: qs } : e));
@@ -654,7 +654,7 @@ const ExamManager = ({ course, onClose }: { course: Course; onClose: () => void 
                                             {q.options.map((opt, oIdx) => (
                                                 <div key={oIdx} className="flex items-center gap-2">
                                                     <input type="radio" checked={q.correctAnswer === oIdx} onChange={() => updateQuestion(activeExam.id, qIdx, 'correctAnswer', oIdx)} name={`q-${q.id}`} className="text-brand focus:ring-brand" />
-                                                    <input className="flex-1 bg-white border border-gray-200 p-2 rounded-lg text-xs" value={opt} onChange={e => updateOption(activeExam.id, qIdx, oIdx, e.target.value)} placeholder={`Option ${oIdx+1}`} />
+                                                    <input className="flex-1 bg-white border border-gray-200 p-2 rounded-lg text-xs text-gray-900" value={opt} onChange={e => updateOption(activeExam.id, qIdx, oIdx, e.target.value)} placeholder={`Option ${oIdx+1}`} />
                                                 </div>
                                             ))}
                                         </div>
@@ -776,7 +776,7 @@ const ContentManager = ({ course, onClose }: { course: Course; onClose: () => vo
                     <div className="mb-6 p-4 bg-gray-50 rounded-2xl border border-gray-200">
                         <p className="text-xs text-gray-500 mb-2 font-bold uppercase">Paste JSON Array (Subjects & Videos)</p>
                         <textarea 
-                            className="w-full h-32 p-3 text-xs font-mono bg-white border border-gray-200 rounded-xl mb-3 focus:outline-none focus:border-brand"
+                            className="w-full h-32 p-3 text-xs font-mono bg-white border border-gray-200 rounded-xl mb-3 focus:outline-none focus:border-brand text-gray-900"
                             placeholder='[{"title": "Physics", "videos": [{"title": "Intro", "filename": "https://..."}]}]'
                             value={jsonInput}
                             onChange={e => setJsonInput(e.target.value)}
@@ -813,13 +813,13 @@ const ContentManager = ({ course, onClose }: { course: Course; onClose: () => vo
                                     <div key={video.id} className="bg-gray-50 p-4 rounded-2xl border border-gray-200 flex flex-col gap-3 group/video">
                                         <div className="flex gap-2">
                                             <input 
-                                                className="flex-1 p-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-brand/20 outline-none" 
+                                                className="flex-1 p-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-brand/20 outline-none text-gray-900" 
                                                 placeholder="Video Title" 
                                                 value={video.title} 
                                                 onChange={e => updateVideo(cIdx, vIdx, 'title', e.target.value)} 
                                             />
                                             <input 
-                                                className="w-24 p-2.5 bg-white border border-gray-200 rounded-xl text-sm text-center" 
+                                                className="w-24 p-2.5 bg-white border border-gray-200 rounded-xl text-sm text-center text-gray-900" 
                                                 placeholder="Duration" 
                                                 value={video.duration} 
                                                 onChange={e => updateVideo(cIdx, vIdx, 'duration', e.target.value)} 
@@ -994,16 +994,16 @@ const AdminPanel = () => {
         )}
         {activeTab === 'users' && (
            <div className="space-y-6">
-             <div className="bg-white p-6 rounded-3xl shadow-card border border-gray-100"><h3 className="font-bold text-gray-900 mb-4 font-display text-lg">Create New User / Manager</h3><div className="grid grid-cols-1 md:grid-cols-5 gap-3"><input className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm" placeholder="Name" value={newUser.name} onChange={e => setNewUser({...newUser, name: e.target.value})} /><input className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm" placeholder="Email" value={newUser.email} onChange={e => setNewUser({...newUser, email: e.target.value})} /><input className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm" placeholder="Password" value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})} /><select className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm" value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})}><option value="USER">Student</option><option value="EDITOR">Manager/Editor</option><option value="ADMIN">Admin</option></select><button onClick={handleAddUser} className="bg-brand text-white font-bold rounded-xl hover:bg-brand-dark shadow-lg shadow-brand/20">Create</button></div></div>
+             <div className="bg-white p-6 rounded-3xl shadow-card border border-gray-100"><h3 className="font-bold text-gray-900 mb-4 font-display text-lg">Create New User / Manager</h3><div className="grid grid-cols-1 md:grid-cols-5 gap-3"><input className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900" placeholder="Name" value={newUser.name} onChange={e => setNewUser({...newUser, name: e.target.value})} /><input className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900" placeholder="Email" value={newUser.email} onChange={e => setNewUser({...newUser, email: e.target.value})} /><input className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900" placeholder="Password" value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})} /><select className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900" value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})}><option value="USER">Student</option><option value="EDITOR">Manager/Editor</option><option value="ADMIN">Admin</option></select><button onClick={handleAddUser} className="bg-brand text-white font-bold rounded-xl hover:bg-brand-dark shadow-lg shadow-brand/20">Create</button></div></div>
              <div className="space-y-3"><h3 className="font-bold text-gray-500 uppercase tracking-widest text-xs ml-2">Existing Users</h3>{users.map(u => (<div key={u.id} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex justify-between items-center"><div><p className="font-bold text-gray-900">{u.name}</p><p className="text-xs text-gray-500">{u.email}</p><span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase mt-1 inline-block ${u.role === 'ADMIN' ? 'bg-red-100 text-red-700' : u.role === 'EDITOR' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'}`}>{u.role}</span></div>{u.role !== UserRole.ADMIN && (<button onClick={() => deleteUserSafe(u.id)} className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>)}</div>))}</div>
            </div>
         )}
         {activeTab === 'settings' && (
           <div className="bg-white p-8 rounded-3xl shadow-card border border-gray-100 space-y-8">
-            <div className="border-b border-gray-100 pb-8"><h2 className="font-display font-bold text-xl mb-6 text-brand">Branding</h2><div className="space-y-4"><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Website Name</label><input type="text" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl" value={localSettings.appName} onChange={e => setLocalSettings({...localSettings, appName: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">UI Color Theme</label><div className="flex gap-4 items-center"><input type="color" className="h-12 w-24 p-1 border rounded-xl cursor-pointer" value={localSettings.uiColor || '#4F46E5'} onChange={e => setLocalSettings({...localSettings, uiColor: e.target.value})} /><div className="text-sm text-gray-500">Select your brand's primary color</div></div></div></div></div>
+            <div className="border-b border-gray-100 pb-8"><h2 className="font-display font-bold text-xl mb-6 text-brand">Branding</h2><div className="space-y-4"><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Website Name</label><input type="text" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900" value={localSettings.appName} onChange={e => setLocalSettings({...localSettings, appName: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">UI Color Theme</label><div className="flex gap-4 items-center"><input type="color" className="h-12 w-24 p-1 border rounded-xl cursor-pointer" value={localSettings.uiColor || '#4F46E5'} onChange={e => setLocalSettings({...localSettings, uiColor: e.target.value})} /><div className="text-sm text-gray-500">Select your brand's primary color</div></div></div></div></div>
             <div className="border-b border-gray-100 pb-8"><h2 className="font-display font-bold text-xl mb-6 text-brand">App Banners</h2><div className="mb-6"><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Upload New Banner</label><div className="flex gap-3"><input type="file" accept="image/*" className="flex-1 p-2 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-500" onChange={handleBannerUpload} /><button onClick={() => { if(newBannerImage) { addBanner({ id: Date.now().toString(), image: newBannerImage, link: '#' }); setNewBannerImage(''); alert('Banner added!'); } }} className="bg-gray-900 text-white px-6 py-2 rounded-xl text-xs font-bold disabled:opacity-50 hover:bg-black transition-colors" disabled={!newBannerImage}>Add</button></div></div><div className="grid grid-cols-2 gap-4">{banners.map(b => (<div key={b.id} className="relative group rounded-xl overflow-hidden shadow-sm"><img src={b.image} className="w-full h-24 object-cover" /><div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"><button onClick={() => deleteBanner(b.id)} className="bg-red-500 text-white p-2 rounded-full hover:bg-red-600"><Trash2 className="w-4 h-4" /></button></div></div>))}</div></div>
-            <div className="border-b border-gray-100 pb-8"><h2 className="font-display font-bold text-xl mb-6 text-brand">Admin Credentials</h2><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Admin Email</label><input type="email" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl" value={adminCreds.email} onChange={e => { setAdminCreds({...adminCreds, email: e.target.value}); setLocalSettings({...localSettings, adminEmail: e.target.value}); }} /></div><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Admin Password</label><input type="text" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl" value={adminCreds.password} onChange={e => setAdminCreds({...adminCreds, password: e.target.value})} /></div></div></div>
-            <div className="border-b border-gray-100 pb-8"><h2 className="font-display font-bold text-xl mb-6 text-brand">Integrations</h2><div className="space-y-6"><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Link Shortener API URL (Reel2Earn)</label><input type="text" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-mono" value={localSettings.linkShortenerApiUrl || ''} onChange={e => setLocalSettings({...localSettings, linkShortenerApiUrl: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Link Shortener API Key</label><input type="text" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-mono" value={localSettings.linkShortenerApiKey || ''} onChange={e => setLocalSettings({...localSettings, linkShortenerApiKey: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Ads Code (HTML/Script)</label><textarea className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl h-24 font-mono text-xs" value={localSettings.adsCode || ''} onChange={e => setLocalSettings({...localSettings, adsCode: e.target.value})} placeholder="<script>...</script>" /></div></div></div>
+            <div className="border-b border-gray-100 pb-8"><h2 className="font-display font-bold text-xl mb-6 text-brand">Admin Credentials</h2><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Admin Email</label><input type="email" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900" value={adminCreds.email} onChange={e => { setAdminCreds({...adminCreds, email: e.target.value}); setLocalSettings({...localSettings, adminEmail: e.target.value}); }} /></div><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Admin Password</label><input type="text" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900" value={adminCreds.password} onChange={e => setAdminCreds({...adminCreds, password: e.target.value})} /></div></div></div>
+            <div className="border-b border-gray-100 pb-8"><h2 className="font-display font-bold text-xl mb-6 text-brand">Integrations</h2><div className="space-y-6"><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Link Shortener API URL (Reel2Earn)</label><input type="text" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-mono text-gray-900" value={localSettings.linkShortenerApiUrl || ''} onChange={e => setLocalSettings({...localSettings, linkShortenerApiUrl: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Link Shortener API Key</label><input type="text" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-mono text-gray-900" value={localSettings.linkShortenerApiKey || ''} onChange={e => setLocalSettings({...localSettings, linkShortenerApiKey: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Ads Code (HTML/Script)</label><textarea className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl h-24 font-mono text-xs text-gray-900" value={localSettings.adsCode || ''} onChange={e => setLocalSettings({...localSettings, adsCode: e.target.value})} placeholder="<script>...</script>" /></div></div></div>
             <button onClick={handleSaveSettings} className="w-full bg-brand text-white py-4 rounded-2xl font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition-all transform hover:scale-[1.01]">Save All Changes</button>
           </div>
         )}
@@ -1013,12 +1013,12 @@ const AdminPanel = () => {
           <div className="bg-white w-full max-w-lg rounded-3xl p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-2xl font-display font-bold mb-6 text-gray-900">{courses.some(c => c.id === editingCourse.id) ? 'Edit Batch' : 'Create New Batch'}</h3>
             <div className="space-y-4">
-              <input type="text" placeholder="Batch Title" className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl font-medium focus:ring-2 focus:ring-brand/50 outline-none" value={editingCourse.title} onChange={e => setEditingCourse({...editingCourse, title: e.target.value})} />
-              <textarea placeholder="Description" className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl h-32 focus:ring-2 focus:ring-brand/50 outline-none resize-none" value={editingCourse.description} onChange={e => setEditingCourse({...editingCourse, description: e.target.value})} />
-              <div className="grid grid-cols-2 gap-4"><div className="flex items-center gap-3 border border-gray-200 p-4 rounded-2xl cursor-pointer hover:bg-gray-50" onClick={() => setEditingCourse({...editingCourse, isPaid: !editingCourse.isPaid})}><input type="checkbox" checked={editingCourse.isPaid || false} onChange={() => {}} className="w-5 h-5 text-brand rounded focus:ring-brand" /><span className="font-bold text-sm text-gray-700">Is Locked?</span></div><input type="text" placeholder="ACCESS KEY" className="w-full p-4 border border-gray-200 rounded-2xl font-bold uppercase text-center tracking-widest" value={editingCourse.accessKey || ''} onChange={e => setEditingCourse({...editingCourse, accessKey: e.target.value.toUpperCase()})} /></div>
-              <div className="p-5 bg-indigo-50 border border-indigo-100 rounded-2xl"><label className="block text-xs font-bold text-indigo-800 uppercase tracking-wider mb-2">Verification Link (24h Access)</label><div className="flex gap-2 mb-2"><input type="text" placeholder="Short link will appear here..." className="flex-1 p-3 bg-white border border-indigo-200 rounded-xl text-sm" value={editingCourse.shortenerLink || ''} onChange={e => setEditingCourse({...editingCourse, shortenerLink: e.target.value})} /><button onClick={handleAutoShortenLink} disabled={isShortening} className="px-4 bg-indigo-600 text-white rounded-xl font-bold text-xs flex items-center gap-1 hover:bg-indigo-700 disabled:opacity-50 transition-colors" title="Auto-create link using Reel2Earn API">{isShortening ? <Loader2 className="w-4 h-4 animate-spin"/> : <Wand2 className="w-4 h-4" />} Auto</button></div><p className="text-[10px] text-indigo-400">Use 'Auto' to generate a short link using your API Key, or paste manually.</p>{shortenerError && <div className="mt-2 p-2 bg-red-100 text-red-700 text-xs rounded border border-red-200"><strong>Auto-shorten failed (Browser Blocked).</strong> <a href={shortenerError} target="_blank" rel="noopener noreferrer" className="underline font-bold">Click here to open shortener manually</a></div>}</div>
-              <div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Thumbnail</label><div className="flex items-center gap-3 mb-3"><img src={editingCourse.image || 'https://via.placeholder.com/100'} className="w-20 h-20 rounded-2xl object-cover border border-gray-200" /><label className="flex-1 cursor-pointer bg-gray-50 hover:bg-gray-100 border border-gray-200 border-dashed rounded-2xl h-20 flex flex-col items-center justify-center text-gray-500 transition-colors"><Upload className="w-5 h-5 mb-1"/><span className="text-xs font-bold">Upload Image</span><input type="file" accept="image/*" onChange={handleCourseImageUpload} className="hidden" /></label></div><input type="text" placeholder="Or enter Image URL" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs" value={editingCourse.image} onChange={e => setEditingCourse({...editingCourse, image: e.target.value})} /></div>
-              <input type="text" placeholder="Category (e.g. Science, Maths)" className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl font-medium" value={editingCourse.category} onChange={e => setEditingCourse({...editingCourse, category: e.target.value})} />
+              <input type="text" placeholder="Batch Title" className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl font-medium focus:ring-2 focus:ring-brand/50 outline-none text-gray-900" value={editingCourse.title} onChange={e => setEditingCourse({...editingCourse, title: e.target.value})} />
+              <textarea placeholder="Description" className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl h-32 focus:ring-2 focus:ring-brand/50 outline-none resize-none text-gray-900" value={editingCourse.description} onChange={e => setEditingCourse({...editingCourse, description: e.target.value})} />
+              <div className="grid grid-cols-2 gap-4"><div className="flex items-center gap-3 border border-gray-200 p-4 rounded-2xl cursor-pointer hover:bg-gray-50" onClick={() => setEditingCourse({...editingCourse, isPaid: !editingCourse.isPaid})}><input type="checkbox" checked={editingCourse.isPaid || false} onChange={() => {}} className="w-5 h-5 text-brand rounded focus:ring-brand" /><span className="font-bold text-sm text-gray-700">Is Locked?</span></div><input type="text" placeholder="ACCESS KEY" className="w-full p-4 border border-gray-200 rounded-2xl font-bold uppercase text-center tracking-widest text-gray-900" value={editingCourse.accessKey || ''} onChange={e => setEditingCourse({...editingCourse, accessKey: e.target.value.toUpperCase()})} /></div>
+              <div className="p-5 bg-indigo-50 border border-indigo-100 rounded-2xl"><label className="block text-xs font-bold text-indigo-800 uppercase tracking-wider mb-2">Verification Link (24h Access)</label><div className="flex gap-2 mb-2"><input type="text" placeholder="Short link will appear here..." className="flex-1 p-3 bg-white border border-indigo-200 rounded-xl text-sm text-gray-900" value={editingCourse.shortenerLink || ''} onChange={e => setEditingCourse({...editingCourse, shortenerLink: e.target.value})} /><button onClick={handleAutoShortenLink} disabled={isShortening} className="px-4 bg-indigo-600 text-white rounded-xl font-bold text-xs flex items-center gap-1 hover:bg-indigo-700 disabled:opacity-50 transition-colors" title="Auto-create link using Reel2Earn API">{isShortening ? <Loader2 className="w-4 h-4 animate-spin"/> : <Wand2 className="w-4 h-4" />} Auto</button></div><p className="text-[10px] text-indigo-400">Use 'Auto' to generate a short link using your API Key, or paste manually.</p>{shortenerError && <div className="mt-2 p-2 bg-red-100 text-red-700 text-xs rounded border border-red-200"><strong>Auto-shorten failed (Browser Blocked).</strong> <a href={shortenerError} target="_blank" rel="noopener noreferrer" className="underline font-bold">Click here to open shortener manually</a></div>}</div>
+              <div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Thumbnail</label><div className="flex items-center gap-3 mb-3"><img src={editingCourse.image || 'https://via.placeholder.com/100'} className="w-20 h-20 rounded-2xl object-cover border border-gray-200" /><label className="flex-1 cursor-pointer bg-gray-50 hover:bg-gray-100 border border-gray-200 border-dashed rounded-2xl h-20 flex flex-col items-center justify-center text-gray-500 transition-colors"><Upload className="w-5 h-5 mb-1"/><span className="text-xs font-bold">Upload Image</span><input type="file" accept="image/*" onChange={handleCourseImageUpload} className="hidden" /></label></div><input type="text" placeholder="Or enter Image URL" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-900" value={editingCourse.image} onChange={e => setEditingCourse({...editingCourse, image: e.target.value})} /></div>
+              <input type="text" placeholder="Category (e.g. Science, Maths)" className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl font-medium text-gray-900" value={editingCourse.category} onChange={e => setEditingCourse({...editingCourse, category: e.target.value})} />
             </div>
             <div className="flex gap-4 mt-8"><button onClick={() => setEditingCourse(null)} className="flex-1 py-4 text-gray-500 font-bold hover:bg-gray-50 rounded-2xl transition-colors">Cancel</button><button onClick={handleSaveCourse} className="flex-1 py-4 bg-brand text-white font-bold rounded-2xl shadow-lg shadow-brand/30 hover:bg-brand-dark transition-all">Save Changes</button></div>
           </div>
@@ -1062,33 +1062,194 @@ const MyCourses = () => {
 
 const Watch = () => {
     const { courseId } = useParams();
-    const { courses } = useStore();
+    const { courses, currentUser, saveAiQuiz } = useStore();
     const [currentVideoUrl, setCurrentVideoUrl] = useState<string>('');
+    const [currentVideo, setCurrentVideo] = useState<Video | null>(null);
+    const [quizQuestions, setQuizQuestions] = useState<Question[]>([]);
+    const [showQuiz, setShowQuiz] = useState(false);
+    const [quizLoading, setQuizLoading] = useState(false);
+    const [quizScore, setQuizScore] = useState<number | null>(null);
+    const [userAnswers, setUserAnswers] = useState<number[]>([]);
+
     const course = courses.find(c => c.id === courseId);
     
     useEffect(() => {
-        if(course?.chapters[0]?.videos[0]) setCurrentVideoUrl(course.chapters[0].videos[0].filename);
+        if(course?.chapters[0]?.videos[0]) {
+            setCurrentVideoUrl(course.chapters[0].videos[0].filename);
+            setCurrentVideo(course.chapters[0].videos[0]);
+        }
     }, [course]);
+
+    const generateAiQuiz = async () => {
+        if (!currentVideo) return;
+        setQuizLoading(true);
+        setShowQuiz(true);
+        setQuizScore(null);
+        setUserAnswers([]);
+
+        // Check if quiz already exists
+        const existingQuiz = currentUser?.generatedQuizzes?.find(q => q.videoId === currentVideo.id);
+        if (existingQuiz) {
+            setQuizQuestions(existingQuiz.questions);
+            setQuizLoading(false);
+            return;
+        }
+
+        try {
+            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            const prompt = `Create 5 multiple choice questions based on the topic "${currentVideo.title}" from the course "${course?.title}". 
+            Format strictly as a JSON array of objects with keys: "id", "question", "options" (array of 4 strings), "correctAnswer" (number index 0-3).`;
+
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: prompt,
+                config: { responseMimeType: 'application/json' }
+            });
+
+            const text = response.text;
+            if (text) {
+                const data = JSON.parse(text);
+                setQuizQuestions(data);
+                // Save to store
+                saveAiQuiz({
+                    videoId: currentVideo.id,
+                    questions: data,
+                    generatedAt: new Date().toISOString()
+                });
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Failed to generate AI quiz. Please try again.");
+            setShowQuiz(false);
+        } finally {
+            setQuizLoading(false);
+        }
+    };
+
+    const submitQuiz = () => {
+        let score = 0;
+        quizQuestions.forEach((q, i) => {
+            if (userAnswers[i] === q.correctAnswer) score++;
+        });
+        setQuizScore(score);
+    };
 
     if (!course) return <Navigate to="/" />;
 
     return (
         <div className="min-h-screen bg-black text-white flex flex-col md:flex-row">
-            <div className="flex-1 flex flex-col">
+            <div className="flex-1 flex flex-col relative">
                 <div className="w-full aspect-video bg-black">
                      {currentVideoUrl ? <VideoPlayer src={currentVideoUrl} /> : <div className="h-full flex items-center justify-center">Select a video</div>}
                 </div>
-                <div className="p-4"><h1 className="text-xl font-bold">{course.title}</h1></div>
+                <div className="p-4 flex justify-between items-center bg-gray-900 border-b border-gray-800">
+                    <div>
+                        <h1 className="text-xl font-bold">{currentVideo?.title || course.title}</h1>
+                        <p className="text-sm text-gray-400">{course.title}</p>
+                    </div>
+                    {currentVideo && (
+                        <button 
+                            onClick={generateAiQuiz}
+                            className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-indigo-700 transition-colors"
+                        >
+                            <Brain className="w-4 h-4" /> Take AI Quiz
+                        </button>
+                    )}
+                </div>
+
+                {/* AI Quiz Modal Overlay */}
+                {showQuiz && (
+                    <div className="absolute inset-0 z-50 bg-gray-900/95 backdrop-blur-sm p-4 overflow-y-auto">
+                        <div className="max-w-2xl mx-auto bg-gray-800 rounded-3xl p-6 border border-gray-700">
+                            <div className="flex justify-between items-center mb-6">
+                                <h2 className="text-xl font-bold flex items-center gap-2">
+                                    <Brain className="text-indigo-400"/> 
+                                    Quiz: {currentVideo?.title}
+                                </h2>
+                                <button onClick={() => setShowQuiz(false)} className="p-2 hover:bg-gray-700 rounded-full">
+                                    <X className="w-5 h-5"/>
+                                </button>
+                            </div>
+
+                            {quizLoading ? (
+                                <div className="py-20 flex flex-col items-center justify-center text-center">
+                                    <Loader2 className="w-12 h-12 text-indigo-500 animate-spin mb-4"/>
+                                    <p className="text-gray-400">Generating questions with AI...</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-6">
+                                    {quizQuestions.map((q, idx) => {
+                                        const isAnswered = userAnswers[idx] !== undefined;
+                                        const isCorrect = userAnswers[idx] === q.correctAnswer;
+                                        const showResult = quizScore !== null;
+
+                                        return (
+                                            <div key={idx} className="bg-gray-700/50 p-4 rounded-xl border border-gray-700">
+                                                <p className="font-bold mb-3">{idx + 1}. {q.question}</p>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                                    {q.options.map((opt, oIdx) => {
+                                                        let btnClass = "bg-gray-800 border-gray-600 hover:bg-gray-700";
+                                                        if (showResult) {
+                                                            if (oIdx === q.correctAnswer) btnClass = "bg-green-900/50 border-green-500 text-green-200";
+                                                            else if (userAnswers[idx] === oIdx) btnClass = "bg-red-900/50 border-red-500 text-red-200";
+                                                            else btnClass = "bg-gray-800 border-gray-700 opacity-50";
+                                                        } else if (userAnswers[idx] === oIdx) {
+                                                            btnClass = "bg-indigo-600 border-indigo-500";
+                                                        }
+
+                                                        return (
+                                                            <button 
+                                                                key={oIdx}
+                                                                disabled={showResult}
+                                                                onClick={() => {
+                                                                    const newAns = [...userAnswers];
+                                                                    newAns[idx] = oIdx;
+                                                                    setUserAnswers(newAns);
+                                                                }}
+                                                                className={`p-3 rounded-lg border text-left text-sm font-medium transition-all ${btnClass}`}
+                                                            >
+                                                                {opt}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+
+                                    {quizScore === null ? (
+                                        <button 
+                                            onClick={submitQuiz}
+                                            disabled={userAnswers.filter(a => a !== undefined).length !== quizQuestions.length}
+                                            className="w-full py-3 bg-indigo-600 rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-indigo-700 transition-colors"
+                                        >
+                                            Submit Quiz
+                                        </button>
+                                    ) : (
+                                        <div className="text-center p-6 bg-gray-800 rounded-xl border border-gray-700">
+                                            <p className="text-gray-400 text-sm uppercase font-bold mb-1">Your Score</p>
+                                            <p className="text-4xl font-bold text-white mb-4">{quizScore} / {quizQuestions.length}</p>
+                                            <button onClick={() => setShowQuiz(false)} className="px-6 py-2 bg-gray-700 rounded-lg font-bold hover:bg-gray-600">Close</button>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
             </div>
-            <div className="w-full md:w-80 bg-gray-900 overflow-y-auto h-[50vh] md:h-screen">
-                <div className="p-4 font-bold border-b border-gray-800">Course Content</div>
+            <div className="w-full md:w-80 bg-gray-900 overflow-y-auto h-[50vh] md:h-screen border-l border-gray-800">
+                <div className="p-4 font-bold border-b border-gray-800 bg-gray-900 sticky top-0 z-10">Course Content</div>
                 {course.chapters.map(chap => (
                     <div key={chap.id}>
-                        <div className="bg-gray-800 px-4 py-2 text-sm font-bold text-gray-400">{chap.title}</div>
+                        <div className="bg-gray-800/50 px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider sticky top-14">{chap.title}</div>
                         {chap.videos.map(v => (
-                            <button key={v.id} onClick={() => setCurrentVideoUrl(v.filename)} className={`w-full text-left px-4 py-3 hover:bg-gray-800 flex gap-3 items-center ${currentVideoUrl === v.filename ? 'bg-gray-800 text-brand' : ''}`}>
-                                <PlayCircle className="w-4 h-4" />
-                                <span className="text-sm line-clamp-1">{v.title}</span>
+                            <button key={v.id} onClick={() => { setCurrentVideoUrl(v.filename); setCurrentVideo(v); }} className={`w-full text-left px-4 py-3 hover:bg-gray-800 flex gap-3 items-center border-b border-gray-800/50 transition-colors ${currentVideoUrl === v.filename ? 'bg-gray-800 text-indigo-400 border-l-4 border-l-indigo-500' : 'text-gray-300'}`}>
+                                <PlayCircle className={`w-4 h-4 flex-none ${currentVideoUrl === v.filename ? 'fill-current' : ''}`} />
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium truncate">{v.title}</p>
+                                    <p className="text-[10px] text-gray-500">{v.duration}</p>
+                                </div>
                             </button>
                         ))}
                     </div>
@@ -1220,8 +1381,8 @@ const Profile = () => {
                    </div>
                ) : (
                   <div className="space-y-4 mt-2">
-                     <input className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl" value={data.name} onChange={e => setData({...data, name: e.target.value})} placeholder="Name" />
-                     <input className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl" value={data.phone} onChange={e => setData({...data, phone: e.target.value})} placeholder="Phone" />
+                     <input className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900" value={data.name} onChange={e => setData({...data, name: e.target.value})} placeholder="Name" />
+                     <input className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900" value={data.phone} onChange={e => setData({...data, phone: e.target.value})} placeholder="Phone" />
                   </div>
                )}
             </div>
@@ -1245,50 +1406,48 @@ const Profile = () => {
             )}
          </div>
 
-         <button onClick={logout} className="w-full mt-8 py-4 text-red-600 font-bold bg-white border-2 border-red-50 rounded-2xl hover:bg-red-50 transition-colors shadow-sm">
-            Log Out
+         <button onClick={logout} className="w-full mt-8 py-4 text-red-600 font-bold bg-white border-2 border-red-50 rounded-2xl hover:bg-red-50 transition-colors shadow-sm flex items-center justify-center gap-2">
+            <LogOut className="w-5 h-5" /> Logout
          </button>
       </div>
    );
 };
 
-const App = () => {
-  return (
-    <StoreProvider>
-      <Router>
-        <ThemeHandler />
-        <AppRoutes />
-      </Router>
-    </StoreProvider>
-  );
-};
-
-const AppRoutes = () => {
-  const { currentUser } = useStore();
+const MainContent = () => {
   const location = useLocation();
-  const showNav = ['/', '/my-courses', '/profile', '/help'].includes(location.pathname);
+  const isFullScreen = location.pathname.startsWith('/watch') || location.pathname.startsWith('/exam') || location.pathname === '/login';
 
   return (
     <>
-      <Header />
+      {!isFullScreen && <Header />}
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/" element={<HomePage />} />
         <Route path="/courses" element={<CourseListing />} />
         <Route path="/course/:id" element={<CourseDetail />} />
-        <Route path="/my-courses" element={<MyCourses />} />
         <Route path="/watch/:courseId" element={<Watch />} />
         <Route path="/exam/:id" element={<ExamMode />} />
+        <Route path="/my-courses" element={<MyCourses />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/admin" element={<AdminPanel />} />
-        <Route path="/reveal/:key" element={<RevealKey />} />
         <Route path="/verify/:courseId" element={<VerifyAccess />} />
+        <Route path="/reveal/:key" element={<RevealKey />} />
+        <Route path="/help" element={<div className="pt-24 px-6 text-center text-gray-500 font-bold">Help Center Coming Soon</div>} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
+      {!isFullScreen && <BottomNav />}
       <ChatBot />
-      {showNav && <BottomNav />}
     </>
   );
 };
 
-export { App };
+export const App = () => {
+  return (
+    <Router>
+      <StoreProvider>
+        <ThemeHandler />
+        <MainContent />
+      </StoreProvider>
+    </Router>
+  );
+};

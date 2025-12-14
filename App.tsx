@@ -611,8 +611,8 @@ const ExamManager = ({ course, onClose }: { course: Course; onClose: () => void 
     };
 
     return (
-        <div className="fixed inset-0 z-[70] bg-black/50 backdrop-blur flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-4xl h-[80vh] rounded-3xl p-6 flex flex-col shadow-2xl">
+        <div className="fixed inset-0 z-[70] bg-black/50 backdrop-blur flex items-center justify-center p-4 animate-fade-in">
+            <div className="bg-white w-full max-w-4xl h-[80vh] rounded-3xl p-6 flex flex-col shadow-2xl overflow-hidden">
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-2xl font-bold font-display">Manage Exams: {course.title}</h2>
                     <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full"><X className="w-6 h-6"/></button>
@@ -620,7 +620,7 @@ const ExamManager = ({ course, onClose }: { course: Course; onClose: () => void 
                 
                 <div className="flex-1 flex gap-6 overflow-hidden">
                     <div className="w-1/3 border-r border-gray-100 pr-4 overflow-y-auto">
-                        <button onClick={addExam} className="w-full py-3 mb-4 bg-brand text-white rounded-xl font-bold flex items-center justify-center gap-2"><Plus className="w-4 h-4"/> New Exam</button>
+                        <button onClick={addExam} className="w-full py-3 mb-4 bg-brand text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-brand/20"><Plus className="w-4 h-4"/> New Exam</button>
                         <div className="space-y-2">
                             {exams.map(exam => (
                                 <div key={exam.id} onClick={() => setEditingExamId(exam.id)} className={`p-4 rounded-xl cursor-pointer border transition-all ${editingExamId === exam.id ? 'bg-indigo-50 border-brand' : 'bg-gray-50 border-transparent hover:bg-gray-100'}`}>
@@ -667,7 +667,7 @@ const ExamManager = ({ course, onClose }: { course: Course; onClose: () => void 
                     </div>
                 </div>
                 <div className="mt-6 pt-4 border-t flex justify-end">
-                    <button onClick={handleSave} className="bg-gray-900 text-white px-8 py-3 rounded-xl font-bold hover:bg-black transition-colors">Save All Changes</button>
+                    <button onClick={handleSave} className="bg-gray-900 text-white px-8 py-3 rounded-xl font-bold hover:bg-black transition-colors shadow-lg">Save All Changes</button>
                 </div>
             </div>
         </div>
@@ -677,6 +677,8 @@ const ExamManager = ({ course, onClose }: { course: Course; onClose: () => void 
 const ContentManager = ({ course, onClose }: { course: Course; onClose: () => void }) => {
     const { updateCourse } = useStore();
     const [chapters, setChapters] = useState<Chapter[]>(course.chapters || []);
+    const [showImport, setShowImport] = useState(false);
+    const [jsonInput, setJsonInput] = useState('');
     
     const handleSave = () => {
         updateCourse({ ...course, chapters });
@@ -684,7 +686,7 @@ const ContentManager = ({ course, onClose }: { course: Course; onClose: () => vo
     };
 
     const addChapter = () => {
-        setChapters([...chapters, { id: Date.now().toString(), title: "New Chapter", videos: [], notes: [] }]);
+        setChapters([...chapters, { id: Date.now().toString(), title: "New Subject", videos: [], notes: [] }]);
     };
 
     const updateChapterTitle = (idx: number, title: string) => {
@@ -697,6 +699,26 @@ const ContentManager = ({ course, onClose }: { course: Course; onClose: () => vo
         const newChapters = [...chapters];
         newChapters[chapterIdx].videos.push({ id: Date.now().toString(), title: "New Video", filename: "", duration: "00:00" });
         setChapters(newChapters);
+    };
+
+    // Helper to simulate video import by getting file metadata and creating object URL
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, cIdx: number, vIdx: number) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            const videoUrl = URL.createObjectURL(file);
+            const videoTitle = file.name.replace(/\.[^/.]+$/, "");
+
+            setChapters(prev => prev.map((ch, i) => {
+                if (i !== cIdx) return ch;
+                const newVideos = ch.videos.map((v, j) => {
+                    if (j !== vIdx) return v;
+                    return { ...v, title: videoTitle, filename: videoUrl, duration: 'Unknown' };
+                });
+                return { ...ch, videos: newVideos };
+            }));
+            
+            alert("File selected! Note: This creates a local preview link only reachable on this device. For permanent access, please upload to a cloud service and use the public URL.");
+        }
     };
 
     const updateVideo = (cIdx: number, vIdx: number, field: string, val: string) => {
@@ -717,39 +739,132 @@ const ContentManager = ({ course, onClose }: { course: Course; onClose: () => vo
         setChapters(newChapters);
     };
 
+    const handleBulkImport = () => {
+        try {
+            const parsed = JSON.parse(jsonInput);
+            if (Array.isArray(parsed)) {
+                // Validate minimal structure
+                const valid = parsed.every(c => c.title && Array.isArray(c.videos));
+                if (valid) {
+                    setChapters([...chapters, ...parsed]);
+                    setShowImport(false);
+                    setJsonInput('');
+                    alert("Import Successful!");
+                } else {
+                    alert("Invalid JSON format. Expected array of objects with 'title' and 'videos' array.");
+                }
+            }
+        } catch (e) {
+            alert("Invalid JSON syntax.");
+        }
+    };
+
     return (
-        <div className="fixed inset-0 z-[70] bg-black/50 backdrop-blur flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-4xl h-[80vh] rounded-3xl p-6 flex flex-col shadow-2xl">
+        <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur flex items-center justify-center p-4 animate-fade-in">
+            <div className="bg-white w-full max-w-5xl h-[85vh] rounded-3xl p-6 flex flex-col shadow-2xl overflow-hidden">
                 <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-bold font-display">Manage Content: {course.title}</h2>
-                    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full"><X className="w-6 h-6"/></button>
+                    <h2 className="text-2xl font-bold font-display text-gray-900">Manage Subjects: {course.title}</h2>
+                    <div className="flex gap-2">
+                        <button onClick={() => setShowImport(!showImport)} className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl font-bold text-sm hover:bg-indigo-100 transition-colors">
+                            {showImport ? 'Cancel Import' : 'Bulk Import JSON'}
+                        </button>
+                        <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full"><X className="w-6 h-6"/></button>
+                    </div>
                 </div>
-                <div className="flex-1 overflow-y-auto space-y-6 p-2">
+
+                {showImport && (
+                    <div className="mb-6 p-4 bg-gray-50 rounded-2xl border border-gray-200">
+                        <p className="text-xs text-gray-500 mb-2 font-bold uppercase">Paste JSON Array (Subjects & Videos)</p>
+                        <textarea 
+                            className="w-full h-32 p-3 text-xs font-mono bg-white border border-gray-200 rounded-xl mb-3 focus:outline-none focus:border-brand"
+                            placeholder='[{"title": "Physics", "videos": [{"title": "Intro", "filename": "https://..."}]}]'
+                            value={jsonInput}
+                            onChange={e => setJsonInput(e.target.value)}
+                        />
+                        <button onClick={handleBulkImport} className="bg-gray-900 text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-black">Import Data</button>
+                    </div>
+                )}
+
+                <div className="flex-1 overflow-y-auto space-y-6 pr-2">
+                    {chapters.length === 0 && !showImport && (
+                        <div className="text-center py-20 border-2 border-dashed border-gray-200 rounded-3xl">
+                            <p className="text-gray-400 font-bold">No subjects added yet.</p>
+                            <button onClick={addChapter} className="mt-4 text-brand font-bold hover:underline">Add First Subject</button>
+                        </div>
+                    )}
+
                     {chapters.map((chapter, cIdx) => (
-                        <div key={chapter.id} className="bg-gray-50 border border-gray-100 rounded-2xl p-4">
-                            <div className="flex justify-between items-center mb-4">
-                                <input className="bg-transparent text-lg font-bold text-gray-800 w-full focus:outline-none" value={chapter.title} onChange={e => updateChapterTitle(cIdx, e.target.value)} placeholder="Chapter Title" />
-                                <button onClick={() => deleteChapter(cIdx)} className="text-red-400 p-2 hover:bg-red-50 rounded"><Trash2 className="w-5 h-5"/></button>
+                        <div key={chapter.id} className="bg-white border border-gray-100 rounded-3xl p-5 shadow-sm relative group">
+                            <div className="flex justify-between items-center mb-4 border-b border-gray-50 pb-3">
+                                <div className="flex items-center gap-3 flex-1">
+                                    <span className="bg-brand/10 text-brand text-xs font-bold px-2 py-1 rounded">Subject {cIdx + 1}</span>
+                                    <input 
+                                        className="bg-transparent text-lg font-bold text-gray-800 w-full focus:outline-none placeholder-gray-300" 
+                                        value={chapter.title} 
+                                        onChange={e => updateChapterTitle(cIdx, e.target.value)} 
+                                        placeholder="Subject Name (e.g. Mathematics)" 
+                                    />
+                                </div>
+                                <button onClick={() => deleteChapter(cIdx)} className="text-gray-300 hover:text-red-500 p-2 transition-colors"><Trash2 className="w-5 h-5"/></button>
                             </div>
-                            <div className="space-y-3 pl-4 border-l-2 border-gray-200">
+                            
+                            <div className="space-y-3">
                                 {chapter.videos.map((video, vIdx) => (
-                                    <div key={video.id} className="bg-white p-3 rounded-xl border border-gray-100 grid grid-cols-1 md:grid-cols-3 gap-2 items-center">
-                                        <input className="p-2 border rounded" placeholder="Video Title" value={video.title} onChange={e => updateVideo(cIdx, vIdx, 'title', e.target.value)} />
-                                        <input className="p-2 border rounded" placeholder="Video URL (MP4/Youtube)" value={video.filename} onChange={e => updateVideo(cIdx, vIdx, 'filename', e.target.value)} />
-                                        <div className="flex items-center gap-2">
-                                            <input className="p-2 border rounded w-20" placeholder="Dur." value={video.duration} onChange={e => updateVideo(cIdx, vIdx, 'duration', e.target.value)} />
-                                            <button onClick={() => deleteVideo(cIdx, vIdx)} className="text-red-400 p-2"><Trash2 className="w-4 h-4"/></button>
+                                    <div key={video.id} className="bg-gray-50 p-4 rounded-2xl border border-gray-200 flex flex-col gap-3 group/video">
+                                        <div className="flex gap-2">
+                                            <input 
+                                                className="flex-1 p-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-brand/20 outline-none" 
+                                                placeholder="Video Title" 
+                                                value={video.title} 
+                                                onChange={e => updateVideo(cIdx, vIdx, 'title', e.target.value)} 
+                                            />
+                                            <input 
+                                                className="w-24 p-2.5 bg-white border border-gray-200 rounded-xl text-sm text-center" 
+                                                placeholder="Duration" 
+                                                value={video.duration} 
+                                                onChange={e => updateVideo(cIdx, vIdx, 'duration', e.target.value)} 
+                                            />
+                                            <button onClick={() => deleteVideo(cIdx, vIdx)} className="text-gray-400 hover:text-red-500 p-2"><Trash2 className="w-4 h-4"/></button>
+                                        </div>
+                                        <div className="flex gap-2 items-center">
+                                            <input 
+                                                className="flex-1 p-2.5 bg-white border border-gray-200 rounded-xl text-xs font-mono text-gray-600 focus:ring-2 focus:ring-brand/20 outline-none" 
+                                                placeholder="Paste Video URL (YouTube, MP4 Link)" 
+                                                value={video.filename} 
+                                                onChange={e => updateVideo(cIdx, vIdx, 'filename', e.target.value)} 
+                                            />
+                                            <div className="relative">
+                                                <input 
+                                                    type="file" 
+                                                    accept="video/*"
+                                                    id={`file-${cIdx}-${vIdx}`}
+                                                    className="hidden" 
+                                                    onChange={(e) => handleFileSelect(e, cIdx, vIdx)}
+                                                />
+                                                <label 
+                                                    htmlFor={`file-${cIdx}-${vIdx}`}
+                                                    className="cursor-pointer px-3 py-2.5 bg-gray-200 hover:bg-gray-300 rounded-xl text-xs font-bold text-gray-700 whitespace-nowrap flex items-center gap-1 transition-colors"
+                                                    title="Select local file to auto-fill title (Preview Only)"
+                                                >
+                                                    <Upload className="w-3 h-3" /> Select File
+                                                </label>
+                                            </div>
                                         </div>
                                     </div>
                                 ))}
-                                <button onClick={() => addVideo(cIdx)} className="text-sm font-bold text-brand flex items-center gap-1 mt-2 hover:bg-brand-light px-3 py-1 rounded-lg w-max"><Plus className="w-4 h-4"/> Add Video</button>
+                                <button onClick={() => addVideo(cIdx)} className="w-full py-3 border-2 border-dashed border-indigo-100 bg-indigo-50/50 text-indigo-600 rounded-xl text-sm font-bold hover:bg-indigo-50 hover:border-indigo-300 transition-all flex items-center justify-center gap-2">
+                                    <Plus className="w-4 h-4"/> Add Video Lesson
+                                </button>
                             </div>
                         </div>
                     ))}
-                    <button onClick={addChapter} className="w-full py-4 border-2 border-dashed border-gray-300 rounded-2xl text-gray-400 font-bold hover:border-brand hover:text-brand transition-colors">+ Add Chapter</button>
+                    
+                    <button onClick={addChapter} className="w-full py-4 bg-gray-900 text-white rounded-2xl font-bold shadow-lg shadow-gray-900/20 hover:bg-black transition-all transform hover:scale-[1.01] flex items-center justify-center gap-2">
+                        <Plus className="w-5 h-5"/> Create New Subject
+                    </button>
                 </div>
-                <div className="mt-6 pt-4 border-t flex justify-end">
-                    <button onClick={handleSave} className="bg-gray-900 text-white px-8 py-3 rounded-xl font-bold hover:bg-black transition-colors">Save Content</button>
+                <div className="mt-6 pt-4 border-t flex justify-end bg-white">
+                    <button onClick={handleSave} className="bg-brand text-white px-8 py-3 rounded-xl font-bold hover:bg-brand-dark transition-colors shadow-lg shadow-brand/30">Save Changes</button>
                 </div>
             </div>
         </div>
@@ -763,6 +878,7 @@ const AdminPanel = () => {
   const [managingExamsCourse, setManagingExamsCourse] = useState<Course | null>(null);
   const [managingContentCourse, setManagingContentCourse] = useState<Course | null>(null);
   const [isShortening, setIsShortening] = useState(false);
+  const [shortenerError, setShortenerError] = useState('');
   const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'USER' });
   const [localSettings, setLocalSettings] = useState(settings);
   const [adminCreds, setAdminCreds] = useState({ email: currentUser?.email || '', password: currentUser?.password || '' });
@@ -803,24 +919,46 @@ const AdminPanel = () => {
   };
   const deleteCourseSafe = (id: string) => deleteCourse(id);
   const deleteUserSafe = (id: string) => deleteUser(id);
+  
   const handleAutoShortenLink = async () => {
     if (!editingCourse) return;
+    setShortenerError('');
     if (!settings.linkShortenerApiKey) { alert("Please configure Link Shortener API Key in Settings first."); return; }
+    
     setIsShortening(true);
     const courseId = editingCourse.id || Date.now().toString();
     if(editingCourse.id !== courseId) setEditingCourse(prev => prev ? {...prev, id: courseId} : null);
-    const baseUrl = window.location.href.split('#')[0];
-    const verifyUrl = `${baseUrl}#/verify/${courseId}`;
+    
+    // Fallback logic for non-http environments (like local file preview/blob)
+    let baseUrl = window.location.href.split('#')[0];
+    if (!baseUrl.startsWith('http')) {
+        baseUrl = 'https://studyportal.app'; // Default placeholder domain for link generation
+        // alert("Warning: Running in non-HTTP environment. Using placeholder domain for short link.");
+    }
+    if(baseUrl.endsWith('/')) baseUrl = baseUrl.slice(0, -1);
+    
+    const verifyUrl = `${baseUrl}/#/verify/${courseId}`;
+    
     const shortenerUrl = settings.linkShortenerApiUrl || 'https://reel2earn.com/api';
-    const apiUrl = `${shortenerUrl}?api=${settings.linkShortenerApiKey}&url=${encodeURIComponent(verifyUrl)}`;
+    const finalApiUrl = `${shortenerUrl}?api=${settings.linkShortenerApiKey}&url=${encodeURIComponent(verifyUrl)}`;
+
     try {
-        const response = await fetch(apiUrl);
+        const response = await fetch(finalApiUrl);
         const data = await response.json();
+        
         if (data.status === 'success' || data.shortenedUrl) {
             const shortLink = data.shortenedUrl;
             setEditingCourse(prev => prev ? { ...prev, shortenerLink: shortLink } : null);
-        } else { alert('Shortener API Error: ' + (data.message || 'Unknown error')); }
-    } catch (e) { console.error(e); alert("Failed to shorten link. Check console for CORS errors or API validity."); } finally { setIsShortening(false); }
+        } else { 
+            throw new Error(data.message || 'Unknown error');
+        }
+    } catch (e: any) { 
+        console.error("Shortener Error:", e);
+        setShortenerError(finalApiUrl); 
+        alert(`Shortener failed: ${e.message || e}. \n\nA manual link has been generated below.`);
+    } finally { 
+        setIsShortening(false); 
+    }
   };
 
   return (
@@ -878,7 +1016,7 @@ const AdminPanel = () => {
               <input type="text" placeholder="Batch Title" className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl font-medium focus:ring-2 focus:ring-brand/50 outline-none" value={editingCourse.title} onChange={e => setEditingCourse({...editingCourse, title: e.target.value})} />
               <textarea placeholder="Description" className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl h-32 focus:ring-2 focus:ring-brand/50 outline-none resize-none" value={editingCourse.description} onChange={e => setEditingCourse({...editingCourse, description: e.target.value})} />
               <div className="grid grid-cols-2 gap-4"><div className="flex items-center gap-3 border border-gray-200 p-4 rounded-2xl cursor-pointer hover:bg-gray-50" onClick={() => setEditingCourse({...editingCourse, isPaid: !editingCourse.isPaid})}><input type="checkbox" checked={editingCourse.isPaid || false} onChange={() => {}} className="w-5 h-5 text-brand rounded focus:ring-brand" /><span className="font-bold text-sm text-gray-700">Is Locked?</span></div><input type="text" placeholder="ACCESS KEY" className="w-full p-4 border border-gray-200 rounded-2xl font-bold uppercase text-center tracking-widest" value={editingCourse.accessKey || ''} onChange={e => setEditingCourse({...editingCourse, accessKey: e.target.value.toUpperCase()})} /></div>
-              <div className="p-5 bg-indigo-50 border border-indigo-100 rounded-2xl"><label className="block text-xs font-bold text-indigo-800 uppercase tracking-wider mb-2">Verification Link (24h Access)</label><div className="flex gap-2 mb-2"><input type="text" placeholder="Short link will appear here..." className="flex-1 p-3 bg-white border border-indigo-200 rounded-xl text-sm" value={editingCourse.shortenerLink || ''} onChange={e => setEditingCourse({...editingCourse, shortenerLink: e.target.value})} /><button onClick={handleAutoShortenLink} disabled={isShortening} className="px-4 bg-indigo-600 text-white rounded-xl font-bold text-xs flex items-center gap-1 hover:bg-indigo-700 disabled:opacity-50 transition-colors" title="Auto-create link using Reel2Earn API">{isShortening ? <Loader2 className="w-4 h-4 animate-spin"/> : <Wand2 className="w-4 h-4" />} Auto</button></div><p className="text-[10px] text-indigo-400">Use 'Auto' to generate a short link using your API Key, or paste manually.</p></div>
+              <div className="p-5 bg-indigo-50 border border-indigo-100 rounded-2xl"><label className="block text-xs font-bold text-indigo-800 uppercase tracking-wider mb-2">Verification Link (24h Access)</label><div className="flex gap-2 mb-2"><input type="text" placeholder="Short link will appear here..." className="flex-1 p-3 bg-white border border-indigo-200 rounded-xl text-sm" value={editingCourse.shortenerLink || ''} onChange={e => setEditingCourse({...editingCourse, shortenerLink: e.target.value})} /><button onClick={handleAutoShortenLink} disabled={isShortening} className="px-4 bg-indigo-600 text-white rounded-xl font-bold text-xs flex items-center gap-1 hover:bg-indigo-700 disabled:opacity-50 transition-colors" title="Auto-create link using Reel2Earn API">{isShortening ? <Loader2 className="w-4 h-4 animate-spin"/> : <Wand2 className="w-4 h-4" />} Auto</button></div><p className="text-[10px] text-indigo-400">Use 'Auto' to generate a short link using your API Key, or paste manually.</p>{shortenerError && <div className="mt-2 p-2 bg-red-100 text-red-700 text-xs rounded border border-red-200"><strong>Auto-shorten failed (Browser Blocked).</strong> <a href={shortenerError} target="_blank" rel="noopener noreferrer" className="underline font-bold">Click here to open shortener manually</a></div>}</div>
               <div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Thumbnail</label><div className="flex items-center gap-3 mb-3"><img src={editingCourse.image || 'https://via.placeholder.com/100'} className="w-20 h-20 rounded-2xl object-cover border border-gray-200" /><label className="flex-1 cursor-pointer bg-gray-50 hover:bg-gray-100 border border-gray-200 border-dashed rounded-2xl h-20 flex flex-col items-center justify-center text-gray-500 transition-colors"><Upload className="w-5 h-5 mb-1"/><span className="text-xs font-bold">Upload Image</span><input type="file" accept="image/*" onChange={handleCourseImageUpload} className="hidden" /></label></div><input type="text" placeholder="Or enter Image URL" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs" value={editingCourse.image} onChange={e => setEditingCourse({...editingCourse, image: e.target.value})} /></div>
               <input type="text" placeholder="Category (e.g. Science, Maths)" className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl font-medium" value={editingCourse.category} onChange={e => setEditingCourse({...editingCourse, category: e.target.value})} />
             </div>

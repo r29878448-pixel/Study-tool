@@ -10,7 +10,7 @@ import {
 import VideoPlayer from '../components/VideoPlayer';
 import ChatBot from '../components/ChatBot';
 import ExamMode from '../components/ExamMode';
-import { Course, Chapter, Video, UserRole, Banner, AppSettings, Exam, Question, SavedNote } from '../types';
+import { Course, Chapter, Video, UserRole, Banner, AppSettings, Exam, Question, SavedNote, Note } from '../types';
 import { GoogleGenAI } from "@google/genai";
 
 declare var process: { env: { API_KEY: string } };
@@ -574,6 +574,10 @@ const Watch = () => {
     });
     const [currentVideoIdx, setCurrentVideoIdx] = useState(0);
 
+    // Get notes for current chapter
+    const currentChapter = course?.chapters.find(c => c.id === allVideos[currentVideoIdx]?.chapterId);
+    const chapterNotes = currentChapter?.notes || [];
+
     useEffect(() => {
         if(allVideos.length > 0) {
             setCurrentVideo(allVideos[currentVideoIdx].video);
@@ -776,7 +780,10 @@ const Watch = () => {
             <div className="w-full md:w-80 bg-gray-800 border-l border-gray-700 flex flex-col h-[40vh] md:h-full overflow-hidden">
                 <div className="p-4 border-b border-gray-700 bg-gray-800"><h2 className="font-bold text-lg">Course Content</h2><p className="text-xs text-gray-400">{allVideos.length} Videos</p></div>
                 <div className="flex-1 overflow-y-auto">
-                    {course.chapters.map((chap) => (
+                    {course.chapters.map((chap) => {
+                        // Check if this chapter is the current one to highlight notes
+                        const isCurrentChapter = chap.id === allVideos[currentVideoIdx]?.chapterId;
+                        return (
                         <div key={chap.id}>
                             <div className="px-4 py-2 bg-gray-700/50 text-xs font-bold text-gray-300 uppercase sticky top-0 backdrop-blur-sm z-10">{chap.title}</div>
                             {chap.videos.map((vid) => {
@@ -791,8 +798,20 @@ const Watch = () => {
                                     </button>
                                 );
                             })}
+                            {/* Display Notes in Sidebar if it's the active chapter or just generally list them */}
+                            {chap.notes.length > 0 && (
+                                <div className="px-3 py-2 space-y-1">
+                                    {chap.notes.map(note => (
+                                        <a key={note.id} href={note.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 rounded hover:bg-gray-700 text-xs text-blue-300 hover:text-blue-200 transition-colors">
+                                            <FileText className="w-3 h-3 flex-none"/>
+                                            <span className="truncate">{note.title}</span>
+                                            <ExternalLink className="w-3 h-3 flex-none ml-auto opacity-50"/>
+                                        </a>
+                                    ))}
+                                </div>
+                            )}
                         </div>
-                    ))}
+                    )})}
                 </div>
             </div>
         </div>
@@ -1127,7 +1146,31 @@ const CourseDetail = () => {
                                         </div>
                                     </div>
                                 ))}
-                                {chapter.videos.length === 0 && <div className="p-4 text-center text-gray-400 text-sm">No videos uploaded yet</div>}
+                                {/* Render Notes for Student */}
+                                {chapter.notes && chapter.notes.length > 0 && (
+                                    <div className="bg-blue-50/30 p-2">
+                                        <div className="text-[10px] font-bold text-blue-600 uppercase mb-1 px-2">Study Materials</div>
+                                        {chapter.notes.map(note => (
+                                            <a 
+                                                key={note.id} 
+                                                href={note.url} 
+                                                target="_blank" 
+                                                rel="noopener noreferrer"
+                                                className={`p-3 flex items-center gap-3 hover:bg-blue-50 transition-colors rounded-lg cursor-pointer group ${!isEnrolled ? 'opacity-50 pointer-events-none' : ''}`}
+                                            >
+                                                <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center flex-none">
+                                                    <FileText className="w-4 h-4" />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <p className="text-sm font-medium text-gray-900 group-hover:text-blue-700 transition-colors">{note.title}</p>
+                                                    <p className="text-[10px] text-gray-500">Document / Note</p>
+                                                </div>
+                                                <Download className="w-4 h-4 text-gray-400 group-hover:text-blue-500" />
+                                            </a>
+                                        ))}
+                                    </div>
+                                )}
+                                {chapter.videos.length === 0 && (!chapter.notes || chapter.notes.length === 0) && <div className="p-4 text-center text-gray-400 text-sm">No content uploaded yet</div>}
                             </div>
                         </div>
                     ))}
@@ -1215,12 +1258,14 @@ const RevealKey = () => {
 const ContentManager = ({ course, onClose }: { course: Course, onClose: () => void }) => {
     const { updateCourse } = useStore();
     const [chapters, setChapters] = useState<Chapter[]>(course.chapters);
-    const [view, setView] = useState<'list' | 'addChapter' | 'addVideo'>('list');
+    const [view, setView] = useState<'list' | 'addChapter' | 'addVideo' | 'addNote'>('list');
     
     // Form States
     const [newChapterTitle, setNewChapterTitle] = useState('');
     const [targetChapterId, setTargetChapterId] = useState<string | null>(null);
     const [videoData, setVideoData] = useState({ title: '', url: '', duration: '' });
+    const [noteData, setNoteData] = useState({ title: '', url: '' });
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleSave = () => {
         updateCourse({ ...course, chapters });
@@ -1272,6 +1317,56 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
         }
     };
 
+    const addNote = () => {
+        if (!noteData.title || !noteData.url || !targetChapterId) return;
+
+        setChapters(chapters.map(c => {
+            if (c.id === targetChapterId) {
+                return {
+                    ...c,
+                    notes: [...(c.notes || []), {
+                        id: Date.now().toString(),
+                        title: noteData.title,
+                        url: noteData.url
+                    }]
+                };
+            }
+            return c;
+        }));
+
+        setNoteData({ title: '', url: '' });
+        setTargetChapterId(null);
+        setView('list');
+    };
+
+    const deleteNote = (chapterId: string, noteId: string) => {
+        if(confirm('Delete note?')) {
+            setChapters(chapters.map(c => {
+                if(c.id === chapterId) {
+                    return { ...c, notes: (c.notes || []).filter(n => n.id !== noteId) };
+                }
+                return c;
+            }));
+        }
+    };
+
+    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if(e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                // Warning: LocalStorage has limits.
+                if(reader.result && typeof reader.result === 'string') {
+                    if(reader.result.length > 2000000) { // 2MB limit check approximation
+                        alert("File is too large for local storage. Please host it externally (Drive/Dropbox) and paste the link.");
+                    }
+                    setNoteData(prev => ({...prev, url: reader.result as string, title: prev.title || file.name}));
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
     return (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="bg-white w-full max-w-2xl rounded-3xl p-6 max-h-[85vh] flex flex-col animate-slide-up">
@@ -1283,7 +1378,7 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
                             <button onClick={() => setView('list')} className="p-1 hover:bg-gray-100 rounded-full"><ArrowLeft className="w-5 h-5"/></button>
                         )}
                         <h2 className="text-xl font-display font-bold text-gray-900">
-                            {view === 'list' ? 'Manage Content' : view === 'addChapter' ? 'New Chapter' : 'Add Video'}
+                            {view === 'list' ? 'Manage Content' : view === 'addChapter' ? 'New Chapter' : view === 'addVideo' ? 'Add Video' : 'Add Note'}
                         </h2>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full"><X className="w-5 h-5"/></button>
@@ -1308,14 +1403,22 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
                                             <button 
                                                 onClick={() => { setTargetChapterId(chapter.id); setView('addVideo'); }}
                                                 className="text-xs bg-white border border-gray-300 px-3 py-1.5 rounded-lg hover:bg-gray-100 font-bold text-gray-700 flex items-center gap-1"
+                                                title="Add Video"
                                             >
                                                 <Plus className="w-3 h-3" /> Video
+                                            </button>
+                                            <button 
+                                                onClick={() => { setTargetChapterId(chapter.id); setView('addNote'); }}
+                                                className="text-xs bg-white border border-gray-300 px-3 py-1.5 rounded-lg hover:bg-gray-100 font-bold text-blue-600 flex items-center gap-1"
+                                                title="Add Note/PDF"
+                                            >
+                                                <Plus className="w-3 h-3" /> Note
                                             </button>
                                             <button onClick={() => deleteChapter(chapter.id)} className="text-red-500 hover:bg-red-50 p-1.5 rounded-lg"><Trash2 className="w-4 h-4"/></button>
                                         </div>
                                     </div>
                                     <div className="p-2 space-y-1">
-                                        {chapter.videos.length === 0 && <p className="text-center text-gray-400 text-xs py-4 italic">No videos in this chapter</p>}
+                                        {/* Videos List */}
                                         {chapter.videos.map(video => (
                                             <div key={video.id} className="flex justify-between items-center p-3 hover:bg-gray-50 rounded-lg group transition-colors">
                                                 <div className="flex items-center gap-3 overflow-hidden">
@@ -1330,6 +1433,24 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
                                                 <button onClick={() => deleteVideo(chapter.id, video.id)} className="text-gray-400 hover:text-red-500 p-2 opacity-0 group-hover:opacity-100 transition-opacity"><X className="w-4 h-4"/></button>
                                             </div>
                                         ))}
+                                        
+                                        {/* Notes List */}
+                                        {chapter.notes && chapter.notes.length > 0 && (
+                                            <div className="mt-2 pt-2 border-t border-dashed border-gray-200">
+                                                <p className="text-[10px] uppercase font-bold text-gray-400 px-3 mb-1">Notes & Resources</p>
+                                                {chapter.notes.map(note => (
+                                                    <div key={note.id} className="flex justify-between items-center p-2 pl-3 hover:bg-blue-50 rounded-lg group transition-colors">
+                                                        <div className="flex items-center gap-2 overflow-hidden text-blue-600">
+                                                            <FileText className="w-4 h-4 flex-none" />
+                                                            <a href={note.url} target="_blank" rel="noreferrer" className="text-xs font-medium truncate hover:underline">{note.title}</a>
+                                                        </div>
+                                                        <button onClick={() => deleteNote(chapter.id, note.id)} className="text-gray-400 hover:text-red-500 p-1 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-3 h-3"/></button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {chapter.videos.length === 0 && (!chapter.notes || chapter.notes.length === 0) && <p className="text-center text-gray-400 text-xs py-4 italic">No content in this chapter</p>}
                                     </div>
                                 </div>
                             ))}
@@ -1409,6 +1530,70 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
 
                             <button onClick={addVideo} className="w-full bg-brand text-white py-4 rounded-xl font-bold shadow-lg shadow-brand/20 mt-4">
                                 Add Video
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* ADD NOTE VIEW */}
+                {view === 'addNote' && (
+                    <div className="flex-1 flex flex-col justify-start max-w-md mx-auto w-full space-y-6 pt-4">
+                        <div className="text-center">
+                            <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-600">
+                                <FileText className="w-8 h-8" />
+                            </div>
+                            <h3 className="font-bold text-lg">Add Study Material</h3>
+                            <p className="text-gray-500 text-sm">Upload a small file or paste a link to a PDF/Doc.</p>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="text-xs font-bold text-gray-500 uppercase ml-1">Title</label>
+                                <input 
+                                    value={noteData.title} 
+                                    onChange={e => setNoteData({...noteData, title: e.target.value})}
+                                    placeholder="e.g. Chapter 1 Notes (PDF)"
+                                    className="w-full p-3 mt-1 bg-gray-50 rounded-xl border border-gray-200 focus:outline-none focus:border-brand"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="text-xs font-bold text-gray-500 uppercase ml-1">File or Link</label>
+                                <div className="mt-1 flex flex-col gap-2">
+                                    <textarea 
+                                        value={noteData.url} 
+                                        onChange={e => setNoteData({...noteData, url: e.target.value})}
+                                        placeholder="Paste Google Drive / Dropbox Link here..."
+                                        className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 focus:outline-none focus:border-brand min-h-[80px]"
+                                    />
+                                    <div className="relative">
+                                        <div className="absolute inset-0 flex items-center">
+                                            <div className="w-full border-t border-gray-200"></div>
+                                        </div>
+                                        <div className="relative flex justify-center text-xs uppercase">
+                                            <span className="bg-white px-2 text-gray-500">Or Upload Small File</span>
+                                        </div>
+                                    </div>
+                                    <input 
+                                        type="file" 
+                                        ref={fileInputRef}
+                                        onChange={handleFileUpload}
+                                        className="hidden"
+                                    />
+                                    <button 
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="w-full py-3 bg-gray-100 text-gray-700 font-bold rounded-xl border border-dashed border-gray-300 hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
+                                    >
+                                        <Upload className="w-4 h-4"/> Select File (Max 2MB)
+                                    </button>
+                                    {noteData.url && noteData.url.startsWith('data:') && (
+                                        <p className="text-xs text-green-600 font-bold text-center mt-1">File selected and ready to save.</p>
+                                    )}
+                                </div>
+                            </div>
+
+                            <button onClick={addNote} className="w-full bg-brand text-white py-4 rounded-xl font-bold shadow-lg shadow-brand/20 mt-4">
+                                Save Note
                             </button>
                         </div>
                     </div>

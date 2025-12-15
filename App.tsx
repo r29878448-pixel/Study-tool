@@ -221,7 +221,6 @@ const Header = () => {
   );
 };
 
-// ... (BottomNav, Help, Login, HomePage, CourseListing, RevealKey, Watch, ExamMode, CourseDetail - No changes) ...
 const BottomNav = () => {
   const location = useLocation();
   const isActive = (path: string) => location.pathname === path ? 'text-brand' : 'text-gray-400';
@@ -561,9 +560,7 @@ const CourseListing = () => {
   );
 };
 
-// ... (Rest of existing components: Watch, Profile, MyCourses, VerifyAccess, RevealKey, CourseDetail, ContentManager, ExamManager are identical until AdminPanel) ...
 const Watch = () => {
-    // ... [Content of Watch Component remains unchanged]
     const { courseId } = useParams();
     const { courses, currentUser, saveVideoProgress, saveAiQuiz, saveNote } = useStore();
     const [currentVideoUrl, setCurrentVideoUrl] = useState<string>('');
@@ -583,6 +580,7 @@ const Watch = () => {
 
     const course = courses.find(c => c.id === courseId);
     
+    // Flatten videos to get a playlist
     const allVideos: { video: Video, chapterId: string, chapterTitle: string }[] = [];
     course?.chapters.forEach(chap => {
         chap.videos.forEach(vid => {
@@ -592,6 +590,7 @@ const Watch = () => {
 
     const [currentVideoIdx, setCurrentVideoIdx] = useState(0);
 
+    // Initial load
     useEffect(() => {
         if(allVideos.length > 0) {
             setCurrentVideo(allVideos[currentVideoIdx].video);
@@ -658,6 +657,7 @@ const Watch = () => {
         try {
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             
+            // 1. Generate Text Content
             const textPrompt = `You are an expert CBSE school teacher. Create comprehensive, concise, point-wise study notes for the topic "${currentVideo.title}" from the chapter "${allVideos[currentVideoIdx].chapterTitle}" in the course "${course.title}".
             STRICTLY follow the latest CBSE 2025-26 syllabus.
             Exclude irrelevant information.
@@ -671,6 +671,7 @@ const Watch = () => {
             
             const markdownContent = textResponse.text || "No content generated.";
 
+            // 2. Generate Image Diagram
             const imagePrompt = `Draw a clear, educational diagram or flowchart explaining the concept of "${currentVideo.title}" suitable for school students. White background, black lines, simple style.`;
             
             const note: SavedNote = {
@@ -681,7 +682,7 @@ const Watch = () => {
                 content: markdownContent,
                 generatedAt: new Date().toISOString(),
                 syllabusVersion: 'CBSE 2025-26',
-                imageUrl: undefined
+                imageUrl: undefined // We will try to fill this if we can
             };
 
             try {
@@ -721,12 +722,16 @@ const Watch = () => {
 
     const handleDownloadNote = () => {
         if (!generatedNote) return;
+        
+        // Simple text download
         const element = document.createElement("a");
         const file = new Blob([generatedNote.content], {type: 'text/plain'});
         element.href = URL.createObjectURL(file);
         element.download = `${generatedNote.videoTitle}_Notes.md`;
         document.body.appendChild(element);
         element.click();
+        
+        // Let's trigger window print for better UX
         setTimeout(() => window.print(), 500);
     };
 
@@ -788,6 +793,7 @@ const Watch = () => {
                     </div>
                 </div>
 
+                {/* AI Quiz Modal (Existing) */}
                 {showQuiz && (
                     <div className="absolute inset-0 z-50 bg-gray-900/95 backdrop-blur-sm p-4 overflow-y-auto">
                         <div className="max-w-2xl mx-auto bg-gray-800 rounded-3xl p-6 border border-gray-700">
@@ -864,6 +870,7 @@ const Watch = () => {
                     </div>
                 )}
 
+                {/* AI Notes Modal */}
                 {showNoteModal && (
                     <div className="absolute inset-0 z-50 bg-gray-900/95 backdrop-blur-sm p-4 overflow-y-auto">
                         <div className="max-w-3xl mx-auto bg-white text-gray-900 rounded-3xl p-8 border border-gray-200 shadow-2xl printable-content">
@@ -892,6 +899,7 @@ const Watch = () => {
                                         <h1 className="text-3xl font-bold mb-2">{generatedNote.videoTitle}</h1>
                                         <p className="text-sm text-gray-500 mb-6 uppercase tracking-wider">{generatedNote.courseTitle} • {new Date(generatedNote.generatedAt).toLocaleDateString()}</p>
                                         
+                                        {/* Render Image if available */}
                                         {generatedNote.imageUrl && (
                                             <div className="mb-6 p-2 border rounded-xl bg-gray-50 flex justify-center">
                                                 <img src={generatedNote.imageUrl} alt="AI Diagram" className="max-h-64 object-contain rounded-lg" />
@@ -974,7 +982,6 @@ const Watch = () => {
 };
 
 const Profile = () => {
-   // ... [Content of Profile Component remains unchanged]
    const { currentUser, updateUser, logout, deleteNote } = useStore();
    const [isEditing, setIsEditing] = useState(false);
    const [data, setData] = useState({ name: currentUser?.name || '', email: currentUser?.email || '', phone: currentUser?.phone || '' });
@@ -1238,7 +1245,6 @@ const RevealKey = () => {
 };
 
 const CourseDetail = () => {
-    // ... [Content of CourseDetail remains unchanged]
     const { id } = useParams();
     const { courses, enrollCourse, currentUser, settings, grantTempAccess } = useStore();
     const navigate = useNavigate();
@@ -1484,9 +1490,7 @@ const CourseDetail = () => {
     );
 };
 
-// ... (ContentManager, ExamManager - No changes) ...
 const ContentManager = ({ course, onClose }: { course: Course, onClose: () => void }) => {
-    // ... [Content of ContentManager remains unchanged]
     const { updateCourse } = useStore();
     const [chapters, setChapters] = useState<Chapter[]>(course.chapters || []);
     const [newChapterTitle, setNewChapterTitle] = useState('');
@@ -1720,13 +1724,13 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
 };
 
 const ExamManager = ({ course, onClose }: { course: Course, onClose: () => void }) => {
-    // ... [Content of ExamManager remains unchanged]
     const { updateCourse } = useStore();
     const [exams, setExams] = useState<Exam[]>(course.exams || []);
     const [view, setView] = useState<'list' | 'edit'>('list');
     const [editingExam, setEditingExam] = useState<Exam | null>(null);
     const [examTitle, setExamTitle] = useState('');
     
+    // Question Form
     const [qForm, setQForm] = useState({ question: '', options: ['', '', '', ''], correctAnswer: 0 });
 
     const handleCreateExam = () => {
@@ -1765,10 +1769,12 @@ const ExamManager = ({ course, onClose }: { course: Course, onClose: () => void 
         const updatedExam = { ...editingExam, questions: [...editingExam.questions, newQ] };
         setEditingExam(updatedExam);
         
+        // Update globally
         const updatedExams = exams.map(e => e.id === updatedExam.id ? updatedExam : e);
         setExams(updatedExams);
         updateCourse({ ...course, exams: updatedExams });
         
+        // Reset form
         setQForm({ question: '', options: ['', '', '', ''], correctAnswer: 0 });
     };
 
@@ -1815,6 +1821,7 @@ const ExamManager = ({ course, onClose }: { course: Course, onClose: () => void 
                     </div>
                 ) : (
                     <div className="flex-1 overflow-y-auto pr-2">
+                        {/* Add Question Form */}
                         <div className="bg-gray-50 p-4 rounded-xl mb-6 border border-gray-200">
                             <h4 className="font-bold text-sm text-gray-700 mb-3">Add Question</h4>
                             <textarea 
@@ -1848,6 +1855,7 @@ const ExamManager = ({ course, onClose }: { course: Course, onClose: () => void 
                             <button onClick={handleAddQuestion} className="w-full bg-blue-600 text-white py-2 rounded-lg font-bold text-sm">Add Question</button>
                         </div>
 
+                        {/* Question List */}
                         <div className="space-y-3">
                             {editingExam?.questions.map((q, i) => (
                                 <div key={q.id} className="p-4 border border-gray-200 rounded-xl relative group">
@@ -1880,9 +1888,7 @@ const AdminPanel = () => {
     const [showUserModal, setShowUserModal] = useState(false);
     const [isGeneratingLink, setIsGeneratingLink] = useState(false);
     const linkInputRef = useRef<HTMLInputElement>(null);
-    
-    // Enrollment Modal State
-    const [showEnrollModal, setShowEnrollModal] = useState<string | null>(null); // UserId
+    const [showEnrollModal, setShowEnrollModal] = useState<string | null>(null); 
     
     if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.EDITOR)) return <Navigate to="/" />;
 
@@ -1905,12 +1911,8 @@ const AdminPanel = () => {
             exams: editingCourse?.exams || [],
             createdAt: editingCourse?.createdAt || new Date().toISOString()
         };
-
-        if (editingCourse) updateCourse(courseData);
-        else addCourse(courseData);
-        
-        setShowCourseModal(false);
-        setEditingCourse(null);
+        if (editingCourse) updateCourse(courseData); else addCourse(courseData);
+        setShowCourseModal(false); setEditingCourse(null);
     };
 
     const handleAddUser = (e: React.FormEvent<HTMLFormElement>) => {
@@ -1934,24 +1936,29 @@ const AdminPanel = () => {
             alert("Please configure Link Shortener in Settings first!");
             return;
         }
-
         const courseId = editingCourse?.id;
-        if(!courseId) {
-             alert("Please save the batch first, then edit it to generate a link.");
-             return;
-        }
+        if(!courseId) { alert("Please save the batch first, then edit it to generate a link."); return; }
 
         setIsGeneratingLink(true);
         try {
             let baseUrl = settings.linkShortenerApiUrl.trim();
             if(baseUrl.endsWith('/')) baseUrl = baseUrl.slice(0, -1);
 
-            const destinationUrl = `${window.location.origin}/#/verify/${courseId}`;
+            // Force production URL
+            const destinationUrl = `https://study-tool-rosy.vercel.app/#/verify/${courseId}`;
             const encodedDest = encodeURIComponent(destinationUrl);
             const separator = baseUrl.includes('?') ? '&' : '?';
             const fetchUrl = `${baseUrl}${separator}api=${settings.linkShortenerApiKey}&url=${encodedDest}`;
             
-            const response = await fetch(fetchUrl);
+            // Try fetch with fallback for CORS on Vercel
+            let response;
+            try {
+                response = await fetch(fetchUrl);
+            } catch (err) {
+                console.warn("Direct fetch failed, trying proxy", err);
+                response = await fetch(`https://corsproxy.io/?${encodeURIComponent(fetchUrl)}`);
+            }
+
             const data = await response.json();
             
             if(data.status === 'success' || data.shortenedUrl || data.shortlink) {
@@ -1965,7 +1972,7 @@ const AdminPanel = () => {
             }
         } catch(e) {
             console.error(e);
-            alert("Network error. Please manually shorten this URL: " + window.location.href.split('#')[0] + "#/verify/" + courseId);
+            alert("Network error. Please manually shorten this URL: https://study-tool-rosy.vercel.app/#/verify/" + courseId);
         } finally {
             setIsGeneratingLink(false);
         }
@@ -1973,34 +1980,21 @@ const AdminPanel = () => {
 
     return (
         <div className="pb-24 pt-24 p-6 min-h-screen bg-gray-50">
-             <div className="flex justify-between items-center mb-6">
-                <h1 className="text-3xl font-display font-bold text-gray-900">Batch & User Management</h1>
-             </div>
-
+             <div className="flex justify-between items-center mb-6"><h1 className="text-3xl font-display font-bold text-gray-900">Batch & User Management</h1></div>
              <div className="flex gap-2 overflow-x-auto pb-4 mb-4 no-scrollbar">
                  {['courses', 'users', 'banners', 'settings'].map(t => (
-                     <button key={t} onClick={() => setTab(t as any)} className={`px-5 py-2.5 rounded-xl font-bold capitalize whitespace-nowrap transition-all ${tab === t ? 'bg-brand text-white shadow-lg shadow-brand/30' : 'bg-white text-gray-600 shadow-sm'}`}>
-                         {t === 'courses' ? 'Batches' : t}
-                     </button>
+                     <button key={t} onClick={() => setTab(t as any)} className={`px-5 py-2.5 rounded-xl font-bold capitalize whitespace-nowrap transition-all ${tab === t ? 'bg-brand text-white shadow-lg shadow-brand/30' : 'bg-white text-gray-600 shadow-sm'}`}>{t === 'courses' ? 'Batches' : t}</button>
                  ))}
              </div>
-             
              {tab === 'courses' && (
                  <div className="space-y-4">
-                     <button onClick={() => { setEditingCourse(null); setShowCourseModal(true); }} className="w-full py-4 bg-white border-2 border-dashed border-gray-300 rounded-2xl text-gray-400 font-bold flex items-center justify-center gap-2 hover:border-brand hover:text-brand transition-all">
-                        <Plus className="w-5 h-5" /> Add New Batch
-                     </button>
+                     <button onClick={() => { setEditingCourse(null); setShowCourseModal(true); }} className="w-full py-4 bg-white border-2 border-dashed border-gray-300 rounded-2xl text-gray-400 font-bold flex items-center justify-center gap-2 hover:border-brand hover:text-brand transition-all"><Plus className="w-5 h-5" /> Add New Batch</button>
                      {courses.map(c => (
                          <div key={c.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row gap-4 items-start md:items-center">
                              <img src={c.image} className="w-16 h-16 rounded-lg object-cover bg-gray-100" />
-                             <div className="flex-1">
-                                 <h3 className="font-bold text-gray-900">{c.title}</h3>
-                                 <p className="text-xs text-gray-500">{c.chapters.length} Chapters • {c.isPaid ? `₹${c.price}` : 'Free'}</p>
-                             </div>
+                             <div className="flex-1"><h3 className="font-bold text-gray-900">{c.title}</h3><p className="text-xs text-gray-500">{c.chapters.length} Chapters • {c.isPaid ? `₹${c.price}` : 'Free'}</p></div>
                              <div className="flex gap-2 flex-wrap">
-                                 <button onClick={() => setShowContentManager(c)} className="px-3 py-2 text-green-700 bg-green-50 rounded-lg hover:bg-green-100 font-bold text-xs flex items-center gap-1 shadow-sm border border-green-100" title="Manage Content">
-                                     <VideoIcon className="w-4 h-4" /> Manage Content
-                                 </button>
+                                 <button onClick={() => setShowContentManager(c)} className="px-3 py-2 text-green-700 bg-green-50 rounded-lg hover:bg-green-100 font-bold text-xs flex items-center gap-1 shadow-sm border border-green-100" title="Manage Content"><VideoIcon className="w-4 h-4" /> Manage Content</button>
                                  <button onClick={() => setShowExamManager(c)} className="p-2 text-purple-600 bg-purple-50 rounded-lg hover:bg-purple-100 border border-purple-100" title="Manage Exams"><ClipboardList className="w-4 h-4" /></button>
                                  <button onClick={() => { setEditingCourse(c); setShowCourseModal(true); }} className="p-2 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 border border-blue-100" title="Edit"><Edit className="w-4 h-4" /></button>
                                  <button onClick={() => { if(confirm('Delete course?')) deleteCourse(c.id); }} className="p-2 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 border border-red-100" title="Delete"><Trash2 className="w-4 h-4" /></button>
@@ -2009,241 +2003,12 @@ const AdminPanel = () => {
                      ))}
                  </div>
              )}
-
-             {tab === 'users' && (
-                 <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-                     <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
-                         <span className="font-bold text-gray-700">All Users ({users.length})</span>
-                         <button onClick={() => setShowUserModal(true)} className="text-xs bg-brand text-white px-4 py-2 rounded-lg font-bold shadow-lg shadow-brand/20 hover:scale-105 transition-transform flex items-center gap-1">
-                             <Plus className="w-3 h-3" /> Create User / Manager
-                         </button>
-                     </div>
-                     <div className="divide-y divide-gray-100">
-                         {users.map(u => (
-                             <div key={u.id} className="p-4 flex flex-col md:flex-row justify-between items-start md:items-center hover:bg-gray-50 gap-4">
-                                 <div>
-                                     <div className="flex items-center gap-2">
-                                         <p className="font-bold text-sm text-gray-900">{u.name}</p>
-                                         <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase ${u.role === UserRole.ADMIN ? 'bg-red-100 text-red-600' : u.role === UserRole.EDITOR ? 'bg-purple-100 text-purple-600' : 'bg-gray-100 text-gray-500'}`}>
-                                             {u.role}
-                                         </span>
-                                     </div>
-                                     <p className="text-xs text-gray-500">{u.email}</p>
-                                     <p className="text-[10px] text-gray-400 mt-1">Enrolled in: {u.purchasedCourseIds.length} Batches</p>
-                                 </div>
-                                 <div className="flex items-center gap-2">
-                                     <button 
-                                        onClick={() => setShowEnrollModal(u.id)}
-                                        className="text-xs font-bold bg-blue-50 text-blue-600 px-3 py-2 rounded-lg hover:bg-blue-100"
-                                     >
-                                         Enroll
-                                     </button>
-                                     {u.role !== UserRole.ADMIN && (
-                                         <button onClick={() => { if(confirm('Delete user?')) deleteUser(u.id); }} className="text-gray-400 hover:text-red-500 p-2"><Trash2 className="w-4 h-4" /></button>
-                                     )}
-                                 </div>
-                             </div>
-                         ))}
-                     </div>
-                 </div>
-             )}
-
-             {/* Banners & Settings Tabs remain unchanged functionally */}
-             {tab === 'banners' && (
-                 <div className="space-y-4">
-                     <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-                         <h3 className="font-bold mb-4 text-gray-900">Add Banner</h3>
-                         <form onSubmit={(e) => {
-                             e.preventDefault();
-                             const form = e.currentTarget;
-                             addBanner({ id: Date.now().toString(), image: form.image.value, link: form.link.value });
-                             form.reset();
-                         }} className="flex gap-2">
-                             <input name="image" placeholder="Image URL" className="flex-1 bg-gray-50 px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder:text-gray-500" required />
-                             <input name="link" placeholder="Link (Optional)" className="flex-1 bg-gray-50 px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder:text-gray-500" />
-                             <button className="bg-brand text-white px-4 py-2 rounded-xl font-bold text-sm">Add</button>
-                         </form>
-                     </div>
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                         {banners.map(b => (
-                             <div key={b.id} className="relative aspect-video rounded-xl overflow-hidden group">
-                                 <img src={b.image} className="w-full h-full object-cover" />
-                                 <button onClick={() => deleteBanner(b.id)} className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-4 h-4" /></button>
-                             </div>
-                         ))}
-                     </div>
-                 </div>
-             )}
-
-             {tab === 'settings' && (
-                 <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-                     <form onSubmit={(e) => {
-                         e.preventDefault();
-                         const formData = new FormData(e.currentTarget);
-                         updateSettings({
-                             ...settings,
-                             appName: formData.get('appName') as string,
-                             adminEmail: formData.get('adminEmail') as string,
-                             supportPhone: formData.get('supportPhone') as string,
-                             uiColor: formData.get('uiColor') as string,
-                             videoApiKey: formData.get('videoApiKey') as string,
-                             linkShortenerApiUrl: formData.get('linkShortenerApiUrl') as string,
-                             linkShortenerApiKey: formData.get('linkShortenerApiKey') as string,
-                             adsCode: formData.get('adsCode') as string
-                         });
-                         alert('Settings Saved!');
-                     }} className="space-y-4">
-                         {/* ... Settings Form Fields (Same as before) ... */}
-                         <div>
-                             <label className="text-xs font-bold text-gray-500 uppercase">App Name</label>
-                             <input name="appName" defaultValue={settings.appName} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" />
-                         </div>
-                         <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="text-xs font-bold text-gray-500 uppercase">Brand Color</label>
-                                <div className="flex gap-2 mt-1">
-                                    <input type="color" name="uiColor" defaultValue={settings.uiColor} className="h-10 w-10 rounded-lg cursor-pointer" />
-                                    <input type="text" defaultValue={settings.uiColor} className="flex-1 p-2 bg-gray-50 border border-gray-200 rounded-xl uppercase text-gray-900 placeholder:text-gray-500" readOnly />
-                                </div>
-                            </div>
-                            <div>
-                                <label className="text-xs font-bold text-gray-500 uppercase">Admin Email</label>
-                                <input name="adminEmail" defaultValue={settings.adminEmail} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" />
-                            </div>
-                         </div>
-                         <div>
-                             <label className="text-xs font-bold text-gray-500 uppercase">Support Contact (Phone or Telegram)</label>
-                             <input name="supportPhone" defaultValue={settings.supportPhone} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" />
-                         </div>
-                         <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
-                             <h4 className="font-bold text-gray-900 mb-3 text-sm">Link Shortener Configuration</h4>
-                             <div className="grid gap-3">
-                                 <div>
-                                     <label className="text-xs font-bold text-gray-500 uppercase">API URL (e.g. reel2earn.com/api)</label>
-                                     <input name="linkShortenerApiUrl" defaultValue={settings.linkShortenerApiUrl} placeholder="https://..." className="w-full p-3 bg-white border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" />
-                                 </div>
-                                 <div>
-                                     <label className="text-xs font-bold text-gray-500 uppercase">API Key</label>
-                                     <input name="linkShortenerApiKey" defaultValue={settings.linkShortenerApiKey} className="w-full p-3 bg-white border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" />
-                                 </div>
-                             </div>
-                         </div>
-                         <div>
-                             <label className="text-xs font-bold text-gray-500 uppercase">Ad Code (HTML)</label>
-                             <textarea name="adsCode" defaultValue={settings.adsCode} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl mt-1 font-mono text-xs text-gray-900 placeholder:text-gray-500" rows={3} />
-                         </div>
-                         <button className="w-full bg-brand text-white py-3 rounded-xl font-bold">Save Settings</button>
-                     </form>
-                 </div>
-             )}
-
-             {showCourseModal && (
-                 <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-                     <div className="bg-white w-full max-w-lg rounded-3xl p-6 max-h-[90vh] overflow-y-auto">
-                         <h2 className="text-xl font-bold mb-4 text-gray-900">{editingCourse ? 'Edit Batch' : 'New Batch'}</h2>
-                         <form onSubmit={handleSaveCourse} className="space-y-3">
-                             <input name="title" defaultValue={editingCourse?.title} placeholder="Batch Title" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required />
-                             <textarea name="description" defaultValue={editingCourse?.description} placeholder="Description" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" rows={2} required />
-                             <input name="image" defaultValue={editingCourse?.image} placeholder="Image URL" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required />
-                             <input name="category" defaultValue={editingCourse?.category} placeholder="Category (e.g. Science)" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required />
-                             <div className="grid grid-cols-2 gap-3">
-                                 <input type="number" name="price" defaultValue={editingCourse?.price} placeholder="Price" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" />
-                                 <input type="number" name="mrp" defaultValue={editingCourse?.mrp} placeholder="MRP" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" />
-                             </div>
-                             <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-xl">
-                                 <input type="checkbox" name="isPaid" defaultChecked={editingCourse?.isPaid} id="isPaid" className="w-5 h-5 accent-brand" />
-                                 <label htmlFor="isPaid" className="font-medium text-gray-700">Premium Course (Locked)</label>
-                             </div>
-                             <input name="accessKey" defaultValue={editingCourse?.accessKey} placeholder="Access Key (if Premium)" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" />
-                             <input name="telegramChannelLink" defaultValue={editingCourse?.telegramChannelLink} placeholder="Telegram Channel Link (Optional)" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" />
-                             
-                             <div className="flex gap-2">
-                                <input 
-                                    name="shortenerLink" 
-                                    ref={linkInputRef}
-                                    defaultValue={editingCourse?.shortenerLink} 
-                                    placeholder="Temp Access Short Link" 
-                                    className="flex-1 p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" 
-                                />
-                                {editingCourse && (
-                                    <button 
-                                        type="button" 
-                                        onClick={handleGenerateLink}
-                                        disabled={isGeneratingLink}
-                                        className="bg-gray-100 text-gray-600 px-3 rounded-xl font-bold text-xs hover:bg-gray-200 disabled:opacity-50"
-                                    >
-                                        {isGeneratingLink ? <Loader2 className="w-4 h-4 animate-spin"/> : 'Generate'}
-                                    </button>
-                                )}
-                             </div>
-                             
-                             <div className="flex gap-3 pt-4">
-                                 <button type="button" onClick={() => setShowCourseModal(false)} className="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-100 rounded-xl">Cancel</button>
-                                 <button type="submit" className="flex-1 py-3 bg-brand text-white font-bold rounded-xl shadow-lg shadow-brand/20">Save Batch</button>
-                             </div>
-                         </form>
-                     </div>
-                 </div>
-             )}
-
-             {showUserModal && (
-                 <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-                     <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl">
-                         <h2 className="text-xl font-bold mb-4 text-gray-900">Add New User</h2>
-                         <form onSubmit={handleAddUser} className="space-y-3">
-                             <input name="name" placeholder="Full Name" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required />
-                             <input name="email" type="email" placeholder="Email Address" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required />
-                             <input name="phone" placeholder="Phone Number" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" />
-                             <input name="password" type="password" placeholder="Password" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required />
-                             
-                             <div>
-                                 <label className="text-xs font-bold text-gray-500 uppercase ml-1">Role</label>
-                                 <select name="role" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 mt-1">
-                                     <option value={UserRole.USER}>Student (User)</option>
-                                     <option value={UserRole.EDITOR}>Editor (Manager)</option>
-                                     <option value={UserRole.ADMIN}>Admin</option>
-                                 </select>
-                             </div>
-
-                             <div className="flex gap-3 pt-4">
-                                 <button type="button" onClick={() => setShowUserModal(false)} className="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-100 rounded-xl">Cancel</button>
-                                 <button type="submit" className="flex-1 py-3 bg-brand text-white font-bold rounded-xl shadow-lg shadow-brand/20">Create User</button>
-                             </div>
-                         </form>
-                     </div>
-                 </div>
-             )}
-
-             {/* Enroll User Modal */}
-             {showEnrollModal && (
-                 <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-                     <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl">
-                         <h2 className="text-xl font-bold mb-4 text-gray-900">Enroll User in Batch</h2>
-                         <div className="space-y-2 max-h-[60vh] overflow-y-auto">
-                             {courses.map(c => {
-                                 const targetUser = users.find(u => u.id === showEnrollModal);
-                                 const isEnrolled = targetUser?.purchasedCourseIds.includes(c.id);
-                                 return (
-                                     <button 
-                                        key={c.id}
-                                        disabled={isEnrolled}
-                                        onClick={() => {
-                                            addCourseToUser(showEnrollModal, c.id);
-                                            setShowEnrollModal(null);
-                                        }}
-                                        className={`w-full text-left p-3 rounded-xl border flex items-center justify-between ${isEnrolled ? 'bg-green-50 border-green-200 cursor-default' : 'bg-white border-gray-200 hover:bg-gray-50'}`}
-                                     >
-                                         <span className={`text-sm font-bold ${isEnrolled ? 'text-green-700' : 'text-gray-700'}`}>{c.title}</span>
-                                         {isEnrolled && <CheckCircle className="w-4 h-4 text-green-600"/>}
-                                     </button>
-                                 );
-                             })}
-                         </div>
-                         <button onClick={() => setShowEnrollModal(null)} className="w-full mt-4 py-3 bg-gray-100 text-gray-600 font-bold rounded-xl hover:bg-gray-200">Cancel</button>
-                     </div>
-                 </div>
-             )}
-
+             {tab === 'users' && <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden"><div className="p-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center"><span className="font-bold text-gray-700">All Users ({users.length})</span><button onClick={() => setShowUserModal(true)} className="text-xs bg-brand text-white px-4 py-2 rounded-lg font-bold shadow-lg shadow-brand/20 hover:scale-105 transition-transform flex items-center gap-1"><Plus className="w-3 h-3" /> Create User / Manager</button></div><div className="divide-y divide-gray-100">{users.map(u => (<div key={u.id} className="p-4 flex flex-col md:flex-row justify-between items-start md:items-center hover:bg-gray-50 gap-4"><div><div className="flex items-center gap-2"><p className="font-bold text-sm text-gray-900">{u.name}</p><span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase ${u.role === UserRole.ADMIN ? 'bg-red-100 text-red-600' : u.role === UserRole.EDITOR ? 'bg-purple-100 text-purple-600' : 'bg-gray-100 text-gray-500'}`}>{u.role}</span></div><p className="text-xs text-gray-500">{u.email}</p><p className="text-[10px] text-gray-400 mt-1">Enrolled in: {u.purchasedCourseIds.length} Batches</p></div><div className="flex items-center gap-2"><button onClick={() => setShowEnrollModal(u.id)} className="text-xs font-bold bg-blue-50 text-blue-600 px-3 py-2 rounded-lg hover:bg-blue-100">Enroll</button>{u.role !== UserRole.ADMIN && (<button onClick={() => { if(confirm('Delete user?')) deleteUser(u.id); }} className="text-gray-400 hover:text-red-500 p-2"><Trash2 className="w-4 h-4" /></button>)}</div></div>))}</div></div>}
+             {tab === 'banners' && <div className="space-y-4"><div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100"><h3 className="font-bold mb-4 text-gray-900">Add Banner</h3><form onSubmit={(e) => { e.preventDefault(); const form = e.currentTarget; addBanner({ id: Date.now().toString(), image: form.image.value, link: form.link.value }); form.reset(); }} className="flex gap-2"><input name="image" placeholder="Image URL" className="flex-1 bg-gray-50 px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder:text-gray-500" required /><input name="link" placeholder="Link (Optional)" className="flex-1 bg-gray-50 px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder:text-gray-500" /><button className="bg-brand text-white px-4 py-2 rounded-xl font-bold text-sm">Add</button></form></div><div className="grid grid-cols-1 md:grid-cols-2 gap-4">{banners.map(b => (<div key={b.id} className="relative aspect-video rounded-xl overflow-hidden group"><img src={b.image} className="w-full h-full object-cover" /><button onClick={() => deleteBanner(b.id)} className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-4 h-4" /></button></div>))}</div></div>}
+             {tab === 'settings' && <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100"><form onSubmit={(e) => { e.preventDefault(); const formData = new FormData(e.currentTarget); updateSettings({ ...settings, appName: formData.get('appName') as string, adminEmail: formData.get('adminEmail') as string, supportPhone: formData.get('supportPhone') as string, uiColor: formData.get('uiColor') as string, videoApiKey: formData.get('videoApiKey') as string, linkShortenerApiUrl: formData.get('linkShortenerApiUrl') as string, linkShortenerApiKey: formData.get('linkShortenerApiKey') as string, adsCode: formData.get('adsCode') as string }); alert('Settings Saved!'); }} className="space-y-4"><div><label className="text-xs font-bold text-gray-500 uppercase">App Name</label><input name="appName" defaultValue={settings.appName} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" /></div><div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-gray-500 uppercase">Brand Color</label><div className="flex gap-2 mt-1"><input type="color" name="uiColor" defaultValue={settings.uiColor} className="h-10 w-10 rounded-lg cursor-pointer" /><input type="text" defaultValue={settings.uiColor} className="flex-1 p-2 bg-gray-50 border border-gray-200 rounded-xl uppercase text-gray-900 placeholder:text-gray-500" readOnly /></div></div><div><label className="text-xs font-bold text-gray-500 uppercase">Admin Email</label><input name="adminEmail" defaultValue={settings.adminEmail} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" /></div></div><div><label className="text-xs font-bold text-gray-500 uppercase">Support Contact (Phone or Telegram)</label><input name="supportPhone" defaultValue={settings.supportPhone} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" /></div><div className="bg-gray-50 p-4 rounded-xl border border-gray-200"><h4 className="font-bold text-gray-900 mb-3 text-sm">Link Shortener Configuration</h4><div className="grid gap-3"><div><label className="text-xs font-bold text-gray-500 uppercase">API URL (e.g. reel2earn.com/api)</label><input name="linkShortenerApiUrl" defaultValue={settings.linkShortenerApiUrl} placeholder="https://..." className="w-full p-3 bg-white border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" /></div><div><label className="text-xs font-bold text-gray-500 uppercase">API Key</label><input name="linkShortenerApiKey" defaultValue={settings.linkShortenerApiKey} className="w-full p-3 bg-white border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" /></div></div></div><div><label className="text-xs font-bold text-gray-500 uppercase">Ad Code (HTML)</label><textarea name="adsCode" defaultValue={settings.adsCode} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl mt-1 font-mono text-xs text-gray-900 placeholder:text-gray-500" rows={3} /></div><button className="w-full bg-brand text-white py-3 rounded-xl font-bold">Save Settings</button></form></div>}
+             {showCourseModal && (<div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"><div className="bg-white w-full max-w-lg rounded-3xl p-6 max-h-[90vh] overflow-y-auto"><h2 className="text-xl font-bold mb-4 text-gray-900">{editingCourse ? 'Edit Batch' : 'New Batch'}</h2><form onSubmit={handleSaveCourse} className="space-y-3"><input name="title" defaultValue={editingCourse?.title} placeholder="Batch Title" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required /><textarea name="description" defaultValue={editingCourse?.description} placeholder="Description" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" rows={2} required /><input name="image" defaultValue={editingCourse?.image} placeholder="Image URL" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required /><input name="category" defaultValue={editingCourse?.category} placeholder="Category (e.g. Science)" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required /><div className="grid grid-cols-2 gap-3"><input type="number" name="price" defaultValue={editingCourse?.price} placeholder="Price" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" /><input type="number" name="mrp" defaultValue={editingCourse?.mrp} placeholder="MRP" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" /></div><div className="flex items-center gap-3 bg-gray-50 p-3 rounded-xl"><input type="checkbox" name="isPaid" defaultChecked={editingCourse?.isPaid} id="isPaid" className="w-5 h-5 accent-brand" /><label htmlFor="isPaid" className="font-medium text-gray-700">Premium Course (Locked)</label></div><input name="accessKey" defaultValue={editingCourse?.accessKey} placeholder="Access Key (if Premium)" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" /><input name="telegramChannelLink" defaultValue={editingCourse?.telegramChannelLink} placeholder="Telegram Channel Link (Optional)" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" /><div className="flex gap-2"><input name="shortenerLink" ref={linkInputRef} defaultValue={editingCourse?.shortenerLink} placeholder="Temp Access Short Link" className="flex-1 p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" />{editingCourse && (<button type="button" onClick={handleGenerateLink} disabled={isGeneratingLink} className="bg-gray-100 text-gray-600 px-3 rounded-xl font-bold text-xs hover:bg-gray-200 disabled:opacity-50">{isGeneratingLink ? <Loader2 className="w-4 h-4 animate-spin"/> : 'Generate'}</button>)}</div><div className="flex gap-3 pt-4"><button type="button" onClick={() => setShowCourseModal(false)} className="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-100 rounded-xl">Cancel</button><button type="submit" className="flex-1 py-3 bg-brand text-white font-bold rounded-xl shadow-lg shadow-brand/20">Save Batch</button></div></form></div></div>)}
+             {showUserModal && (<div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"><div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl"><h2 className="text-xl font-bold mb-4 text-gray-900">Add New User</h2><form onSubmit={handleAddUser} className="space-y-3"><input name="name" placeholder="Full Name" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required /><input name="email" type="email" placeholder="Email Address" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required /><input name="phone" placeholder="Phone Number" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" /><input name="password" type="password" placeholder="Password" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required /><div><label className="text-xs font-bold text-gray-500 uppercase ml-1">Role</label><select name="role" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 mt-1"><option value={UserRole.USER}>Student (User)</option><option value={UserRole.EDITOR}>Editor (Manager)</option><option value={UserRole.ADMIN}>Admin</option></select></div><div className="flex gap-3 pt-4"><button type="button" onClick={() => setShowUserModal(false)} className="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-100 rounded-xl">Cancel</button><button type="submit" className="flex-1 py-3 bg-brand text-white font-bold rounded-xl shadow-lg shadow-brand/20">Create User</button></div></form></div></div>)}
+             {showEnrollModal && (<div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"><div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl"><h2 className="text-xl font-bold mb-4 text-gray-900">Enroll User in Batch</h2><div className="space-y-2 max-h-[60vh] overflow-y-auto">{courses.map(c => { const targetUser = users.find(u => u.id === showEnrollModal); const isEnrolled = targetUser?.purchasedCourseIds.includes(c.id); return (<button key={c.id} disabled={isEnrolled} onClick={() => { addCourseToUser(showEnrollModal, c.id); setShowEnrollModal(null); }} className={`w-full text-left p-3 rounded-xl border flex items-center justify-between ${isEnrolled ? 'bg-green-50 border-green-200 cursor-default' : 'bg-white border-gray-200 hover:bg-gray-50'}`}><span className={`text-sm font-bold ${isEnrolled ? 'text-green-700' : 'text-gray-700'}`}>{c.title}</span>{isEnrolled && <CheckCircle className="w-4 h-4 text-green-600"/>}</button>); })}</div><button onClick={() => setShowEnrollModal(null)} className="w-full mt-4 py-3 bg-gray-100 text-gray-600 font-bold rounded-xl hover:bg-gray-200">Cancel</button></div></div>)}
              {showExamManager && <ExamManager course={showExamManager} onClose={() => setShowExamManager(null)} />}
              {showContentManager && <ContentManager course={showContentManager} onClose={() => setShowContentManager(null)} />}
         </div>

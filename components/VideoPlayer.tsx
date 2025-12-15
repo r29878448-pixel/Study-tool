@@ -1,3 +1,4 @@
+
 import React, { useRef, useState, useEffect } from 'react';
 import { 
   Play, Pause, Volume2, VolumeX, Maximize, Minimize, Settings, Download, Lock, Loader2, ArrowLeft
@@ -11,6 +12,36 @@ interface VideoPlayerProps {
   initialTime?: number;
   onBack?: () => void;
 }
+
+// Helper to convert common video platform links to their embed equivalents
+const getEmbedUrl = (url: string) => {
+  if (!url) return '';
+
+  // YouTube: Handle standard watch, short URLs, and existing embeds
+  const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+  if (ytMatch && ytMatch[1]) {
+    // Add rel=0 to prevent related videos from other channels
+    return `https://www.youtube.com/embed/${ytMatch[1]}?rel=0&modestbranding=1&playsinline=1`;
+  }
+
+  // Vimeo
+  const vimeoMatch = url.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+  if (vimeoMatch && vimeoMatch[1]) {
+    return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
+  }
+
+  // Google Drive: Convert /view to /preview for embedding
+  if (url.includes('drive.google.com')) {
+    return url.replace(/\/view.*/, '/preview').replace(/\/edit.*/, '/preview');
+  }
+
+  // Loom
+  if (url.includes('loom.com/share')) {
+      return url.replace('/share/', '/embed/');
+  }
+
+  return url;
+};
 
 const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProgress, initialTime, onBack }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -32,6 +63,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
   // Otherwise, we treat it as an embed (YouTube, Vimeo, AI Video Generators).
   const isDirectFile = /\.(mp4|webm|ogg|mov|m4v)$/i.test(src);
   const isEmbed = !isDirectFile;
+
+  // Process URL if it's an embed
+  const displayUrl = isEmbed ? getEmbedUrl(src) : src;
 
   // Set initial time if provided (e.g. from saved progress)
   useEffect(() => {
@@ -182,7 +216,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
   // Generic Embed Player (YouTube, Vimeo, AI Generated, etc.)
   if (isEmbed) {
     return (
-      <div className="w-full aspect-video bg-black rounded-lg overflow-hidden shadow-lg relative">
+      <div className="w-full aspect-video bg-black rounded-lg overflow-hidden shadow-lg relative group">
         {onBack && (
             <button 
                 onClick={onBack}
@@ -192,7 +226,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
             </button>
         )}
         <iframe 
-          src={src} 
+          src={displayUrl} 
           title="Video Player"
           className="w-full h-full"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"

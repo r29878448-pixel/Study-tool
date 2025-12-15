@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, Course, Banner, Order, AppSettings, UserRole, ExamResult, ExamProgress, VideoProgress, AiGeneratedQuiz } from './types';
+import { User, Course, Banner, Order, AppSettings, UserRole, ExamResult, ExamProgress, VideoProgress, AiGeneratedQuiz, SavedNote } from './types';
 
 interface StoreContextType {
   currentUser: User | null;
@@ -11,12 +11,14 @@ interface StoreContextType {
   settings: AppSettings;
   login: (email: string, pass: string) => boolean;
   signup: (name: string, email: string, phone: string, pass: string) => void;
-  addUser: (user: User) => void; // New function for Admin to create specific users
+  addUser: (user: User) => void; 
   logout: () => void;
   addCourse: (course: Course) => void;
   updateCourse: (course: Course) => void;
   deleteCourse: (id: string) => void;
   enrollCourse: (courseId: string) => void;
+  addCourseToUser: (userId: string, courseId: string) => void; // New
+  removeCourseFromUser: (userId: string, courseId: string) => void; // New
   grantTempAccess: (courseId: string) => void;
   addBanner: (banner: Banner) => void;
   deleteBanner: (id: string) => void;
@@ -28,6 +30,8 @@ interface StoreContextType {
   clearExamProgress: (courseId: string) => void;
   saveVideoProgress: (videoId: string, timestamp: number, duration: number) => void;
   saveAiQuiz: (quiz: AiGeneratedQuiz) => void;
+  saveNote: (note: SavedNote) => void;
+  deleteNote: (noteId: string) => void;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -68,7 +72,7 @@ const INITIAL_COURSES: Course[] = [
     createdAt: new Date().toISOString(),
     isPaid: true,
     accessKey: 'MATHS2024',
-    shortenerLink: '', // Admin can set this
+    shortenerLink: '', 
     chapters: []
   }
 ];
@@ -251,6 +255,24 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
     setUsers(prevUsers => prevUsers.map(u => u.id === currentUser.id ? updatedUser : u));
   };
 
+  const addCourseToUser = (userId: string, courseId: string) => {
+    setUsers(prevUsers => prevUsers.map(u => {
+        if (u.id === userId && !u.purchasedCourseIds.includes(courseId)) {
+            return { ...u, purchasedCourseIds: [...u.purchasedCourseIds, courseId] };
+        }
+        return u;
+    }));
+  };
+
+  const removeCourseFromUser = (userId: string, courseId: string) => {
+    setUsers(prevUsers => prevUsers.map(u => {
+        if (u.id === userId) {
+            return { ...u, purchasedCourseIds: u.purchasedCourseIds.filter(id => id !== courseId) };
+        }
+        return u;
+    }));
+  };
+
   const grantTempAccess = (courseId: string) => {
     if (!currentUser) return;
     // Set expiry to 24 hours from now
@@ -378,12 +400,45 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
     setUsers(prevUsers => prevUsers.map(u => u.id === currentUser.id ? updatedUser : u));
   };
 
+  const saveNote = (note: SavedNote) => {
+    if (!currentUser) return;
+    const currentNotes = currentUser.savedNotes || [];
+    // Check if note for this video already exists and update it, or add new
+    const existingIndex = currentNotes.findIndex(n => n.videoId === note.videoId);
+    let updatedNotes;
+    
+    if (existingIndex >= 0) {
+      updatedNotes = [...currentNotes];
+      updatedNotes[existingIndex] = note;
+    } else {
+      updatedNotes = [note, ...currentNotes];
+    }
+
+    const updatedUser: User = {
+      ...currentUser,
+      savedNotes: updatedNotes
+    };
+
+    setCurrentUser(updatedUser);
+    setUsers(prevUsers => prevUsers.map(u => u.id === currentUser.id ? updatedUser : u));
+  };
+
+  const deleteNote = (noteId: string) => {
+    if (!currentUser) return;
+    const updatedUser: User = {
+      ...currentUser,
+      savedNotes: (currentUser.savedNotes || []).filter(n => n.id !== noteId)
+    };
+    setCurrentUser(updatedUser);
+    setUsers(prevUsers => prevUsers.map(u => u.id === currentUser.id ? updatedUser : u));
+  };
+
   return (
     <StoreContext.Provider value={{
       currentUser, users, courses, banners, orders, settings,
       login, signup, addUser, logout,
       addCourse, updateCourse, deleteCourse,
-      enrollCourse, grantTempAccess,
+      enrollCourse, addCourseToUser, removeCourseFromUser, grantTempAccess,
       addBanner, deleteBanner,
       updateSettings,
       updateUser,
@@ -392,7 +447,9 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
       saveExamProgress,
       clearExamProgress,
       saveVideoProgress,
-      saveAiQuiz
+      saveAiQuiz,
+      saveNote,
+      deleteNote
     }}>
       {children}
     </StoreContext.Provider>

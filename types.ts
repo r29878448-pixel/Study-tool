@@ -34,6 +34,17 @@ export interface AiGeneratedQuiz {
   generatedAt: string;
 }
 
+export interface SavedNote {
+  id: string;
+  videoId: string;
+  videoTitle: string;
+  courseTitle: string;
+  content: string; // Markdown content
+  imageUrl?: string; // Base64 string
+  generatedAt: string;
+  syllabusVersion: string; // e.g., "CBSE 2025-26"
+}
+
 export interface User {
   id: string;
   name: string;
@@ -48,6 +59,7 @@ export interface User {
   savedExamProgress?: ExamProgress[]; // Array of unfinished exams
   videoProgress?: Record<string, VideoProgress>; // videoId -> Progress Data
   generatedQuizzes?: AiGeneratedQuiz[]; // Cache for AI quizzes per video
+  savedNotes?: SavedNote[]; // User's library of AI notes
 }
 
 export interface Banner {

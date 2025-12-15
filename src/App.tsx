@@ -1,32 +1,21 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate, useLocation, Link, useNavigate, useParams } from 'react-router-dom';
-import { StoreProvider, useStore } from './store';
+import { StoreProvider, useStore } from '../store';
 import { 
   Home, BookOpen, User, HelpCircle, Menu, LogOut, 
-  Search, PlayCircle, Lock, LayoutDashboard, Users, CreditCard, Settings, Plus, Trash2, Edit, Save, X, ChevronDown, ChevronUp,
-  MessageCircle, CloudDownload, CheckCircle, Shield, Upload, FileText, Download, Youtube, Link as LinkIcon, Image as ImageIcon, Globe,
-  ClipboardList, Timer, Code, DollarSign, Clock, Eye, Smartphone, MoreVertical, Key, Copy, ExternalLink, Play, Bot, Brain, Wand2, Loader2, List, ArrowLeft, Video as VideoIcon
-} from './components/Icons';
-import VideoPlayer from './components/VideoPlayer';
-import ChatBot from './components/ChatBot';
-import ExamMode from './components/ExamMode';
-import { Course, Chapter, Video, UserRole, Note, Banner, AppSettings, Exam, Question, VideoProgress, AiGeneratedQuiz, SavedNote } from './types';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+  Search, PlayCircle, Lock, LayoutDashboard, Settings, Plus, Trash2, Edit, Save, X, ChevronDown, 
+  MessageCircle, CheckCircle, FileText, Download, ClipboardList, Timer, Clock, Key, ExternalLink, Play, Bot, Brain, Loader2, ArrowLeft, Video as VideoIcon
+} from '../components/Icons';
+import VideoPlayer from '../components/VideoPlayer';
+import ChatBot from '../components/ChatBot';
+import ExamMode from '../components/ExamMode';
+import { Course, Chapter, Video, UserRole, Banner, AppSettings, Exam, Question, SavedNote } from '../types';
 import { GoogleGenAI } from "@google/genai";
 
 declare var process: { env: { API_KEY: string } };
 
 // --- Helper Functions ---
-const convertToBase64 = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = error => reject(error);
-  });
-};
-
 const parseDuration = (duration: string) => {
   const match = duration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
   if (!match) return '00:00';
@@ -1120,541 +1109,17 @@ const Profile = () => {
    );
 };
 
-const MyCourses = () => {
-  const { currentUser, courses } = useStore();
-  
-  if (!currentUser) return <Navigate to="/login" />;
-
-  const myCourses = courses.filter(c => 
-    currentUser.purchasedCourseIds.includes(c.id) || 
-    (currentUser.tempAccess?.[c.id] && new Date(currentUser.tempAccess[c.id]) > new Date())
-  );
-
-  return (
-    <div className="pb-24 pt-24 p-6 min-h-screen bg-gray-50">
-      <h2 className="text-2xl font-display font-bold text-gray-900 mb-6">My Batches</h2>
-      {myCourses.length === 0 ? (
-         <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-gray-200">
-             <BookOpen className="w-12 h-12 mx-auto text-gray-300 mb-4"/>
-             <p className="text-gray-500 font-medium">You haven't enrolled in any batches yet.</p>
-             <Link to="/courses" className="mt-4 inline-block text-brand font-bold hover:underline">Browse Batches</Link>
-         </div>
-      ) : (
-         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {myCourses.map(course => {
-               const isTemp = !currentUser.purchasedCourseIds.includes(course.id) && currentUser.tempAccess?.[course.id];
-               const expiry = isTemp ? currentUser.tempAccess?.[course.id] : null;
-
-               return (
-               <Link to={`/course/${course.id}`} key={course.id} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex gap-4 hover:border-brand transition-colors group relative overflow-hidden">
-                  <div className="w-24 h-24 rounded-2xl bg-gray-100 overflow-hidden flex-none">
-                     <img src={course.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
-                  </div>
-                  <div className="flex-1 flex flex-col justify-center">
-                     <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">{course.category}</span>
-                     <h3 className="font-bold text-gray-900 leading-tight mb-2">{course.title}</h3>
-                     <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-1 text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded w-fit">
-                            <CheckCircle className="w-3 h-3" /> Active
-                        </div>
-                        {expiry && (
-                            <div className="text-[10px] font-bold text-orange-500 bg-orange-50 px-2 py-1 rounded">
-                                Exp: {new Date(expiry).toLocaleDateString()}
-                            </div>
-                        )}
-                     </div>
-                  </div>
-               </Link>
-            )})}
-         </div>
-      )}
-    </div>
-  );
-};
-
-const VerifyAccess = () => {
-  const { courseId } = useParams();
-  const { grantTempAccess, courses } = useStore();
-  const navigate = useNavigate();
-  const [status, setStatus] = useState('Verifying...');
-
-  useEffect(() => {
-    if (courseId) {
-       const course = courses.find(c => c.id === courseId);
-       if(course) {
-          grantTempAccess(courseId);
-          setStatus('Access Granted! Redirecting...');
-          setTimeout(() => navigate(`/course/${courseId}`), 2000);
-       } else {
-          setStatus('Invalid Link');
-       }
-    }
-  }, [courseId, courses]);
-
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="bg-white p-8 rounded-2xl shadow-lg text-center">
-         <div className="mb-4">
-            {status.includes('Granted') ? <CheckCircle className="w-12 h-12 text-green-500 mx-auto"/> : <Loader2 className="w-12 h-12 text-brand animate-spin mx-auto"/>}
-         </div>
-         <h2 className="text-xl font-bold">{status}</h2>
-      </div>
-    </div>
-  );
-};
-
-const RevealKey = () => {
-    const { key } = useParams();
-    const { courses, enrollCourse } = useStore();
-    const navigate = useNavigate();
-    const [status, setStatus] = useState('Checking Key...');
-
-    useEffect(() => {
-        if(key) {
-            const course = courses.find(c => c.accessKey === key);
-            if(course) {
-                enrollCourse(course.id);
-                setStatus(`Unlocked: ${course.title}`);
-                setTimeout(() => navigate(`/course/${course.id}`), 2000);
-            } else {
-                setStatus('Invalid Access Key');
-            }
-        }
-    }, [key, courses]);
-
-    return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
-          <div className="bg-white p-8 rounded-2xl shadow-lg text-center">
-             <div className="mb-4">
-                {status.includes('Unlocked') ? <Lock className="w-12 h-12 text-green-500 mx-auto"/> : <Loader2 className="w-12 h-12 text-red-500 animate-spin mx-auto"/>}
-             </div>
-             <h2 className="text-xl font-bold">{status}</h2>
-          </div>
-        </div>
-    );
-};
-
-const CourseDetail = () => {
-    const { id } = useParams();
-    const { courses, enrollCourse, currentUser } = useStore();
-    const navigate = useNavigate();
-    const course = courses.find(c => c.id === id);
-
-    if (!course) return <div className="pt-24 text-center">Course not found</div>;
-
-    const hasAccess = currentUser && (
-        currentUser.purchasedCourseIds.includes(course.id) ||
-        (currentUser.tempAccess?.[course.id] && new Date(currentUser.tempAccess[course.id]) > new Date())
-    );
-
-    const isTemp = !currentUser?.purchasedCourseIds.includes(course.id) && currentUser?.tempAccess?.[course.id];
-
-    return (
-        <div className="pb-24 pt-20 bg-gray-50 min-h-screen">
-            {/* Header / Hero */}
-            <div className="bg-white pb-6 mb-4 shadow-sm">
-                 <div className="relative h-48 md:h-64 bg-gray-900">
-                     <img src={course.image} className="w-full h-full object-cover opacity-60" />
-                     <div className="absolute inset-0 flex flex-col justify-end p-6 bg-gradient-to-t from-gray-900 to-transparent">
-                         <span className="text-brand-light font-bold text-xs uppercase tracking-wider mb-2 bg-brand/20 backdrop-blur w-fit px-2 py-1 rounded">{course.category}</span>
-                         <h1 className="text-3xl font-display font-bold text-white mb-2">{course.title}</h1>
-                         <p className="text-gray-300 text-sm max-w-2xl">{course.description}</p>
-                     </div>
-                 </div>
-                 <div className="px-6 pt-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                     <div>
-                        <div className="flex items-center gap-4 text-sm font-bold text-gray-500 mb-2">
-                             <span className="flex items-center gap-1"><BookOpen className="w-4 h-4"/> {course.chapters.length} Chapters</span>
-                             {course.exams && <span className="flex items-center gap-1"><ClipboardList className="w-4 h-4"/> {course.exams.length} Tests</span>}
-                        </div>
-                        {isTemp && (
-                            <div className="inline-flex items-center gap-2 bg-orange-50 text-orange-600 px-3 py-1 rounded-lg text-sm font-bold">
-                                <Timer className="w-4 h-4" /> 
-                                Access Expires: {new Date(currentUser?.tempAccess?.[course.id] || '').toLocaleDateString()}
-                            </div>
-                        )}
-                     </div>
-
-                     {!hasAccess ? (
-                         <div className="w-full md:w-auto flex flex-col gap-2">
-                            <button 
-                                onClick={() => {
-                                    if(!currentUser) { navigate('/login'); return; }
-                                    // If paid, ideally show payment modal. For now, simulate "Request Access" or simply Enroll if price is 0
-                                    if(course.price === 0) {
-                                        enrollCourse(course.id);
-                                    } else {
-                                        alert("Please contact admin to purchase this course or enter an Access Key.");
-                                    }
-                                }}
-                                className="bg-brand text-white px-8 py-3 rounded-xl font-bold shadow-lg shadow-brand/20 hover:scale-105 transition-transform"
-                            >
-                                {course.price === 0 ? 'Enroll for Free' : `Buy for ₹${course.price}`}
-                            </button>
-                         </div>
-                     ) : (
-                         <button className="bg-green-600 text-white px-8 py-3 rounded-xl font-bold shadow-lg shadow-green-500/20 cursor-default flex items-center gap-2">
-                             <CheckCircle className="w-5 h-5"/> Enrolled
-                         </button>
-                     )}
-                 </div>
-            </div>
-
-            {/* Content List */}
-            <div className="max-w-4xl mx-auto px-4 space-y-4">
-                 <div className="flex gap-4 mb-4 overflow-x-auto no-scrollbar">
-                     <button className="bg-white px-6 py-2 rounded-full font-bold text-sm shadow-sm border border-gray-100 text-brand">Content</button>
-                     {course.exams && course.exams.length > 0 && (
-                         <div className="flex gap-2">
-                             {course.exams.map(exam => (
-                                 <button 
-                                    key={exam.id} 
-                                    onClick={() => hasAccess ? navigate(`/exam/${course.id}`) : alert("Enroll to access tests")}
-                                    className="bg-purple-50 text-purple-700 px-4 py-2 rounded-full font-bold text-sm border border-purple-100 flex items-center gap-2"
-                                 >
-                                    <ClipboardList className="w-3 h-3"/> {exam.title}
-                                 </button>
-                             ))}
-                         </div>
-                     )}
-                 </div>
-
-                 {course.chapters.map((chapter) => (
-                     <div key={chapter.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                         <div className="p-4 bg-gray-50/50 border-b border-gray-100 font-bold text-gray-800 flex justify-between items-center">
-                             <span>{chapter.title}</span>
-                             <span className="text-xs text-gray-400 bg-white px-2 py-1 rounded border">{chapter.videos.length} Videos</span>
-                         </div>
-                         <div className="divide-y divide-gray-50">
-                             {chapter.videos.map((video) => (
-                                 <div key={video.id} className="p-4 flex items-center gap-4 hover:bg-gray-50 transition-colors group">
-                                     <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 group-hover:bg-brand group-hover:text-white transition-colors">
-                                         <Play className="w-4 h-4 ml-0.5" fill="currentColor"/>
-                                     </div>
-                                     <div className="flex-1">
-                                         <h4 className="font-bold text-gray-800 text-sm">{video.title}</h4>
-                                         <p className="text-xs text-gray-400">{video.duration}</p>
-                                     </div>
-                                     {hasAccess ? (
-                                         <button 
-                                            onClick={() => navigate(`/watch/${course.id}`)} 
-                                            className="text-brand font-bold text-xs bg-brand-light px-3 py-1.5 rounded-lg hover:bg-brand hover:text-white transition-colors"
-                                         >
-                                             Play
-                                         </button>
-                                     ) : (
-                                         <Lock className="w-4 h-4 text-gray-300" />
-                                     )}
-                                 </div>
-                             ))}
-                             {chapter.videos.length === 0 && <div className="p-4 text-center text-xs text-gray-400">No videos yet</div>}
-                         </div>
-                     </div>
-                 ))}
-                 {course.chapters.length === 0 && (
-                     <div className="text-center py-10 text-gray-400">No chapters available.</div>
-                 )}
-            </div>
-        </div>
-    );
-};
-
-const ContentManager = ({ course, onClose }: { course: Course, onClose: () => void }) => {
-    const { updateCourse } = useStore();
-    const [chapters, setChapters] = useState(course.chapters || []);
-    const [newChapterTitle, setNewChapterTitle] = useState('');
-    
-    // Video Form State
-    const [addingVideoTo, setAddingVideoTo] = useState<string | null>(null);
-    const [videoForm, setVideoForm] = useState({ title: '', url: '', duration: '' });
-
-    const handleAddChapter = () => {
-        if(!newChapterTitle.trim()) return;
-        const newChapter: Chapter = {
-            id: Date.now().toString(),
-            title: newChapterTitle,
-            videos: [],
-            notes: []
-        };
-        const updatedChapters = [...chapters, newChapter];
-        setChapters(updatedChapters);
-        updateCourse({ ...course, chapters: updatedChapters });
-        setNewChapterTitle('');
-    };
-
-    const handleDeleteChapter = (chapId: string) => {
-        if(!confirm("Delete chapter and all its videos?")) return;
-        const updatedChapters = chapters.filter(c => c.id !== chapId);
-        setChapters(updatedChapters);
-        updateCourse({ ...course, chapters: updatedChapters });
-    };
-
-    const handleAddVideo = (chapId: string) => {
-        if(!videoForm.title || !videoForm.url) return;
-        const newVideo: Video = {
-            id: Date.now().toString(),
-            title: videoForm.title,
-            filename: videoForm.url,
-            duration: videoForm.duration || '00:00'
-        };
-        
-        const updatedChapters = chapters.map(c => {
-            if(c.id === chapId) {
-                return { ...c, videos: [...c.videos, newVideo] };
-            }
-            return c;
-        });
-
-        setChapters(updatedChapters);
-        updateCourse({ ...course, chapters: updatedChapters });
-        setAddingVideoTo(null);
-        setVideoForm({ title: '', url: '', duration: '' });
-    };
-
-    const handleDeleteVideo = (chapId: string, vidId: string) => {
-        if(!confirm("Delete video?")) return;
-        const updatedChapters = chapters.map(c => {
-            if(c.id === chapId) {
-                return { ...c, videos: c.videos.filter(v => v.id !== vidId) };
-            }
-            return c;
-        });
-        setChapters(updatedChapters);
-        updateCourse({ ...course, chapters: updatedChapters });
-    };
-
-    return (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-2xl rounded-3xl p-6 h-[80vh] flex flex-col">
-                <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-bold text-gray-900">Manage Content: {course.title}</h2>
-                    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full"><X className="w-5 h-5"/></button>
-                </div>
-
-                <div className="flex gap-2 mb-6">
-                    <input 
-                        value={newChapterTitle}
-                        onChange={(e) => setNewChapterTitle(e.target.value)}
-                        placeholder="New Chapter Title"
-                        className="flex-1 p-3 bg-gray-50 rounded-xl border border-gray-200"
-                    />
-                    <button onClick={handleAddChapter} className="bg-brand text-white px-4 rounded-xl font-bold">Add Chapter</button>
-                </div>
-
-                <div className="flex-1 overflow-y-auto space-y-4 pr-2">
-                    {chapters.map(chap => (
-                        <div key={chap.id} className="border border-gray-200 rounded-xl overflow-hidden">
-                            <div className="bg-gray-50 p-3 flex justify-between items-center border-b border-gray-200">
-                                <span className="font-bold text-gray-700">{chap.title}</span>
-                                <div className="flex gap-2">
-                                    <button onClick={() => setAddingVideoTo(addingVideoTo === chap.id ? null : chap.id)} className="text-xs bg-white border border-gray-300 px-2 py-1 rounded hover:bg-gray-100 font-medium">
-                                        + Add Video
-                                    </button>
-                                    <button onClick={() => handleDeleteChapter(chap.id)} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4"/></button>
-                                </div>
-                            </div>
-                            
-                            {addingVideoTo === chap.id && (
-                                <div className="p-3 bg-blue-50 border-b border-blue-100 flex flex-col gap-2">
-                                    <input placeholder="Video Title" className="p-2 rounded border border-gray-300 text-sm" value={videoForm.title} onChange={e => setVideoForm({...videoForm, title: e.target.value})} />
-                                    <input placeholder="Video URL (MP4 or Embed)" className="p-2 rounded border border-gray-300 text-sm" value={videoForm.url} onChange={e => setVideoForm({...videoForm, url: e.target.value})} />
-                                    <div className="flex gap-2">
-                                        <input placeholder="Duration (e.g. 10:00)" className="p-2 rounded border border-gray-300 text-sm w-32" value={videoForm.duration} onChange={e => setVideoForm({...videoForm, duration: e.target.value})} />
-                                        <button onClick={() => handleAddVideo(chap.id)} className="bg-blue-600 text-white px-4 rounded text-sm font-bold flex-1">Save Video</button>
-                                    </div>
-                                </div>
-                            )}
-
-                            <div className="divide-y divide-gray-100">
-                                {chap.videos.map(vid => (
-                                    <div key={vid.id} className="p-3 flex justify-between items-center text-sm hover:bg-gray-50">
-                                        <div className="flex items-center gap-2">
-                                            <PlayCircle className="w-4 h-4 text-gray-400"/>
-                                            <span className="text-gray-800">{vid.title}</span>
-                                            <span className="text-gray-400 text-xs">({vid.duration})</span>
-                                        </div>
-                                        <button onClick={() => handleDeleteVideo(chap.id, vid.id)} className="text-gray-400 hover:text-red-500"><Trash2 className="w-3 h-3"/></button>
-                                    </div>
-                                ))}
-                                {chap.videos.length === 0 && <div className="p-3 text-center text-xs text-gray-400">No videos</div>}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const ExamManager = ({ course, onClose }: { course: Course, onClose: () => void }) => {
-    const { updateCourse } = useStore();
-    const [exams, setExams] = useState<Exam[]>(course.exams || []);
-    const [view, setView] = useState<'list' | 'edit'>('list');
-    const [editingExam, setEditingExam] = useState<Exam | null>(null);
-    const [examTitle, setExamTitle] = useState('');
-    
-    // Question Form
-    const [qForm, setQForm] = useState({ question: '', options: ['', '', '', ''], correctAnswer: 0 });
-
-    const handleCreateExam = () => {
-        if(!examTitle.trim()) return;
-        const newExam: Exam = {
-            id: Date.now().toString(),
-            title: examTitle,
-            questions: []
-        };
-        setExams([...exams, newExam]);
-        updateCourse({ ...course, exams: [...exams, newExam] });
-        setExamTitle('');
-    };
-
-    const handleDeleteExam = (id: string) => {
-        if(!confirm("Delete Exam?")) return;
-        const updated = exams.filter(e => e.id !== id);
-        setExams(updated);
-        updateCourse({ ...course, exams: updated });
-    };
-
-    const handleEditExam = (exam: Exam) => {
-        setEditingExam(exam);
-        setView('edit');
-    };
-
-    const handleAddQuestion = () => {
-        if(!editingExam || !qForm.question.trim()) return;
-        const newQ: Question = {
-            id: Date.now().toString(),
-            question: qForm.question,
-            options: qForm.options,
-            correctAnswer: qForm.correctAnswer
-        };
-        
-        const updatedExam = { ...editingExam, questions: [...editingExam.questions, newQ] };
-        setEditingExam(updatedExam);
-        
-        // Update globally
-        const updatedExams = exams.map(e => e.id === updatedExam.id ? updatedExam : e);
-        setExams(updatedExams);
-        updateCourse({ ...course, exams: updatedExams });
-        
-        // Reset form
-        setQForm({ question: '', options: ['', '', '', ''], correctAnswer: 0 });
-    };
-
-    const handleDeleteQuestion = (qId: string) => {
-        if(!editingExam) return;
-        const updatedExam = { ...editingExam, questions: editingExam.questions.filter(q => q.id !== qId) };
-        setEditingExam(updatedExam);
-        const updatedExams = exams.map(e => e.id === updatedExam.id ? updatedExam : e);
-        setExams(updatedExams);
-        updateCourse({ ...course, exams: updatedExams });
-    };
-
-    return (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-2xl rounded-3xl p-6 h-[80vh] flex flex-col">
-                <div className="flex justify-between items-center mb-6 border-b pb-4">
-                    <h2 className="text-xl font-bold text-gray-900">
-                        {view === 'list' ? 'Manage Exams' : `Editing: ${editingExam?.title}`}
-                    </h2>
-                    <div className="flex gap-2">
-                        {view === 'edit' && <button onClick={() => setView('list')} className="text-sm font-bold text-gray-500 hover:text-gray-800">Back to List</button>}
-                        <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full"><X className="w-5 h-5"/></button>
-                    </div>
-                </div>
-
-                {view === 'list' ? (
-                    <div className="flex flex-col gap-4">
-                         <div className="flex gap-2 mb-4">
-                             <input value={examTitle} onChange={e => setExamTitle(e.target.value)} placeholder="New Exam Title" className="flex-1 p-3 bg-gray-50 rounded-xl border border-gray-200" />
-                             <button onClick={handleCreateExam} className="bg-brand text-white px-4 rounded-xl font-bold">Create</button>
-                         </div>
-                         <div className="space-y-2">
-                             {exams.map(ex => (
-                                 <div key={ex.id} className="p-4 border border-gray-200 rounded-xl flex justify-between items-center hover:bg-gray-50">
-                                     <span className="font-bold text-gray-800">{ex.title} <span className="text-gray-400 text-xs ml-2">({ex.questions.length} Qs)</span></span>
-                                     <div className="flex gap-2">
-                                         <button onClick={() => handleEditExam(ex)} className="text-blue-600 hover:text-blue-800"><Edit className="w-4 h-4"/></button>
-                                         <button onClick={() => handleDeleteExam(ex.id)} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4"/></button>
-                                     </div>
-                                 </div>
-                             ))}
-                             {exams.length === 0 && <p className="text-center text-gray-400 py-4">No exams created.</p>}
-                         </div>
-                    </div>
-                ) : (
-                    <div className="flex-1 overflow-y-auto pr-2">
-                        {/* Add Question Form */}
-                        <div className="bg-gray-50 p-4 rounded-xl mb-6 border border-gray-200">
-                            <h4 className="font-bold text-sm text-gray-700 mb-3">Add Question</h4>
-                            <textarea 
-                                placeholder="Question Text" 
-                                className="w-full p-2 rounded-lg border border-gray-300 mb-2 text-sm"
-                                value={qForm.question}
-                                onChange={e => setQForm({...qForm, question: e.target.value})}
-                            />
-                            <div className="grid grid-cols-2 gap-2 mb-2">
-                                {qForm.options.map((opt, i) => (
-                                    <div key={i} className="flex gap-1">
-                                        <input 
-                                            placeholder={`Option ${i+1}`}
-                                            className={`flex-1 p-2 rounded-lg border text-sm ${qForm.correctAnswer === i ? 'border-green-500 ring-1 ring-green-500' : 'border-gray-300'}`}
-                                            value={opt}
-                                            onChange={e => {
-                                                const newOpts = [...qForm.options];
-                                                newOpts[i] = e.target.value;
-                                                setQForm({...qForm, options: newOpts});
-                                            }}
-                                        />
-                                        <button 
-                                           onClick={() => setQForm({...qForm, correctAnswer: i})}
-                                           className={`p-2 rounded-lg border ${qForm.correctAnswer === i ? 'bg-green-500 text-white border-green-500' : 'bg-white text-gray-400 border-gray-300'}`}
-                                        >
-                                           <CheckCircle className="w-4 h-4"/>
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                            <button onClick={handleAddQuestion} className="w-full bg-blue-600 text-white py-2 rounded-lg font-bold text-sm">Add Question</button>
-                        </div>
-
-                        {/* Question List */}
-                        <div className="space-y-3">
-                            {editingExam?.questions.map((q, i) => (
-                                <div key={q.id} className="p-4 border border-gray-200 rounded-xl relative group">
-                                    <button onClick={() => handleDeleteQuestion(q.id)} className="absolute top-2 right-2 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-4 h-4"/></button>
-                                    <p className="font-bold text-sm text-gray-800 mb-2"><span className="text-gray-400 mr-2">Q{i+1}.</span>{q.question}</p>
-                                    <div className="grid grid-cols-2 gap-2">
-                                        {q.options.map((o, idx) => (
-                                            <div key={idx} className={`text-xs p-1.5 rounded ${idx === q.correctAnswer ? 'bg-green-50 text-green-700 font-bold' : 'bg-gray-50 text-gray-500'}`}>
-                                                {o}
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-};
-
 const AdminPanel = () => {
-    const { currentUser, courses, users, banners, settings, addCourse, updateCourse, deleteCourse, addBanner, deleteBanner, updateSettings, addUser, deleteUser } = useStore();
+    const { currentUser, courses, users, banners, settings, addCourse, updateCourse, deleteCourse, addBanner, deleteBanner, updateSettings, addUser, deleteUser, addCourseToUser } = useStore();
     const [tab, setTab] = useState<'courses' | 'users' | 'banners' | 'settings'>('courses');
     const [showCourseModal, setShowCourseModal] = useState(false);
     const [editingCourse, setEditingCourse] = useState<Course | null>(null);
     const [showExamManager, setShowExamManager] = useState<Course | null>(null);
     const [showContentManager, setShowContentManager] = useState<Course | null>(null);
-    
-    // User Management State
     const [showUserModal, setShowUserModal] = useState(false);
-    
-    // Link Generation State
     const [isGeneratingLink, setIsGeneratingLink] = useState(false);
     const linkInputRef = useRef<HTMLInputElement>(null);
+    const [showEnrollModal, setShowEnrollModal] = useState<string | null>(null); 
     
     if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.EDITOR)) return <Navigate to="/" />;
 
@@ -1677,12 +1142,8 @@ const AdminPanel = () => {
             exams: editingCourse?.exams || [],
             createdAt: editingCourse?.createdAt || new Date().toISOString()
         };
-
-        if (editingCourse) updateCourse(courseData);
-        else addCourse(courseData);
-        
-        setShowCourseModal(false);
-        setEditingCourse(null);
+        if (editingCourse) updateCourse(courseData); else addCourse(courseData);
+        setShowCourseModal(false); setEditingCourse(null);
     };
 
     const handleAddUser = (e: React.FormEvent<HTMLFormElement>) => {
@@ -1706,31 +1167,28 @@ const AdminPanel = () => {
             alert("Please configure Link Shortener in Settings first!");
             return;
         }
-
         const courseId = editingCourse?.id;
-        if(!courseId) {
-             alert("Please save the batch first, then edit it to generate a link.");
-             return;
-        }
+        if(!courseId) { alert("Please save the batch first, then edit it to generate a link."); return; }
 
         setIsGeneratingLink(true);
         try {
-            // Robust URL Construction
             let baseUrl = settings.linkShortenerApiUrl.trim();
-            // Remove trailing slash if present to avoid //
             if(baseUrl.endsWith('/')) baseUrl = baseUrl.slice(0, -1);
 
-            const destinationUrl = `${window.location.origin}/#/verify/${courseId}`;
+            // Force production URL
+            const destinationUrl = `https://study-tool-rosy.vercel.app/#/verify/${courseId}`;
             const encodedDest = encodeURIComponent(destinationUrl);
-            
-            // Determine correct separator
             const separator = baseUrl.includes('?') ? '&' : '?';
-            
-            // Build final URL: baseUrl?api=KEY&url=DEST
             const fetchUrl = `${baseUrl}${separator}api=${settings.linkShortenerApiKey}&url=${encodedDest}`;
             
-            // Try fetching
-            const response = await fetch(fetchUrl);
+            let response;
+            try {
+                response = await fetch(fetchUrl);
+            } catch (err) {
+                console.warn("Direct fetch failed, trying proxy", err);
+                response = await fetch(`https://corsproxy.io/?${encodeURIComponent(fetchUrl)}`);
+            }
+
             const data = await response.json();
             
             if(data.status === 'success' || data.shortenedUrl || data.shortlink) {
@@ -1740,12 +1198,11 @@ const AdminPanel = () => {
                 }
             } else {
                 console.error("API Error Data:", data);
-                // JSON.stringify the error so the user sees exactly what the API returned
                 alert(`Failed to generate link. API Response: ${JSON.stringify(data)}`);
             }
         } catch(e) {
             console.error(e);
-            alert("Network error or CORS issue. Please manually shorten this URL: " + window.location.href.split('#')[0] + "#/verify/" + courseId);
+            alert("Network error. Please manually shorten this URL: https://study-tool-rosy.vercel.app/#/verify/" + courseId);
         } finally {
             setIsGeneratingLink(false);
         }
@@ -1753,35 +1210,21 @@ const AdminPanel = () => {
 
     return (
         <div className="pb-24 pt-24 p-6 min-h-screen bg-gray-50">
-             <div className="flex justify-between items-center mb-6">
-                <h1 className="text-3xl font-display font-bold text-gray-900">Admin Panel</h1>
-             </div>
-
+             <div className="flex justify-between items-center mb-6"><h1 className="text-3xl font-display font-bold text-gray-900">Batch & User Management</h1></div>
              <div className="flex gap-2 overflow-x-auto pb-4 mb-4 no-scrollbar">
                  {['courses', 'users', 'banners', 'settings'].map(t => (
-                     <button key={t} onClick={() => setTab(t as any)} className={`px-5 py-2.5 rounded-xl font-bold capitalize whitespace-nowrap transition-all ${tab === t ? 'bg-brand text-white shadow-lg shadow-brand/30' : 'bg-white text-gray-600 shadow-sm'}`}>
-                         {t}
-                     </button>
+                     <button key={t} onClick={() => setTab(t as any)} className={`px-5 py-2.5 rounded-xl font-bold capitalize whitespace-nowrap transition-all ${tab === t ? 'bg-brand text-white shadow-lg shadow-brand/30' : 'bg-white text-gray-600 shadow-sm'}`}>{t === 'courses' ? 'Batches' : t}</button>
                  ))}
              </div>
-             
              {tab === 'courses' && (
                  <div className="space-y-4">
-                     <button onClick={() => { setEditingCourse(null); setShowCourseModal(true); }} className="w-full py-4 bg-white border-2 border-dashed border-gray-300 rounded-2xl text-gray-400 font-bold flex items-center justify-center gap-2 hover:border-brand hover:text-brand transition-all">
-                        <Plus className="w-5 h-5" /> Add New Batch
-                     </button>
+                     <button onClick={() => { setEditingCourse(null); setShowCourseModal(true); }} className="w-full py-4 bg-white border-2 border-dashed border-gray-300 rounded-2xl text-gray-400 font-bold flex items-center justify-center gap-2 hover:border-brand hover:text-brand transition-all"><Plus className="w-5 h-5" /> Add New Batch</button>
                      {courses.map(c => (
                          <div key={c.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row gap-4 items-start md:items-center">
                              <img src={c.image} className="w-16 h-16 rounded-lg object-cover bg-gray-100" />
-                             <div className="flex-1">
-                                 <h3 className="font-bold text-gray-900">{c.title}</h3>
-                                 <p className="text-xs text-gray-500">{c.chapters.length} Chapters • {c.isPaid ? `₹${c.price}` : 'Free'}</p>
-                             </div>
+                             <div className="flex-1"><h3 className="font-bold text-gray-900">{c.title}</h3><p className="text-xs text-gray-500">{c.chapters.length} Chapters • {c.isPaid ? `₹${c.price}` : 'Free'}</p></div>
                              <div className="flex gap-2 flex-wrap">
-                                 {/* NEW: Explicit Content Manager Button */}
-                                 <button onClick={() => setShowContentManager(c)} className="px-3 py-2 text-green-700 bg-green-50 rounded-lg hover:bg-green-100 font-bold text-xs flex items-center gap-1 shadow-sm border border-green-100" title="Manage Content">
-                                     <VideoIcon className="w-4 h-4" /> Manage Content
-                                 </button>
+                                 <button onClick={() => setShowContentManager(c)} className="px-3 py-2 text-green-700 bg-green-50 rounded-lg hover:bg-green-100 font-bold text-xs flex items-center gap-1 shadow-sm border border-green-100" title="Manage Content"><VideoIcon className="w-4 h-4" /> Manage Content</button>
                                  <button onClick={() => setShowExamManager(c)} className="p-2 text-purple-600 bg-purple-50 rounded-lg hover:bg-purple-100 border border-purple-100" title="Manage Exams"><ClipboardList className="w-4 h-4" /></button>
                                  <button onClick={() => { setEditingCourse(c); setShowCourseModal(true); }} className="p-2 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 border border-blue-100" title="Edit"><Edit className="w-4 h-4" /></button>
                                  <button onClick={() => { if(confirm('Delete course?')) deleteCourse(c.id); }} className="p-2 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 border border-red-100" title="Delete"><Trash2 className="w-4 h-4" /></button>
@@ -1790,213 +1233,492 @@ const AdminPanel = () => {
                      ))}
                  </div>
              )}
+             {tab === 'users' && <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden"><div className="p-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center"><span className="font-bold text-gray-700">All Users ({users.length})</span><button onClick={() => setShowUserModal(true)} className="text-xs bg-brand text-white px-4 py-2 rounded-lg font-bold shadow-lg shadow-brand/20 hover:scale-105 transition-transform flex items-center gap-1"><Plus className="w-3 h-3" /> Create User / Manager</button></div><div className="divide-y divide-gray-100">{users.map(u => (<div key={u.id} className="p-4 flex flex-col md:flex-row justify-between items-start md:items-center hover:bg-gray-50 gap-4"><div><div className="flex items-center gap-2"><p className="font-bold text-sm text-gray-900">{u.name}</p><span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase ${u.role === UserRole.ADMIN ? 'bg-red-100 text-red-600' : u.role === UserRole.EDITOR ? 'bg-purple-100 text-purple-600' : 'bg-gray-100 text-gray-500'}`}>{u.role}</span></div><p className="text-xs text-gray-500">{u.email}</p><p className="text-[10px] text-gray-400 mt-1">Enrolled in: {u.purchasedCourseIds.length} Batches</p></div><div className="flex items-center gap-2"><button onClick={() => setShowEnrollModal(u.id)} className="text-xs font-bold bg-blue-50 text-blue-600 px-3 py-2 rounded-lg hover:bg-blue-100">Enroll</button>{u.role !== UserRole.ADMIN && (<button onClick={() => { if(confirm('Delete user?')) deleteUser(u.id); }} className="text-gray-400 hover:text-red-500 p-2"><Trash2 className="w-4 h-4" /></button>)}</div></div>))}</div></div>}
+             {tab === 'banners' && <div className="space-y-4"><div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100"><h3 className="font-bold mb-4 text-gray-900">Add Banner</h3><form onSubmit={(e) => { e.preventDefault(); const form = e.currentTarget; addBanner({ id: Date.now().toString(), image: form.image.value, link: form.link.value }); form.reset(); }} className="flex gap-2"><input name="image" placeholder="Image URL" className="flex-1 bg-gray-50 px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder:text-gray-500" required /><input name="link" placeholder="Link (Optional)" className="flex-1 bg-gray-50 px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder:text-gray-500" /><button className="bg-brand text-white px-4 py-2 rounded-xl font-bold text-sm">Add</button></form></div><div className="grid grid-cols-1 md:grid-cols-2 gap-4">{banners.map(b => (<div key={b.id} className="relative aspect-video rounded-xl overflow-hidden group"><img src={b.image} className="w-full h-full object-cover" /><button onClick={() => deleteBanner(b.id)} className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-4 h-4" /></button></div>))}</div></div>}
+             {tab === 'settings' && <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100"><form onSubmit={(e) => { e.preventDefault(); const formData = new FormData(e.currentTarget); updateSettings({ ...settings, appName: formData.get('appName') as string, adminEmail: formData.get('adminEmail') as string, supportPhone: formData.get('supportPhone') as string, uiColor: formData.get('uiColor') as string, videoApiKey: formData.get('videoApiKey') as string, linkShortenerApiUrl: formData.get('linkShortenerApiUrl') as string, linkShortenerApiKey: formData.get('linkShortenerApiKey') as string, adsCode: formData.get('adsCode') as string }); alert('Settings Saved!'); }} className="space-y-4"><div><label className="text-xs font-bold text-gray-500 uppercase">App Name</label><input name="appName" defaultValue={settings.appName} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" /></div><div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-gray-500 uppercase">Brand Color</label><div className="flex gap-2 mt-1"><input type="color" name="uiColor" defaultValue={settings.uiColor} className="h-10 w-10 rounded-lg cursor-pointer" /><input type="text" defaultValue={settings.uiColor} className="flex-1 p-2 bg-gray-50 border border-gray-200 rounded-xl uppercase text-gray-900 placeholder:text-gray-500" readOnly /></div></div><div><label className="text-xs font-bold text-gray-500 uppercase">Admin Email</label><input name="adminEmail" defaultValue={settings.adminEmail} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" /></div></div><div><label className="text-xs font-bold text-gray-500 uppercase">Support Contact (Phone or Telegram)</label><input name="supportPhone" defaultValue={settings.supportPhone} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" /></div><div className="bg-gray-50 p-4 rounded-xl border border-gray-200"><h4 className="font-bold text-gray-900 mb-3 text-sm">Link Shortener Configuration</h4><div className="grid gap-3"><div><label className="text-xs font-bold text-gray-500 uppercase">API URL (e.g. reel2earn.com/api)</label><input name="linkShortenerApiUrl" defaultValue={settings.linkShortenerApiUrl} placeholder="https://..." className="w-full p-3 bg-white border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" /></div><div><label className="text-xs font-bold text-gray-500 uppercase">API Key</label><input name="linkShortenerApiKey" defaultValue={settings.linkShortenerApiKey} className="w-full p-3 bg-white border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" /></div></div></div><div><label className="text-xs font-bold text-gray-500 uppercase">Ad Code (HTML)</label><textarea name="adsCode" defaultValue={settings.adsCode} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl mt-1 font-mono text-xs text-gray-900 placeholder:text-gray-500" rows={3} /></div><button className="w-full bg-brand text-white py-3 rounded-xl font-bold">Save Settings</button></form></div>}
+             {showCourseModal && (<div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"><div className="bg-white w-full max-w-lg rounded-3xl p-6 max-h-[90vh] overflow-y-auto"><h2 className="text-xl font-bold mb-4 text-gray-900">{editingCourse ? 'Edit Batch' : 'New Batch'}</h2><form onSubmit={handleSaveCourse} className="space-y-3"><input name="title" defaultValue={editingCourse?.title} placeholder="Batch Title" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required /><textarea name="description" defaultValue={editingCourse?.description} placeholder="Description" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" rows={2} required /><input name="image" defaultValue={editingCourse?.image} placeholder="Image URL" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required /><input name="category" defaultValue={editingCourse?.category} placeholder="Category (e.g. Science)" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required /><div className="grid grid-cols-2 gap-3"><input type="number" name="price" defaultValue={editingCourse?.price} placeholder="Price" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" /><input type="number" name="mrp" defaultValue={editingCourse?.mrp} placeholder="MRP" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" /></div><div className="flex items-center gap-3 bg-gray-50 p-3 rounded-xl"><input type="checkbox" name="isPaid" defaultChecked={editingCourse?.isPaid} id="isPaid" className="w-5 h-5 accent-brand" /><label htmlFor="isPaid" className="font-medium text-gray-700">Premium Course (Locked)</label></div><input name="accessKey" defaultValue={editingCourse?.accessKey} placeholder="Access Key (if Premium)" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" /><input name="telegramChannelLink" defaultValue={editingCourse?.telegramChannelLink} placeholder="Telegram Channel Link (Optional)" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" /><div className="flex gap-2"><input name="shortenerLink" ref={linkInputRef} defaultValue={editingCourse?.shortenerLink} placeholder="Temp Access Short Link" className="flex-1 p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" />{editingCourse && (<button type="button" onClick={handleGenerateLink} disabled={isGeneratingLink} className="bg-gray-100 text-gray-600 px-3 rounded-xl font-bold text-xs hover:bg-gray-200 disabled:opacity-50">{isGeneratingLink ? <Loader2 className="w-4 h-4 animate-spin"/> : 'Generate'}</button>)}</div><div className="flex gap-3 pt-4"><button type="button" onClick={() => setShowCourseModal(false)} className="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-100 rounded-xl">Cancel</button><button type="submit" className="flex-1 py-3 bg-brand text-white font-bold rounded-xl shadow-lg shadow-brand/20">Save Batch</button></div></form></div></div>)}
+             {showUserModal && (<div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"><div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl"><h2 className="text-xl font-bold mb-4 text-gray-900">Add New User</h2><form onSubmit={handleAddUser} className="space-y-3"><input name="name" placeholder="Full Name" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required /><input name="email" type="email" placeholder="Email Address" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required /><input name="phone" placeholder="Phone Number" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" /><input name="password" type="password" placeholder="Password" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required /><div><label className="text-xs font-bold text-gray-500 uppercase ml-1">Role</label><select name="role" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 mt-1"><option value={UserRole.USER}>Student (User)</option><option value={UserRole.EDITOR}>Editor (Manager)</option><option value={UserRole.ADMIN}>Admin</option></select></div><div className="flex gap-3 pt-4"><button type="button" onClick={() => setShowUserModal(false)} className="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-100 rounded-xl">Cancel</button><button type="submit" className="flex-1 py-3 bg-brand text-white font-bold rounded-xl shadow-lg shadow-brand/20">Create User</button></div></form></div></div>)}
+             {showEnrollModal && (<div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"><div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl"><h2 className="text-xl font-bold mb-4 text-gray-900">Enroll User in Batch</h2><div className="space-y-2 max-h-[60vh] overflow-y-auto">{courses.map(c => { const targetUser = users.find(u => u.id === showEnrollModal); const isEnrolled = targetUser?.purchasedCourseIds.includes(c.id); return (<button key={c.id} disabled={isEnrolled} onClick={() => { if(showEnrollModal) { addCourseToUser(showEnrollModal, c.id); setShowEnrollModal(null); } }} className={`w-full text-left p-3 rounded-xl border flex items-center justify-between ${isEnrolled ? 'bg-green-50 border-green-200 cursor-default' : 'bg-white border-gray-200 hover:bg-gray-50'}`}><span className={`text-sm font-bold ${isEnrolled ? 'text-green-700' : 'text-gray-700'}`}>{c.title}</span>{isEnrolled && <CheckCircle className="w-4 h-4 text-green-600"/>}</button>); })}</div><button onClick={() => setShowEnrollModal(null)} className="w-full mt-4 py-3 bg-gray-100 text-gray-600 font-bold rounded-xl hover:bg-gray-200">Cancel</button></div></div>)}
+             {showExamManager && <ExamManager course={showExamManager} onClose={() => setShowExamManager(null)} />}
+             {showContentManager && <ContentManager course={showContentManager} onClose={() => setShowContentManager(null)} />}
+        </div>
+    );
+};
 
-             {/* ... Users, Banners, Settings tabs (unchanged) ... */}
-             {tab === 'users' && (
-                 <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-                     <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
-                         <span className="font-bold text-gray-700">All Users ({users.length})</span>
-                         {/* MANAGER MAKER FUNCTION */}
-                         <button onClick={() => setShowUserModal(true)} className="text-xs bg-brand text-white px-4 py-2 rounded-lg font-bold shadow-lg shadow-brand/20 hover:scale-105 transition-transform flex items-center gap-1">
-                             <Plus className="w-3 h-3" /> Create User / Manager
-                         </button>
-                     </div>
-                     <div className="divide-y divide-gray-100">
-                         {users.map(u => (
-                             <div key={u.id} className="p-4 flex justify-between items-center hover:bg-gray-50">
-                                 <div>
-                                     <div className="flex items-center gap-2">
-                                         <p className="font-bold text-sm text-gray-900">{u.name}</p>
-                                         <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase ${u.role === UserRole.ADMIN ? 'bg-red-100 text-red-600' : u.role === UserRole.EDITOR ? 'bg-purple-100 text-purple-600' : 'bg-gray-100 text-gray-500'}`}>
-                                             {u.role}
-                                         </span>
-                                     </div>
-                                     <p className="text-xs text-gray-500">{u.email}</p>
-                                 </div>
-                                 {u.role !== UserRole.ADMIN && (
-                                     <button onClick={() => { if(confirm('Delete user?')) deleteUser(u.id); }} className="text-gray-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
-                                 )}
-                             </div>
-                         ))}
-                     </div>
-                 </div>
-             )}
+const MyCourses = () => {
+  const { currentUser, courses } = useStore();
+  if (!currentUser) return <Navigate to="/login" />;
+  
+  const myCourses = courses.filter(c => 
+    currentUser.purchasedCourseIds.includes(c.id) || 
+    (currentUser.tempAccess && currentUser.tempAccess[c.id] && new Date(currentUser.tempAccess[c.id]) > new Date())
+  );
 
-             {tab === 'banners' && (
-                 <div className="space-y-4">
-                     <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-                         <h3 className="font-bold mb-4 text-gray-900">Add Banner</h3>
-                         <form onSubmit={(e) => {
-                             e.preventDefault();
-                             const form = e.currentTarget;
-                             addBanner({ id: Date.now().toString(), image: form.image.value, link: form.link.value });
-                             form.reset();
-                         }} className="flex gap-2">
-                             <input name="image" placeholder="Image URL" className="flex-1 bg-gray-50 px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder:text-gray-500" required />
-                             <input name="link" placeholder="Link (Optional)" className="flex-1 bg-gray-50 px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder:text-gray-500" />
-                             <button className="bg-brand text-white px-4 py-2 rounded-xl font-bold text-sm">Add</button>
-                         </form>
-                     </div>
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                         {banners.map(b => (
-                             <div key={b.id} className="relative aspect-video rounded-xl overflow-hidden group">
-                                 <img src={b.image} className="w-full h-full object-cover" />
-                                 <button onClick={() => deleteBanner(b.id)} className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-4 h-4" /></button>
-                             </div>
-                         ))}
-                     </div>
-                 </div>
-             )}
+  return (
+    <div className="pb-24 pt-24 p-6 min-h-screen bg-gray-50">
+       <h1 className="text-2xl font-display font-bold text-gray-900 mb-6">My Batches</h1>
+       {myCourses.length === 0 ? (
+           <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-gray-200">
+               <BookOpen className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+               <p className="text-gray-500 font-medium">You haven't enrolled in any batches yet.</p>
+               <Link to="/courses" className="text-brand font-bold mt-2 inline-block">Browse Batches</Link>
+           </div>
+       ) : (
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+               {myCourses.map(course => (
+                   <Link to={`/course/${course.id}`} key={course.id} className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden flex gap-4 p-4 hover:border-brand transition-colors group">
+                       <div className="w-24 h-24 rounded-xl overflow-hidden flex-none">
+                           <img src={course.image} alt={course.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
+                       </div>
+                       <div className="flex-1 flex flex-col justify-center">
+                           <h3 className="font-bold text-gray-900 line-clamp-1">{course.title}</h3>
+                           <p className="text-xs text-gray-500 mb-2">{course.chapters.length} Chapters</p>
+                           <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                               <div className="bg-brand h-full w-1/3"></div>
+                           </div>
+                           <p className="text-[10px] text-gray-400 mt-1">30% Completed</p>
+                       </div>
+                       <div className="flex items-center justify-center">
+                           <div className="w-10 h-10 rounded-full bg-brand/10 text-brand flex items-center justify-center">
+                               <PlayCircle className="w-6 h-6" />
+                           </div>
+                       </div>
+                   </Link>
+               ))}
+           </div>
+       )}
+    </div>
+  );
+};
 
-             {tab === 'settings' && (
-                 <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-                     <form onSubmit={(e) => {
-                         e.preventDefault();
-                         const formData = new FormData(e.currentTarget);
-                         updateSettings({
-                             ...settings,
-                             appName: formData.get('appName') as string,
-                             adminEmail: formData.get('adminEmail') as string,
-                             supportPhone: formData.get('supportPhone') as string,
-                             uiColor: formData.get('uiColor') as string,
-                             videoApiKey: formData.get('videoApiKey') as string,
-                             linkShortenerApiUrl: formData.get('linkShortenerApiUrl') as string,
-                             linkShortenerApiKey: formData.get('linkShortenerApiKey') as string,
-                             adsCode: formData.get('adsCode') as string
-                         });
-                         alert('Settings Saved!');
-                     }} className="space-y-4">
-                         <div>
-                             <label className="text-xs font-bold text-gray-500 uppercase">App Name</label>
-                             <input name="appName" defaultValue={settings.appName} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" />
-                         </div>
-                         <div className="grid grid-cols-2 gap-4">
+const CourseDetail = () => {
+    const { id } = useParams();
+    const { courses, currentUser, enrollCourse } = useStore();
+    const navigate = useNavigate();
+    const course = courses.find(c => c.id === id);
+
+    if (!course) return <div className="pt-24 text-center">Batch not found</div>;
+
+    const isEnrolled = currentUser && (
+        currentUser.purchasedCourseIds.includes(course.id) || 
+        (currentUser.tempAccess && currentUser.tempAccess[course.id] && new Date(currentUser.tempAccess[course.id]) > new Date())
+    );
+
+    const handleEnroll = () => {
+        if (!currentUser) { navigate('/login'); return; }
+        if (!course.isPaid) {
+            enrollCourse(course.id);
+            alert('Enrolled successfully!');
+        } else {
+            navigate(`/verify/${course.id}`);
+        }
+    };
+
+    return (
+        <div className="pb-24 pt-0 min-h-screen bg-gray-50">
+            <div className="relative h-64 md:h-80">
+                <img src={course.image} className="w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-gradient-to-t from-gray-900 to-transparent"></div>
+                <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
+                    <span className="bg-brand text-xs font-bold px-2 py-1 rounded mb-2 inline-block">{course.category}</span>
+                    <h1 className="text-3xl font-display font-bold mb-2">{course.title}</h1>
+                    <p className="text-gray-300 line-clamp-2 max-w-2xl">{course.description}</p>
+                </div>
+                <button onClick={() => navigate(-1)} className="absolute top-6 left-4 bg-black/30 p-2 rounded-full text-white backdrop-blur-sm"><ArrowLeft className="w-6 h-6"/></button>
+            </div>
+            
+            <div className="p-6 -mt-6 bg-gray-50 rounded-t-3xl relative z-10">
+                <div className="flex justify-between items-center mb-6">
+                    <div>
+                        <p className="text-gray-500 text-sm font-bold uppercase">Price</p>
+                        <p className="text-2xl font-bold text-gray-900">{course.isPaid ? `₹${course.price}` : 'Free'}</p>
+                    </div>
+                    {isEnrolled ? (
+                        <button className="bg-green-600 text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-green-500/30 cursor-default">
+                            <CheckCircle className="w-5 h-5" /> Enrolled
+                        </button>
+                    ) : (
+                        <button onClick={handleEnroll} className="bg-brand text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-brand/30 hover:scale-105 transition-transform">
+                            {course.isPaid ? <Lock className="w-5 h-5" /> : <PlayCircle className="w-5 h-5" />}
+                            {course.isPaid ? 'Unlock Now' : 'Start Learning'}
+                        </button>
+                    )}
+                </div>
+
+                {isEnrolled && course.exams && course.exams.length > 0 && (
+                     <div className="mb-6 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-2xl p-6 text-white relative overflow-hidden">
+                        <div className="relative z-10 flex justify-between items-center">
                             <div>
-                                <label className="text-xs font-bold text-gray-500 uppercase">Brand Color</label>
-                                <div className="flex gap-2 mt-1">
-                                    <input type="color" name="uiColor" defaultValue={settings.uiColor} className="h-10 w-10 rounded-lg cursor-pointer" />
-                                    <input type="text" defaultValue={settings.uiColor} className="flex-1 p-2 bg-gray-50 border border-gray-200 rounded-xl uppercase text-gray-900 placeholder:text-gray-500" readOnly />
+                                <h3 className="font-bold text-lg">Test Your Knowledge</h3>
+                                <p className="text-purple-100 text-sm">Take exams to check your progress</p>
+                            </div>
+                            <button onClick={() => navigate(`/exam/${course.id}`)} className="bg-white text-purple-600 px-4 py-2 rounded-lg font-bold text-sm shadow-md hover:bg-gray-100 transition-colors">
+                                View Exams
+                            </button>
+                        </div>
+                     </div>
+                )}
+
+                <h3 className="font-bold text-gray-900 text-lg mb-4">Course Content</h3>
+                <div className="space-y-4">
+                    {course.chapters.map((chapter, idx) => (
+                        <div key={chapter.id} className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+                            <div className="p-4 bg-gray-50/50 border-b border-gray-100 font-bold text-gray-800 flex justify-between items-center">
+                                <span>{idx + 1}. {chapter.title}</span>
+                                <span className="text-xs text-gray-500 font-medium">{chapter.videos.length} Videos</span>
+                            </div>
+                            <div className="divide-y divide-gray-100">
+                                {chapter.videos.map((video) => (
+                                    <div 
+                                        key={video.id} 
+                                        onClick={() => {
+                                            if (isEnrolled) navigate(`/watch/${course.id}`);
+                                            else handleEnroll();
+                                        }}
+                                        className={`p-4 flex items-center gap-3 hover:bg-gray-50 cursor-pointer ${!isEnrolled ? 'opacity-50' : ''}`}
+                                    >
+                                        <div className="w-8 h-8 rounded-full bg-brand/10 text-brand flex items-center justify-center flex-none">
+                                            {isEnrolled ? <PlayCircle className="w-5 h-5" /> : <Lock className="w-4 h-4" />}
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="text-sm font-medium text-gray-900">{video.title}</p>
+                                            <p className="text-xs text-gray-500">{video.duration}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                                {chapter.videos.length === 0 && <div className="p-4 text-center text-gray-400 text-sm">No videos uploaded yet</div>}
+                            </div>
+                        </div>
+                    ))}
+                    {course.chapters.length === 0 && <div className="text-center py-10 text-gray-400">No chapters added yet</div>}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const VerifyAccess = () => {
+    const { courseId } = useParams();
+    const { courses, enrollCourse, currentUser } = useStore();
+    const [key, setKey] = useState('');
+    const [error, setError] = useState('');
+    const navigate = useNavigate();
+    const course = courses.find(c => c.id === courseId);
+
+    if (!course) return <Navigate to="/" />;
+    if (!currentUser) {
+        localStorage.setItem('pendingCourseVerification', courseId || '');
+        return <Navigate to="/login" />;
+    }
+
+    const handleVerify = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (key === course.accessKey) {
+            enrollCourse(course.id);
+            alert('Access Granted! Welcome to the batch.');
+            navigate(`/course/${course.id}`);
+        } else {
+            setError('Invalid Access Key. Please check and try again.');
+        }
+    };
+
+    return (
+        <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6">
+            <div className="bg-white p-8 rounded-3xl shadow-xl max-w-md w-full">
+                <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4 text-yellow-600">
+                    <Lock className="w-8 h-8" />
+                </div>
+                <h2 className="text-2xl font-display font-bold text-center text-gray-900 mb-2">Unlock Batch</h2>
+                <p className="text-center text-gray-500 mb-6 text-sm">Enter the access key to unlock <strong>{course.title}</strong></p>
+                
+                <form onSubmit={handleVerify} className="space-y-4">
+                    <input 
+                        type="text" 
+                        placeholder="Enter Access Key" 
+                        className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl text-center font-mono text-lg tracking-widest uppercase focus:outline-none focus:border-brand"
+                        value={key}
+                        onChange={(e) => { setKey(e.target.value); setError(''); }}
+                    />
+                    {error && <p className="text-red-500 text-xs text-center font-bold">{error}</p>}
+                    <button className="w-full py-4 bg-brand text-white rounded-xl font-bold shadow-lg shadow-brand/20 hover:bg-brand-dark transition-colors">
+                        Unlock Now
+                    </button>
+                </form>
+                
+                <div className="mt-6 text-center">
+                    <Link to="/help" className="text-brand text-xs font-bold hover:underline">Where to get a key?</Link>
+                </div>
+                <button onClick={() => navigate(-1)} className="w-full mt-4 text-gray-400 text-xs font-bold hover:text-gray-600">Cancel</button>
+            </div>
+        </div>
+    );
+};
+
+const RevealKey = () => {
+    const { key } = useParams();
+    // This could be a page that automatically copies a key or something
+    return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white p-6">
+            <div className="text-center">
+                <h1 className="text-3xl font-bold mb-4">Access Key Revealed</h1>
+                <div className="bg-white/10 p-6 rounded-2xl border border-white/20 backdrop-blur-md">
+                    <code className="text-2xl font-mono text-yellow-400 tracking-wider select-all">{key}</code>
+                </div>
+                <p className="mt-4 text-gray-400">Copy this key and paste it in the verification screen.</p>
+                <Link to="/" className="inline-block mt-8 text-brand hover:text-white transition-colors">Go to App</Link>
+            </div>
+        </div>
+    );
+};
+
+// --- Managers ---
+
+const ContentManager = ({ course, onClose }: { course: Course, onClose: () => void }) => {
+    const { updateCourse } = useStore();
+    const [chapters, setChapters] = useState<Chapter[]>(course.chapters);
+    const [newChapterTitle, setNewChapterTitle] = useState('');
+    const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
+
+    const handleSave = () => {
+        updateCourse({ ...course, chapters });
+    };
+
+    const addChapter = () => {
+        if(!newChapterTitle) return;
+        setChapters([...chapters, { id: Date.now().toString(), title: newChapterTitle, videos: [], notes: [] }]);
+        setNewChapterTitle('');
+    };
+
+    const deleteChapter = (id: string) => {
+        if(confirm('Delete chapter?')) setChapters(chapters.filter(c => c.id !== id));
+    };
+
+    const addVideo = (chapterId: string) => {
+        const title = prompt('Video Title:');
+        const url = prompt('Video URL (YouTube/MP4/Drive):');
+        const duration = prompt('Duration (e.g. 10:00):', '00:00');
+        if (title && url) {
+            setChapters(chapters.map(c => {
+                if (c.id === chapterId) {
+                    return { ...c, videos: [...c.videos, { id: Date.now().toString(), title, filename: url, duration: duration || '00:00' }] };
+                }
+                return c;
+            }));
+        }
+    };
+    
+    const deleteVideo = (chapterId: string, videoId: string) => {
+        if(confirm('Delete video?')) {
+            setChapters(chapters.map(c => {
+                if(c.id === chapterId) {
+                    return { ...c, videos: c.videos.filter(v => v.id !== videoId) };
+                }
+                return c;
+            }));
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-2xl rounded-3xl p-6 max-h-[85vh] flex flex-col">
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-bold text-gray-900">Manage Content: {course.title}</h2>
+                    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full"><X className="w-5 h-5"/></button>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto pr-2">
+                    <div className="flex gap-2 mb-6">
+                        <input 
+                            value={newChapterTitle} 
+                            onChange={e => setNewChapterTitle(e.target.value)}
+                            placeholder="New Chapter Title"
+                            className="flex-1 p-3 bg-gray-50 rounded-xl border border-gray-200"
+                        />
+                        <button onClick={addChapter} className="bg-brand text-white px-4 rounded-xl font-bold">Add</button>
+                    </div>
+
+                    <div className="space-y-4">
+                        {chapters.map((chapter, idx) => (
+                            <div key={chapter.id} className="border border-gray-200 rounded-xl overflow-hidden">
+                                <div className="bg-gray-50 p-4 flex justify-between items-center border-b border-gray-200">
+                                    <span className="font-bold text-gray-800">{idx + 1}. {chapter.title}</span>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => addVideo(chapter.id)} className="text-xs bg-white border border-gray-300 px-2 py-1 rounded hover:bg-gray-100 font-bold">+ Video</button>
+                                        <button onClick={() => deleteChapter(chapter.id)} className="text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 className="w-4 h-4"/></button>
+                                    </div>
+                                </div>
+                                <div className="p-2 space-y-1">
+                                    {chapter.videos.length === 0 && <p className="text-center text-gray-400 text-xs py-2">No videos</p>}
+                                    {chapter.videos.map(video => (
+                                        <div key={video.id} className="flex justify-between items-center p-2 hover:bg-gray-50 rounded-lg group">
+                                            <div className="flex items-center gap-2 overflow-hidden">
+                                                <PlayCircle className="w-4 h-4 text-gray-400" />
+                                                <span className="text-sm text-gray-700 truncate">{video.title}</span>
+                                            </div>
+                                            <button onClick={() => deleteVideo(chapter.id, video.id)} className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><X className="w-4 h-4"/></button>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
-                            <div>
-                                <label className="text-xs font-bold text-gray-500 uppercase">Admin Email</label>
-                                <input name="adminEmail" defaultValue={settings.adminEmail} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" />
-                            </div>
-                         </div>
-                         <div>
-                             <label className="text-xs font-bold text-gray-500 uppercase">Support Contact (Phone or Telegram)</label>
-                             <input name="supportPhone" defaultValue={settings.supportPhone} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" />
-                         </div>
-                         <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
-                             <h4 className="font-bold text-gray-900 mb-3 text-sm">Link Shortener Configuration</h4>
-                             <div className="grid gap-3">
-                                 <div>
-                                     <label className="text-xs font-bold text-gray-500 uppercase">API URL (e.g. reel2earn.com/api)</label>
-                                     <input name="linkShortenerApiUrl" defaultValue={settings.linkShortenerApiUrl} placeholder="https://..." className="w-full p-3 bg-white border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" />
-                                 </div>
-                                 <div>
-                                     <label className="text-xs font-bold text-gray-500 uppercase">API Key</label>
-                                     <input name="linkShortenerApiKey" defaultValue={settings.linkShortenerApiKey} className="w-full p-3 bg-white border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" />
-                                 </div>
-                             </div>
-                         </div>
-                         <div>
-                             <label className="text-xs font-bold text-gray-500 uppercase">Ad Code (HTML)</label>
-                             <textarea name="adsCode" defaultValue={settings.adsCode} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl mt-1 font-mono text-xs text-gray-900 placeholder:text-gray-500" rows={3} />
-                         </div>
-                         <button className="w-full bg-brand text-white py-3 rounded-xl font-bold">Save Settings</button>
-                     </form>
-                 </div>
-             )}
+                        ))}
+                    </div>
+                </div>
 
-             {/* Course Modal */}
-             {showCourseModal && (
-                 <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-                     <div className="bg-white w-full max-w-lg rounded-3xl p-6 max-h-[90vh] overflow-y-auto">
-                         <h2 className="text-xl font-bold mb-4 text-gray-900">{editingCourse ? 'Edit Batch' : 'New Batch'}</h2>
-                         <form onSubmit={handleSaveCourse} className="space-y-3">
-                             <input name="title" defaultValue={editingCourse?.title} placeholder="Batch Title" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required />
-                             <textarea name="description" defaultValue={editingCourse?.description} placeholder="Description" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" rows={2} required />
-                             <input name="image" defaultValue={editingCourse?.image} placeholder="Image URL" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required />
-                             <input name="category" defaultValue={editingCourse?.category} placeholder="Category (e.g. Science)" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required />
-                             <div className="grid grid-cols-2 gap-3">
-                                 <input type="number" name="price" defaultValue={editingCourse?.price} placeholder="Price" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" />
-                                 <input type="number" name="mrp" defaultValue={editingCourse?.mrp} placeholder="MRP" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" />
-                             </div>
-                             <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-xl">
-                                 <input type="checkbox" name="isPaid" defaultChecked={editingCourse?.isPaid} id="isPaid" className="w-5 h-5 accent-brand" />
-                                 <label htmlFor="isPaid" className="font-medium text-gray-700">Premium Course (Locked)</label>
-                             </div>
-                             <input name="accessKey" defaultValue={editingCourse?.accessKey} placeholder="Access Key (if Premium)" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" />
-                             <input name="telegramChannelLink" defaultValue={editingCourse?.telegramChannelLink} placeholder="Telegram Channel Link (Optional)" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" />
-                             
-                             <div className="flex gap-2">
+                <div className="pt-4 border-t border-gray-100 mt-4 flex justify-end gap-3">
+                    <button onClick={onClose} className="px-6 py-2 text-gray-500 font-bold hover:bg-gray-100 rounded-xl">Cancel</button>
+                    <button onClick={() => { handleSave(); onClose(); }} className="px-6 py-2 bg-brand text-white font-bold rounded-xl shadow-lg shadow-brand/20">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const ExamManager = ({ course, onClose }: { course: Course, onClose: () => void }) => {
+    const { updateCourse } = useStore();
+    const [exams, setExams] = useState<Exam[]>(course.exams || []);
+    const [editingExam, setEditingExam] = useState<Exam | null>(null);
+
+    const handleSave = () => {
+        updateCourse({ ...course, exams });
+    };
+
+    const addExam = () => {
+        const title = prompt("Exam Title:");
+        if (title) {
+            setExams([...exams, { id: Date.now().toString(), title, questions: [] }]);
+        }
+    };
+
+    const deleteExam = (id: string) => {
+        if(confirm("Delete this exam?")) setExams(exams.filter(e => e.id !== id));
+    };
+
+    const updateExam = (updated: Exam) => {
+        setExams(exams.map(e => e.id === updated.id ? updated : e));
+        setEditingExam(null);
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-3xl rounded-3xl p-6 max-h-[85vh] flex flex-col">
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-bold text-gray-900">Manage Exams: {course.title}</h2>
+                    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full"><X className="w-5 h-5"/></button>
+                </div>
+
+                {editingExam ? (
+                    <QuestionEditor exam={editingExam} onSave={updateExam} onCancel={() => setEditingExam(null)} />
+                ) : (
+                    <div className="flex-1 overflow-y-auto">
+                         <button onClick={addExam} className="w-full py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-400 font-bold hover:border-brand hover:text-brand transition-colors mb-4 flex items-center justify-center gap-2">
+                             <Plus className="w-5 h-5" /> Create New Exam
+                         </button>
+                         <div className="space-y-3">
+                             {exams.map(exam => (
+                                 <div key={exam.id} className="bg-gray-50 p-4 rounded-xl flex justify-between items-center border border-gray-200">
+                                     <div>
+                                         <h3 className="font-bold text-gray-900">{exam.title}</h3>
+                                         <p className="text-xs text-gray-500">{exam.questions.length} Questions</p>
+                                     </div>
+                                     <div className="flex gap-2">
+                                         <button onClick={() => setEditingExam(exam)} className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-xs font-bold hover:bg-brand hover:text-white hover:border-brand transition-colors">Edit Questions</button>
+                                         <button onClick={() => deleteExam(exam.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg"><Trash2 className="w-4 h-4"/></button>
+                                     </div>
+                                 </div>
+                             ))}
+                             {exams.length === 0 && <p className="text-center text-gray-400">No exams yet.</p>}
+                         </div>
+                    </div>
+                )}
+
+                {!editingExam && (
+                    <div className="pt-4 border-t border-gray-100 mt-4 flex justify-end gap-3">
+                        <button onClick={onClose} className="px-6 py-2 text-gray-500 font-bold hover:bg-gray-100 rounded-xl">Cancel</button>
+                        <button onClick={() => { handleSave(); onClose(); }} className="px-6 py-2 bg-brand text-white font-bold rounded-xl shadow-lg shadow-brand/20">Save Changes</button>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+const QuestionEditor = ({ exam, onSave, onCancel }: { exam: Exam, onSave: (e: Exam) => void, onCancel: () => void }) => {
+    const [questions, setQuestions] = useState<Question[]>(exam.questions);
+    
+    // Simple state to add a new question
+    const [qText, setQText] = useState('');
+    const [options, setOptions] = useState(['', '', '', '']);
+    const [correct, setCorrect] = useState(0);
+
+    const addQuestion = () => {
+        if (!qText || options.some(o => !o)) { alert("Fill all fields"); return; }
+        const newQ: Question = {
+            id: Date.now().toString(),
+            question: qText,
+            options: [...options],
+            correctAnswer: correct
+        };
+        setQuestions([...questions, newQ]);
+        setQText('');
+        setOptions(['', '', '', '']);
+        setCorrect(0);
+    };
+
+    const deleteQ = (id: string) => {
+        setQuestions(questions.filter(q => q.id !== id));
+    };
+
+    return (
+        <div className="flex flex-col h-full">
+            <div className="flex items-center gap-2 mb-4">
+                <button onClick={onCancel} className="text-gray-500"><ArrowLeft className="w-5 h-5"/></button>
+                <h3 className="font-bold text-lg">Editing: {exam.title}</h3>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto pr-2 space-y-6">
+                 {/* Add New Q Form */}
+                 <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                     <h4 className="font-bold text-sm text-gray-700 mb-2">Add New Question</h4>
+                     <textarea 
+                        value={qText} onChange={e => setQText(e.target.value)}
+                        placeholder="Question Text" 
+                        className="w-full p-3 rounded-lg border border-gray-300 mb-3 text-sm"
+                        rows={2}
+                     />
+                     <div className="grid grid-cols-2 gap-2 mb-3">
+                        {options.map((opt, i) => (
+                            <div key={i} className="flex items-center gap-2">
+                                <input type="radio" name="correct" checked={correct === i} onChange={() => setCorrect(i)} className="accent-brand" />
                                 <input 
-                                    name="shortenerLink" 
-                                    ref={linkInputRef}
-                                    defaultValue={editingCourse?.shortenerLink} 
-                                    placeholder="Temp Access Short Link" 
-                                    className="flex-1 p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" 
+                                    value={opt} onChange={e => { const newOpts = [...options]; newOpts[i] = e.target.value; setOptions(newOpts); }}
+                                    placeholder={`Option ${i+1}`}
+                                    className="flex-1 p-2 rounded border border-gray-300 text-sm"
                                 />
-                                {editingCourse && (
-                                    <button 
-                                        type="button" 
-                                        onClick={handleGenerateLink}
-                                        disabled={isGeneratingLink}
-                                        className="bg-gray-100 text-gray-600 px-3 rounded-xl font-bold text-xs hover:bg-gray-200 disabled:opacity-50"
-                                    >
-                                        {isGeneratingLink ? <Loader2 className="w-4 h-4 animate-spin"/> : 'Generate'}
-                                    </button>
-                                )}
-                             </div>
-                             
-                             <div className="flex gap-3 pt-4">
-                                 <button type="button" onClick={() => setShowCourseModal(false)} className="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-100 rounded-xl">Cancel</button>
-                                 <button type="submit" className="flex-1 py-3 bg-brand text-white font-bold rounded-xl shadow-lg shadow-brand/20">Save Batch</button>
-                             </div>
-                         </form>
+                            </div>
+                        ))}
                      </div>
+                     <button onClick={addQuestion} className="w-full py-2 bg-gray-800 text-white rounded-lg text-sm font-bold">Add Question</button>
                  </div>
-             )}
 
-             {/* Add User Modal (Manager Maker) */}
-             {showUserModal && (
-                 <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-                     <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl">
-                         <h2 className="text-xl font-bold mb-4 text-gray-900">Add New User</h2>
-                         <form onSubmit={handleAddUser} className="space-y-3">
-                             <input name="name" placeholder="Full Name" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required />
-                             <input name="email" type="email" placeholder="Email Address" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required />
-                             <input name="phone" placeholder="Phone Number" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" />
-                             <input name="password" type="password" placeholder="Password" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required />
-                             
-                             <div>
-                                 <label className="text-xs font-bold text-gray-500 uppercase ml-1">Role</label>
-                                 <select name="role" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 mt-1">
-                                     <option value={UserRole.USER}>Student (User)</option>
-                                     <option value={UserRole.EDITOR}>Editor (Manager)</option>
-                                     <option value={UserRole.ADMIN}>Admin</option>
-                                 </select>
-                             </div>
-
-                             <div className="flex gap-3 pt-4">
-                                 <button type="button" onClick={() => setShowUserModal(false)} className="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-100 rounded-xl">Cancel</button>
-                                 <button type="submit" className="flex-1 py-3 bg-brand text-white font-bold rounded-xl shadow-lg shadow-brand/20">Create User</button>
-                             </div>
-                         </form>
-                     </div>
+                 {/* List */}
+                 <div className="space-y-3">
+                    {questions.map((q, i) => (
+                        <div key={q.id} className="p-3 border rounded-xl relative group">
+                            <p className="font-bold text-sm pr-6">{i+1}. {q.question}</p>
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-2 text-xs text-gray-600">
+                                {q.options.map((o, idx) => (
+                                    <span key={idx} className={idx === q.correctAnswer ? "text-green-600 font-bold" : ""}>{String.fromCharCode(65+idx)}. {o}</span>
+                                ))}
+                            </div>
+                            <button onClick={() => deleteQ(q.id)} className="absolute top-3 right-3 text-gray-400 hover:text-red-500"><Trash2 className="w-4 h-4"/></button>
+                        </div>
+                    ))}
                  </div>
-             )}
+            </div>
 
-             {/* Exam Manager Modal Reuse */}
-             {showExamManager && (
-                 <ExamManager course={showExamManager} onClose={() => setShowExamManager(null)} />
-             )}
-
-             {/* Content Manager Modal Reuse */}
-             {showContentManager && (
-                 <ContentManager course={showContentManager} onClose={() => setShowContentManager(null)} />
-             )}
+            <div className="pt-4 border-t mt-4">
+                <button onClick={() => onSave({ ...exam, questions })} className="w-full py-3 bg-brand text-white font-bold rounded-xl shadow-lg shadow-brand/20">Save Exam</button>
+            </div>
         </div>
     );
 };

@@ -4,29 +4,18 @@ import { HashRouter as Router, Routes, Route, Navigate, useLocation, Link, useNa
 import { StoreProvider, useStore } from './store';
 import { 
   Home, BookOpen, User, HelpCircle, Menu, LogOut, 
-  Search, PlayCircle, Lock, LayoutDashboard, Users, CreditCard, Settings, Plus, Trash2, Edit, Save, X, ChevronDown, ChevronUp,
-  MessageCircle, CloudDownload, CheckCircle, Shield, Upload, FileText, Download, Youtube, Link as LinkIcon, Image as ImageIcon, Globe,
-  ClipboardList, Timer, Code, DollarSign, Clock, Eye, Smartphone, MoreVertical, Key, Copy, ExternalLink, Play, Bot, Brain, Wand2, Loader2, List, ArrowLeft, Video as VideoIcon
+  Search, PlayCircle, Lock, LayoutDashboard, Settings, Plus, Trash2, Edit, Save, X, ChevronDown, 
+  MessageCircle, CheckCircle, FileText, Download, ClipboardList, Timer, Clock, Key, ExternalLink, Play, Bot, Brain, Loader2, ArrowLeft, Video as VideoIcon
 } from './components/Icons';
 import VideoPlayer from './components/VideoPlayer';
 import ChatBot from './components/ChatBot';
 import ExamMode from './components/ExamMode';
-import { Course, Chapter, Video, UserRole, Note, Banner, AppSettings, Exam, Question, VideoProgress, AiGeneratedQuiz, SavedNote } from './types';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { Course, Chapter, Video, UserRole, Banner, AppSettings, Exam, Question, SavedNote } from './types';
 import { GoogleGenAI } from "@google/genai";
 
 declare var process: { env: { API_KEY: string } };
 
 // --- Helper Functions ---
-const convertToBase64 = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = error => reject(error);
-  });
-};
-
 const parseDuration = (duration: string) => {
   const match = duration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
   if (!match) return '00:00';
@@ -205,7 +194,7 @@ const Header = () => {
               </Link>
               {(currentUser?.role === UserRole.ADMIN || currentUser?.role === UserRole.EDITOR) && (
                 <Link to="/admin" onClick={() => setShowMenu(false)} className="flex items-center px-4 py-3.5 text-red-600 bg-red-50 hover:bg-red-100 rounded-xl font-bold mt-4 transition-all">
-                  <LayoutDashboard className="w-5 h-5 mr-3" /> {currentUser.role === UserRole.EDITOR ? 'Batch Manager' : 'Admin Panel'}
+                  <LayoutDashboard className="w-5 h-5 mr-3" /> {currentUser.role === UserRole.EDITOR ? 'Editor Panel' : 'Admin Panel'}
                 </Link>
               )}
             </nav>
@@ -246,6 +235,8 @@ const BottomNav = () => {
     </div>
   );
 };
+
+// --- Pages ---
 
 const Help = () => {
     const { settings } = useStore();
@@ -561,6 +552,7 @@ const CourseListing = () => {
 };
 
 const Watch = () => {
+    // ... (Content of Watch Component)
     const { courseId } = useParams();
     const { courses, currentUser, saveVideoProgress, saveAiQuiz, saveNote } = useStore();
     const [currentVideoUrl, setCurrentVideoUrl] = useState<string>('');
@@ -570,27 +562,19 @@ const Watch = () => {
     const [quizLoading, setQuizLoading] = useState(false);
     const [quizScore, setQuizScore] = useState<number | null>(null);
     const [userAnswers, setUserAnswers] = useState<number[]>([]);
-    
-    // Notes State
     const [noteGenerating, setNoteGenerating] = useState(false);
     const [generatedNote, setGeneratedNote] = useState<SavedNote | null>(null);
     const [showNoteModal, setShowNoteModal] = useState(false);
-
     const navigate = useNavigate();
-
     const course = courses.find(c => c.id === courseId);
-    
-    // Flatten videos to get a playlist
     const allVideos: { video: Video, chapterId: string, chapterTitle: string }[] = [];
     course?.chapters.forEach(chap => {
         chap.videos.forEach(vid => {
             allVideos.push({ video: vid, chapterId: chap.id, chapterTitle: chap.title });
         });
     });
-
     const [currentVideoIdx, setCurrentVideoIdx] = useState(0);
 
-    // Initial load
     useEffect(() => {
         if(allVideos.length > 0) {
             setCurrentVideo(allVideos[currentVideoIdx].video);
@@ -599,9 +583,7 @@ const Watch = () => {
     }, [currentVideoIdx, courses]);
 
     const handleVideoProgress = (currentTime: number, duration: number) => {
-        if (currentVideo) {
-            saveVideoProgress(currentVideo.id, currentTime, duration);
-        }
+        if (currentVideo) saveVideoProgress(currentVideo.id, currentTime, duration);
     };
 
     const generateAiQuiz = async () => {
@@ -610,34 +592,25 @@ const Watch = () => {
         setShowQuiz(true);
         setQuizScore(null);
         setUserAnswers([]);
-
         const existingQuiz = currentUser?.generatedQuizzes?.find(q => q.videoId === currentVideo.id);
         if (existingQuiz) {
             setQuizQuestions(existingQuiz.questions);
             setQuizLoading(false);
             return;
         }
-
         try {
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-            const prompt = `Create 5 multiple choice questions based on the topic "${currentVideo.title}" from the course "${course?.title}". 
-            Format strictly as a JSON array of objects with keys: "id", "question", "options" (array of 4 strings), "correctAnswer" (number index 0-3).`;
-
+            const prompt = `Create 5 multiple choice questions based on the topic "${currentVideo.title}" from the course "${course?.title}". Format strictly as a JSON array of objects with keys: "id", "question", "options" (array of 4 strings), "correctAnswer" (number index 0-3).`;
             const response = await ai.models.generateContent({
                 model: 'gemini-2.5-flash',
                 contents: prompt,
                 config: { responseMimeType: 'application/json' }
             });
-
             const text = response.text;
             if (text) {
                 const data = JSON.parse(text);
                 setQuizQuestions(data);
-                saveAiQuiz({
-                    videoId: currentVideo.id,
-                    questions: data,
-                    generatedAt: new Date().toISOString()
-                });
+                saveAiQuiz({ videoId: currentVideo.id, questions: data, generatedAt: new Date().toISOString() });
             }
         } catch (e) {
             console.error(e);
@@ -653,56 +626,23 @@ const Watch = () => {
         setNoteGenerating(true);
         setShowNoteModal(true);
         setGeneratedNote(null);
-
         try {
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-            
-            // 1. Generate Text Content
-            const textPrompt = `You are an expert CBSE school teacher. Create comprehensive, concise, point-wise study notes for the topic "${currentVideo.title}" from the chapter "${allVideos[currentVideoIdx].chapterTitle}" in the course "${course.title}".
-            STRICTLY follow the latest CBSE 2025-26 syllabus.
-            Exclude irrelevant information.
-            Use bold headings and bullet points.
-            The output must be in Markdown format.`;
-
-            const textResponse = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: textPrompt,
-            });
-            
+            const textPrompt = `You are an expert CBSE school teacher. Create comprehensive, concise, point-wise study notes for the topic "${currentVideo.title}" from the chapter "${allVideos[currentVideoIdx].chapterTitle}" in the course "${course.title}". STRICTLY follow the latest CBSE 2025-26 syllabus. Exclude irrelevant information. Use bold headings and bullet points. The output must be in Markdown format.`;
+            const textResponse = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: textPrompt });
             const markdownContent = textResponse.text || "No content generated.";
-
-            // 2. Generate Image Diagram
             const imagePrompt = `Draw a clear, educational diagram or flowchart explaining the concept of "${currentVideo.title}" suitable for school students. White background, black lines, simple style.`;
-            
-            const note: SavedNote = {
-                id: Date.now().toString(),
-                videoId: currentVideo.id,
-                videoTitle: currentVideo.title,
-                courseTitle: course.title,
-                content: markdownContent,
-                generatedAt: new Date().toISOString(),
-                syllabusVersion: 'CBSE 2025-26',
-                imageUrl: undefined // We will try to fill this if we can
-            };
-
+            const note: SavedNote = { id: Date.now().toString(), videoId: currentVideo.id, videoTitle: currentVideo.title, courseTitle: course.title, content: markdownContent, generatedAt: new Date().toISOString(), syllabusVersion: 'CBSE 2025-26', imageUrl: undefined };
             try {
-                 const imageResponse = await ai.models.generateContent({
-                    model: 'gemini-2.5-flash-image',
-                    contents: imagePrompt,
-                 });
-                 
+                 const imageResponse = await ai.models.generateContent({ model: 'gemini-2.5-flash-image', contents: imagePrompt });
                  for (const part of imageResponse.candidates?.[0]?.content?.parts || []) {
                     if (part.inlineData) {
                         note.imageUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
                         break;
                     }
                  }
-            } catch (imgErr) {
-                console.warn("Image generation failed or model not available, proceeding with text only", imgErr);
-            }
-
+            } catch (imgErr) { console.warn("Image generation failed or model not available, proceeding with text only", imgErr); }
             setGeneratedNote(note);
-
         } catch (e) {
             console.error("Note generation failed", e);
             alert("Failed to generate notes. Please try again.");
@@ -713,45 +653,30 @@ const Watch = () => {
     };
 
     const handleSaveNote = () => {
-        if (generatedNote) {
-            saveNote(generatedNote);
-            alert("Notes saved to your profile!");
-            setShowNoteModal(false);
-        }
+        if (generatedNote) { saveNote(generatedNote); alert("Notes saved to your profile!"); setShowNoteModal(false); }
     };
 
     const handleDownloadNote = () => {
         if (!generatedNote) return;
-        
-        // Simple text download
         const element = document.createElement("a");
         const file = new Blob([generatedNote.content], {type: 'text/plain'});
         element.href = URL.createObjectURL(file);
         element.download = `${generatedNote.videoTitle}_Notes.md`;
         document.body.appendChild(element);
         element.click();
-        
-        // Let's trigger window print for better UX
         setTimeout(() => window.print(), 500);
     };
 
     const submitQuiz = () => {
         let score = 0;
-        quizQuestions.forEach((q, i) => {
-            if (userAnswers[i] === q.correctAnswer) score++;
-        });
+        quizQuestions.forEach((q, i) => { if (userAnswers[i] === q.correctAnswer) score++; });
         setQuizScore(score);
     };
 
     if (!currentUser) return <Navigate to="/login" />;
     if (!course) return <Navigate to="/" />;
-
-    const hasAccess = currentUser.purchasedCourseIds.includes(course.id) || 
-                      (currentUser.tempAccess?.[course.id] && new Date(currentUser.tempAccess[course.id]) > new Date());
-
-    if (!hasAccess) {
-        return <Navigate to={`/course/${courseId}`} />;
-    }
+    const hasAccess = currentUser.purchasedCourseIds.includes(course.id) || (currentUser.tempAccess?.[course.id] && new Date(currentUser.tempAccess[course.id]) > new Date());
+    if (!hasAccess) return <Navigate to={`/course/${courseId}`} />;
 
     return (
         <div className="min-h-screen bg-gray-900 text-white flex flex-col md:flex-row h-screen overflow-hidden">
@@ -764,9 +689,7 @@ const Watch = () => {
                             onBack={() => navigate(`/course/${courseId}`)}
                             initialTime={currentUser.videoProgress?.[currentVideo.id]?.timestamp || 0}
                         />
-                    ) : (
-                        <div className="text-gray-500">Select a video</div>
-                    )}
+                    ) : <div className="text-gray-500">Select a video</div>}
                 </div>
                 <div className="p-4 bg-gray-900 border-t border-gray-800 flex justify-between items-center">
                     <div>
@@ -776,46 +699,25 @@ const Watch = () => {
                     <div className="flex gap-2">
                         {currentVideo && (
                             <>
-                                <button 
-                                    onClick={generateAiQuiz}
-                                    className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-indigo-700 transition-colors"
-                                >
-                                    <Brain className="w-4 h-4" /> Take AI Quiz
-                                </button>
-                                <button 
-                                    onClick={handleGenerateNotes}
-                                    className="bg-green-600 text-white px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-green-700 transition-colors"
-                                >
-                                    <FileText className="w-4 h-4" /> Generate Notes
-                                </button>
+                                <button onClick={generateAiQuiz} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-indigo-700 transition-colors"><Brain className="w-4 h-4" /> Take AI Quiz</button>
+                                <button onClick={handleGenerateNotes} className="bg-green-600 text-white px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-green-700 transition-colors"><FileText className="w-4 h-4" /> Generate Notes</button>
                             </>
                         )}
                     </div>
                 </div>
-
-                {/* AI Quiz Modal (Existing) */}
+                {/* AI Quiz Modal */}
                 {showQuiz && (
                     <div className="absolute inset-0 z-50 bg-gray-900/95 backdrop-blur-sm p-4 overflow-y-auto">
                         <div className="max-w-2xl mx-auto bg-gray-800 rounded-3xl p-6 border border-gray-700">
                             <div className="flex justify-between items-center mb-6">
-                                <h2 className="text-xl font-bold flex items-center gap-2">
-                                    <Brain className="text-indigo-400"/> 
-                                    Quiz: {currentVideo?.title}
-                                </h2>
-                                <button onClick={() => setShowQuiz(false)} className="p-2 hover:bg-gray-700 rounded-full">
-                                    <X className="w-5 h-5"/>
-                                </button>
+                                <h2 className="text-xl font-bold flex items-center gap-2"><Brain className="text-indigo-400"/> Quiz: {currentVideo?.title}</h2>
+                                <button onClick={() => setShowQuiz(false)} className="p-2 hover:bg-gray-700 rounded-full"><X className="w-5 h-5"/></button>
                             </div>
-
                             {quizLoading ? (
-                                <div className="py-20 flex flex-col items-center justify-center text-center">
-                                    <Loader2 className="w-12 h-12 text-indigo-500 animate-spin mb-4"/>
-                                    <p className="text-gray-400">Generating questions with AI...</p>
-                                </div>
+                                <div className="py-20 flex flex-col items-center justify-center text-center"><Loader2 className="w-12 h-12 text-indigo-500 animate-spin mb-4"/><p className="text-gray-400">Generating questions with AI...</p></div>
                             ) : (
                                 <div className="space-y-6">
                                     {quizQuestions.map((q, idx) => {
-                                        const isAnswered = userAnswers[idx] !== undefined;
                                         const showResult = quizScore !== null;
                                         return (
                                             <div key={idx} className="bg-gray-700/50 p-4 rounded-xl border border-gray-700">
@@ -827,149 +729,66 @@ const Watch = () => {
                                                             if (oIdx === q.correctAnswer) btnClass = "bg-green-900/50 border-green-500 text-green-200";
                                                             else if (userAnswers[idx] === oIdx) btnClass = "bg-red-900/50 border-red-500 text-red-200";
                                                             else btnClass = "bg-gray-800 border-gray-700 opacity-50";
-                                                        } else if (userAnswers[idx] === oIdx) {
-                                                            btnClass = "bg-indigo-600 border-indigo-500";
-                                                        }
-                                                        return (
-                                                            <button 
-                                                                key={oIdx}
-                                                                disabled={showResult}
-                                                                onClick={() => {
-                                                                    const newAns = [...userAnswers];
-                                                                    newAns[idx] = oIdx;
-                                                                    setUserAnswers(newAns);
-                                                                }}
-                                                                className={`p-3 rounded-lg border text-left text-sm font-medium transition-all ${btnClass}`}
-                                                            >
-                                                                {opt}
-                                                            </button>
-                                                        );
+                                                        } else if (userAnswers[idx] === oIdx) btnClass = "bg-indigo-600 border-indigo-500";
+                                                        return (<button key={oIdx} disabled={showResult} onClick={() => { const newAns = [...userAnswers]; newAns[idx] = oIdx; setUserAnswers(newAns); }} className={`p-3 rounded-lg border text-left text-sm font-medium transition-all ${btnClass}`}>{opt}</button>);
                                                     })}
                                                 </div>
                                             </div>
                                         );
                                     })}
                                     {quizScore === null ? (
-                                        <button 
-                                            onClick={submitQuiz}
-                                            disabled={userAnswers.filter(a => a !== undefined).length !== quizQuestions.length}
-                                            className="w-full py-3 bg-indigo-600 rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-indigo-700 transition-colors"
-                                        >
-                                            Submit Quiz
-                                        </button>
+                                        <button onClick={submitQuiz} disabled={userAnswers.filter(a => a !== undefined).length !== quizQuestions.length} className="w-full py-3 bg-indigo-600 rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-indigo-700 transition-colors">Submit Quiz</button>
                                     ) : (
-                                        <div className="text-center p-6 bg-gray-800 rounded-xl border border-gray-700">
-                                            <p className="text-gray-400 text-sm uppercase font-bold mb-1">Your Score</p>
-                                            <p className="text-4xl font-bold text-white mb-4">{quizScore} / {quizQuestions.length}</p>
-                                            <button onClick={() => setShowQuiz(false)} className="px-6 py-2 bg-gray-700 rounded-lg font-bold hover:bg-gray-600">Close</button>
-                                        </div>
+                                        <div className="text-center p-6 bg-gray-800 rounded-xl border border-gray-700"><p className="text-gray-400 text-sm uppercase font-bold mb-1">Your Score</p><p className="text-4xl font-bold text-white mb-4">{quizScore} / {quizQuestions.length}</p><button onClick={() => setShowQuiz(false)} className="px-6 py-2 bg-gray-700 rounded-lg font-bold hover:bg-gray-600">Close</button></div>
                                     )}
                                 </div>
                             )}
                         </div>
                     </div>
                 )}
-
                 {/* AI Notes Modal */}
                 {showNoteModal && (
                     <div className="absolute inset-0 z-50 bg-gray-900/95 backdrop-blur-sm p-4 overflow-y-auto">
                         <div className="max-w-3xl mx-auto bg-white text-gray-900 rounded-3xl p-8 border border-gray-200 shadow-2xl printable-content">
                             <div className="flex justify-between items-start mb-6 border-b pb-4 no-print">
-                                <div>
-                                    <h2 className="text-2xl font-display font-bold flex items-center gap-2 text-gray-900">
-                                        <FileText className="text-green-600"/> 
-                                        AI Study Notes
-                                    </h2>
-                                    <p className="text-sm text-gray-500 mt-1">Based on CBSE 2025-26 Syllabus</p>
-                                </div>
-                                <button onClick={() => setShowNoteModal(false)} className="p-2 hover:bg-gray-100 rounded-full text-gray-500">
-                                    <X className="w-6 h-6"/>
-                                </button>
+                                <div><h2 className="text-2xl font-display font-bold flex items-center gap-2 text-gray-900"><FileText className="text-green-600"/> AI Study Notes</h2><p className="text-sm text-gray-500 mt-1">Based on CBSE 2025-26 Syllabus</p></div>
+                                <button onClick={() => setShowNoteModal(false)} className="p-2 hover:bg-gray-100 rounded-full text-gray-500"><X className="w-6 h-6"/></button>
                             </div>
-
                             {noteGenerating ? (
-                                <div className="py-20 flex flex-col items-center justify-center text-center">
-                                    <Loader2 className="w-12 h-12 text-green-600 animate-spin mb-4"/>
-                                    <p className="text-gray-500 font-medium">Analyzing video and generating notes...</p>
-                                    <p className="text-xs text-gray-400 mt-2">Generating engaging diagrams...</p>
-                                </div>
+                                <div className="py-20 flex flex-col items-center justify-center text-center"><Loader2 className="w-12 h-12 text-green-600 animate-spin mb-4"/><p className="text-gray-500 font-medium">Analyzing video and generating notes...</p><p className="text-xs text-gray-400 mt-2">Generating engaging diagrams...</p></div>
                             ) : generatedNote ? (
                                 <div>
                                     <div className="prose max-w-none mb-6">
                                         <h1 className="text-3xl font-bold mb-2">{generatedNote.videoTitle}</h1>
                                         <p className="text-sm text-gray-500 mb-6 uppercase tracking-wider">{generatedNote.courseTitle} • {new Date(generatedNote.generatedAt).toLocaleDateString()}</p>
-                                        
-                                        {/* Render Image if available */}
-                                        {generatedNote.imageUrl && (
-                                            <div className="mb-6 p-2 border rounded-xl bg-gray-50 flex justify-center">
-                                                <img src={generatedNote.imageUrl} alt="AI Diagram" className="max-h-64 object-contain rounded-lg" />
-                                            </div>
-                                        )}
-
-                                        <div className="whitespace-pre-wrap text-sm md:text-base leading-relaxed text-gray-800">
-                                            {generatedNote.content}
-                                        </div>
+                                        {generatedNote.imageUrl && (<div className="mb-6 p-2 border rounded-xl bg-gray-50 flex justify-center"><img src={generatedNote.imageUrl} alt="AI Diagram" className="max-h-64 object-contain rounded-lg" /></div>)}
+                                        <div className="whitespace-pre-wrap text-sm md:text-base leading-relaxed text-gray-800">{generatedNote.content}</div>
                                     </div>
-
                                     <div className="flex gap-4 border-t pt-6 no-print">
-                                        <button 
-                                            onClick={handleSaveNote}
-                                            className="flex-1 py-3 bg-brand text-white rounded-xl font-bold shadow-lg shadow-brand/20 hover:bg-brand-dark transition-colors flex items-center justify-center gap-2"
-                                        >
-                                            <Save className="w-5 h-5" /> Save to Profile
-                                        </button>
-                                        <button 
-                                            onClick={handleDownloadNote}
-                                            className="flex-1 py-3 bg-gray-100 text-gray-800 rounded-xl font-bold hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
-                                        >
-                                            <Download className="w-5 h-5" /> Print / Download
-                                        </button>
+                                        <button onClick={handleSaveNote} className="flex-1 py-3 bg-brand text-white rounded-xl font-bold shadow-lg shadow-brand/20 hover:bg-brand-dark transition-colors flex items-center justify-center gap-2"><Save className="w-5 h-5" /> Save to Profile</button>
+                                        <button onClick={handleDownloadNote} className="flex-1 py-3 bg-gray-100 text-gray-800 rounded-xl font-bold hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"><Download className="w-5 h-5" /> Print / Download</button>
                                     </div>
                                 </div>
-                            ) : (
-                                <div className="text-center py-10 text-gray-500">Failed to load content.</div>
-                            )}
+                            ) : <div className="text-center py-10 text-gray-500">Failed to load content.</div>}
                         </div>
                     </div>
                 )}
             </div>
-
             <div className="w-full md:w-80 bg-gray-800 border-l border-gray-700 flex flex-col h-[40vh] md:h-full overflow-hidden">
-                <div className="p-4 border-b border-gray-700 bg-gray-800">
-                    <h2 className="font-bold text-lg">Course Content</h2>
-                    <p className="text-xs text-gray-400">{allVideos.length} Videos</p>
-                </div>
+                <div className="p-4 border-b border-gray-700 bg-gray-800"><h2 className="font-bold text-lg">Course Content</h2><p className="text-xs text-gray-400">{allVideos.length} Videos</p></div>
                 <div className="flex-1 overflow-y-auto">
                     {course.chapters.map((chap) => (
                         <div key={chap.id}>
-                            <div className="px-4 py-2 bg-gray-700/50 text-xs font-bold text-gray-300 uppercase sticky top-0 backdrop-blur-sm z-10">
-                                {chap.title}
-                            </div>
+                            <div className="px-4 py-2 bg-gray-700/50 text-xs font-bold text-gray-300 uppercase sticky top-0 backdrop-blur-sm z-10">{chap.title}</div>
                             {chap.videos.map((vid) => {
                                 const idx = allVideos.findIndex(v => v.video.id === vid.id);
                                 const isPlaying = idx === currentVideoIdx;
                                 const progress = currentUser.videoProgress?.[vid.id];
                                 const isCompleted = progress?.completed;
-
                                 return (
-                                    <button 
-                                        key={vid.id}
-                                        onClick={() => setCurrentVideoIdx(idx)}
-                                        className={`w-full text-left p-3 flex gap-3 hover:bg-gray-700 transition-colors border-b border-gray-700/50 ${isPlaying ? 'bg-gray-700 border-l-4 border-l-brand' : ''}`}
-                                    >
-                                        <div className="mt-1">
-                                            {isPlaying ? (
-                                                <div className="w-4 h-4 text-brand"><PlayCircle className="w-full h-full" fill="currentColor" /></div>
-                                            ) : isCompleted ? (
-                                                <CheckCircle className="w-4 h-4 text-green-500" />
-                                            ) : (
-                                                <div className="w-4 h-4 rounded-full border border-gray-500" />
-                                            )}
-                                        </div>
-                                        <div>
-                                            <p className={`text-sm font-medium ${isPlaying ? 'text-white' : 'text-gray-300'}`}>{vid.title}</p>
-                                            <p className="text-xs text-gray-500">{vid.duration}</p>
-                                        </div>
+                                    <button key={vid.id} onClick={() => setCurrentVideoIdx(idx)} className={`w-full text-left p-3 flex gap-3 hover:bg-gray-700 transition-colors border-b border-gray-700/50 ${isPlaying ? 'bg-gray-700 border-l-4 border-l-brand' : ''}`}>
+                                        <div className="mt-1">{isPlaying ? <div className="w-4 h-4 text-brand"><PlayCircle className="w-full h-full" fill="currentColor" /></div> : isCompleted ? <CheckCircle className="w-4 h-4 text-green-500" /> : <div className="w-4 h-4 rounded-full border border-gray-500" />}</div>
+                                        <div><p className={`text-sm font-medium ${isPlaying ? 'text-white' : 'text-gray-300'}`}>{vid.title}</p><p className="text-xs text-gray-500">{vid.duration}</p></div>
                                     </button>
                                 );
                             })}
@@ -1252,8 +1071,6 @@ const CourseDetail = () => {
     const [keyInput, setKeyInput] = useState('');
     const [verificationTimeLeft, setVerificationTimeLeft] = useState<number | null>(null);
     const grantTempAccessRef = useRef(grantTempAccess);
-    
-    // Constant for the storage key
     const PENDING_ACCESS_KEY = `pending_access_${id}`;
 
     useEffect(() => {
@@ -1281,9 +1098,7 @@ const CourseDetail = () => {
 
     const handleTempAccess = () => {
         if (!currentUser) { navigate('/login'); return; }
-        
         localStorage.setItem(PENDING_ACCESS_KEY, Date.now().toString());
-
         if (course.shortenerLink) {
             window.open(course.shortenerLink, '_blank');
         } else {
@@ -1297,7 +1112,6 @@ const CourseDetail = () => {
             if (pending) {
                 const elapsed = Date.now() - parseInt(pending);
                 const remaining = 10000 - elapsed;
-                
                 if (remaining <= 0) {
                     grantTempAccessRef.current(course.id);
                     localStorage.removeItem(PENDING_ACCESS_KEY);
@@ -1310,7 +1124,6 @@ const CourseDetail = () => {
                 setVerificationTimeLeft(null);
             }
         }, 1000);
-
         return () => clearInterval(interval);
     }, [course.id, PENDING_ACCESS_KEY]);
 
@@ -1321,9 +1134,7 @@ const CourseDetail = () => {
 
     const getContactLink = () => {
         const contact = settings.supportPhone || '';
-        if (contact.startsWith('@')) {
-            return `https://t.me/${contact.substring(1)}`;
-        }
+        if (contact.startsWith('@')) return `https://t.me/${contact.substring(1)}`;
         return `https://wa.me/${contact.replace(/[^0-9]/g, '')}?text=I want to buy key for ${course.title}`;
     };
 
@@ -1345,143 +1156,46 @@ const CourseDetail = () => {
                              <p className="text-sm text-gray-500">Price</p>
                              <div className="text-2xl font-bold text-gray-900">{course.price === 0 ? 'FREE' : `₹${course.price}`} <span className="text-sm text-gray-400 line-through font-normal">₹{course.mrp}</span></div>
                          </div>
-                         {hasAccess && !isExpired && (
-                            <div className="bg-green-100 text-green-700 px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2">
-                                <CheckCircle className="w-5 h-5" /> Enrolled
-                            </div>
-                         )}
+                         {hasAccess && !isExpired && (<div className="bg-green-100 text-green-700 px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2"><CheckCircle className="w-5 h-5" /> Enrolled</div>)}
                      </div>
-
-                     {isTemp && !isExpired && expiryDate && (
-                        <div className="mb-6 bg-orange-50 p-4 rounded-2xl border border-orange-100">
-                            <p className="text-sm text-orange-800 font-bold mb-2 flex items-center gap-2">
-                                <Clock className="w-4 h-4"/> Temporary Access Expires In:
-                            </p>
-                            <CountdownTimer expiryDate={expiryDate} />
-                        </div>
-                     )}
-
+                     {isTemp && !isExpired && expiryDate && (<div className="mb-6 bg-orange-50 p-4 rounded-2xl border border-orange-100"><p className="text-sm text-orange-800 font-bold mb-2 flex items-center gap-2"><Clock className="w-4 h-4"/> Temporary Access Expires In:</p><CountdownTimer expiryDate={expiryDate} /></div>)}
                      {!hasAccess && (
                         <div className="space-y-4">
                             <div className="bg-gray-50 p-4 rounded-2xl border border-gray-200">
                                 <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-2"><Clock className="w-4 h-4 text-blue-500"/> Temporary Access</h3>
                                 <p className="text-xs text-gray-500 mb-3">Get 24 hours of free access by visiting a sponsor link.</p>
-                                
                                 {verificationTimeLeft !== null ? (
-                                    <div className="space-y-2">
-                                        <button 
-                                            disabled
-                                            className="w-full py-3 bg-gray-100 text-gray-500 font-bold rounded-xl flex items-center justify-center gap-2 cursor-wait"
-                                        >
-                                            <Loader2 className="w-4 h-4 animate-spin"/> Verifying... ({verificationTimeLeft}s)
-                                        </button>
-                                        <button 
-                                            onClick={manualVerify}
-                                            className="w-full text-xs text-blue-600 font-bold underline hover:text-blue-800 mt-2"
-                                        >
-                                            Stuck? Click here to verify instantly
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <button 
-                                        onClick={handleTempAccess}
-                                        className="w-full py-3 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-colors shadow-sm"
-                                    >
-                                        Get Free Access (24h)
-                                    </button>
-                                )}
+                                    <div className="space-y-2"><button disabled className="w-full py-3 bg-gray-100 text-gray-500 font-bold rounded-xl flex items-center justify-center gap-2 cursor-wait"><Loader2 className="w-4 h-4 animate-spin"/> Verifying... ({verificationTimeLeft}s)</button><button onClick={manualVerify} className="w-full text-xs text-blue-600 font-bold underline hover:text-blue-800 mt-2">Stuck? Click here to verify instantly</button></div>
+                                ) : <button onClick={handleTempAccess} className="w-full py-3 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-colors shadow-sm">Get Free Access (24h)</button>}
                             </div>
-
-                            <div className="flex items-center gap-2">
-                                <div className="h-px bg-gray-200 flex-1"></div>
-                                <span className="text-xs text-gray-400 font-bold uppercase">OR</span>
-                                <div className="h-px bg-gray-200 flex-1"></div>
-                            </div>
-
+                            <div className="flex items-center gap-2"><div className="h-px bg-gray-200 flex-1"></div><span className="text-xs text-gray-400 font-bold uppercase">OR</span><div className="h-px bg-gray-200 flex-1"></div></div>
                             <div className="bg-indigo-50 p-4 rounded-2xl border border-indigo-100">
                                 <h3 className="font-bold text-indigo-900 mb-2 flex items-center gap-2"><Key className="w-4 h-4 text-indigo-600"/> Permanent Access</h3>
-                                <div className="flex gap-2 mb-3">
-                                    <input 
-                                        type="text" 
-                                        placeholder="Enter Premium Key" 
-                                        className="flex-1 p-3 rounded-xl border border-indigo-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 uppercase font-mono text-gray-900"
-                                        value={keyInput}
-                                        onChange={(e) => setKeyInput(e.target.value)}
-                                    />
-                                    <button 
-                                        onClick={handleKeyUnlock}
-                                        className="bg-indigo-600 text-white px-6 py-2 rounded-xl font-bold text-sm hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200"
-                                    >
-                                        Unlock
-                                    </button>
-                                </div>
-                                <a 
-                                    href={getContactLink()}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-xs text-indigo-600 font-bold hover:underline flex items-center gap-1"
-                                >
-                                    Don't have a key? Buy from Admin <ExternalLink className="w-3 h-3"/>
-                                </a>
+                                <div className="flex gap-2 mb-3"><input type="text" placeholder="Enter Premium Key" className="flex-1 p-3 rounded-xl border border-indigo-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 uppercase font-mono text-gray-900" value={keyInput} onChange={(e) => setKeyInput(e.target.value)} /><button onClick={handleKeyUnlock} className="bg-indigo-600 text-white px-6 py-2 rounded-xl font-bold text-sm hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200">Unlock</button></div>
+                                <a href={getContactLink()} target="_blank" rel="noopener noreferrer" className="text-xs text-indigo-600 font-bold hover:underline flex items-center gap-1">Don't have a key? Buy from Admin <ExternalLink className="w-3 h-3"/></a>
                             </div>
                         </div>
                      )}
                 </div>
-                
-                {course.telegramChannelLink && (
-                    <a 
-                        href={course.telegramChannelLink} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="w-full py-4 mb-6 bg-blue-50 text-blue-600 font-bold rounded-2xl border border-blue-100 flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors shadow-sm"
-                    >
-                        <MessageCircle className="w-5 h-5" /> Join Batch Telegram Channel
-                    </a>
-                )}
-
+                {course.telegramChannelLink && (<a href={course.telegramChannelLink} target="_blank" rel="noopener noreferrer" className="w-full py-4 mb-6 bg-blue-50 text-blue-600 font-bold rounded-2xl border border-blue-100 flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors shadow-sm"><MessageCircle className="w-5 h-5" /> Join Batch Telegram Channel</a>)}
                 {hasAccess && (
                     <div className="grid grid-cols-2 gap-4 mb-6">
-                         <Link to={`/watch/${course.id}`} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-center flex-col gap-2 hover:border-brand transition-colors">
-                            <PlayCircle className="w-8 h-8 text-brand" />
-                            <span className="font-bold text-gray-800">Start Watching</span>
-                         </Link>
-                         <Link to={`/exam/${course.id}`} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-center flex-col gap-2 hover:border-brand transition-colors">
-                            <ClipboardList className="w-8 h-8 text-purple-600" />
-                            <span className="font-bold text-gray-800">Take Exam</span>
-                         </Link>
+                         <Link to={`/watch/${course.id}`} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-center flex-col gap-2 hover:border-brand transition-colors"><PlayCircle className="w-8 h-8 text-brand" /><span className="font-bold text-gray-800">Start Watching</span></Link>
+                         <Link to={`/exam/${course.id}`} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-center flex-col gap-2 hover:border-brand transition-colors"><ClipboardList className="w-8 h-8 text-purple-600" /><span className="font-bold text-gray-800">Take Exam</span></Link>
                     </div>
                 )}
-
                 <div className="space-y-4">
                     <h3 className="font-bold text-lg text-gray-900">Course Content</h3>
                     {course.chapters.map((chap, i) => (
                         <div key={i} className="bg-white border border-gray-100 rounded-2xl overflow-hidden">
-                             <div className="p-4 bg-gray-50 font-bold text-gray-800 flex justify-between items-center">
-                                 <span>{chap.title}</span>
-                                 <span className="text-xs text-gray-500">{chap.videos.length} Videos</span>
-                             </div>
+                             <div className="p-4 bg-gray-50 font-bold text-gray-800 flex justify-between items-center"><span>{chap.title}</span><span className="text-xs text-gray-500">{chap.videos.length} Videos</span></div>
                              {hasAccess ? (
                                 <div className="divide-y divide-gray-100">
                                     {chap.videos.map((vid, j) => (
-                                        <Link 
-                                            to={`/watch/${course.id}`} 
-                                            key={j} 
-                                            className="p-4 flex gap-3 items-center hover:bg-gray-50 transition-colors cursor-pointer"
-                                        >
-                                            <PlayCircle className="w-5 h-5 text-gray-400" />
-                                            <div className="flex-1">
-                                                <p className="text-sm font-bold text-gray-800">{vid.title}</p>
-                                                <p className="text-xs text-gray-400">{vid.duration}</p>
-                                            </div>
-                                        </Link>
+                                        <Link to={`/watch/${course.id}`} key={j} className="p-4 flex gap-3 items-center hover:bg-gray-50 transition-colors cursor-pointer"><PlayCircle className="w-5 h-5 text-gray-400" /><div className="flex-1"><p className="text-sm font-bold text-gray-800">{vid.title}</p><p className="text-xs text-gray-400">{vid.duration}</p></div></Link>
                                     ))}
                                 </div>
-                             ) : (
-                                <div className="p-6 text-center text-gray-400 text-sm flex flex-col items-center">
-                                    <Lock className="w-6 h-6 mb-2 opacity-50" />
-                                    <span>Content Locked</span>
-                                </div>
-                             )}
+                             ) : <div className="p-6 text-center text-gray-400 text-sm flex flex-col items-center"><Lock className="w-6 h-6 mb-2 opacity-50" /><span>Content Locked</span></div>}
                         </div>
                     ))}
                 </div>
@@ -1499,225 +1213,57 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
     const [showImportModal, setShowImportModal] = useState(false);
     const [importText, setImportText] = useState('');
 
-    const handleSave = () => {
-        updateCourse({ ...course, chapters });
-        onClose();
-    };
-
-    const addChapter = () => {
-        if (!newChapterTitle.trim()) return;
-        const newChapter: Chapter = {
-            id: Date.now().toString(),
-            title: newChapterTitle,
-            videos: [],
-            notes: []
-        };
-        setChapters([...chapters, newChapter]);
-        setNewChapterTitle('');
-    };
-
-    const deleteChapter = (idx: number) => {
-        if (confirm("Delete this chapter and all its videos?")) {
-            setChapters(chapters.filter((_, i) => i !== idx));
-        }
-    };
-
-    const addVideoToChapter = (chapterIdx: number) => {
-        if (!newVideo.title || !newVideo.filename) return;
-        const video: Video = {
-            id: Date.now().toString(),
-            title: newVideo.title,
-            filename: newVideo.filename,
-            duration: newVideo.duration || '00:00'
-        };
-        
-        const updatedChapters = [...chapters];
-        updatedChapters[chapterIdx].videos.push(video);
-        setChapters(updatedChapters);
-        setNewVideo({ title: '', filename: '', duration: '' });
-        setEditingChapterIdx(null);
-    };
-
-    const deleteVideo = (chapterIdx: number, videoId: string) => {
-        const updatedChapters = [...chapters];
-        updatedChapters[chapterIdx].videos = updatedChapters[chapterIdx].videos.filter(v => v.id !== videoId);
-        setChapters(updatedChapters);
-    };
-
+    const handleSave = () => { updateCourse({ ...course, chapters }); onClose(); };
+    const addChapter = () => { if (!newChapterTitle.trim()) return; const newChapter: Chapter = { id: Date.now().toString(), title: newChapterTitle, videos: [], notes: [] }; setChapters([...chapters, newChapter]); setNewChapterTitle(''); };
+    const deleteChapter = (idx: number) => { if (confirm("Delete this chapter and all its videos?")) { setChapters(chapters.filter((_, i) => i !== idx)); } };
+    const addVideoToChapter = (chapterIdx: number) => { if (!newVideo.title || !newVideo.filename) return; const video: Video = { id: Date.now().toString(), title: newVideo.title, filename: newVideo.filename, duration: newVideo.duration || '00:00' }; const updatedChapters = [...chapters]; updatedChapters[chapterIdx].videos.push(video); setChapters(updatedChapters); setNewVideo({ title: '', filename: '', duration: '' }); setEditingChapterIdx(null); };
+    const deleteVideo = (chapterIdx: number, videoId: string) => { const updatedChapters = [...chapters]; updatedChapters[chapterIdx].videos = updatedChapters[chapterIdx].videos.filter(v => v.id !== videoId); setChapters(updatedChapters); };
     const handleImport = () => {
         if (!importText.trim()) return;
-        
         const lines = importText.split('\n').map(l => l.trim()).filter(l => l);
         const importedChapters: Chapter[] = [];
-        let currentChapter: Chapter = {
-            id: Date.now().toString(),
-            title: 'Imported Content',
-            videos: [],
-            notes: []
-        };
-        
+        let currentChapter: Chapter = { id: Date.now().toString(), title: 'Imported Content', videos: [], notes: [] };
         let lastLine = '';
-
         lines.forEach((line) => {
             const isUrl = line.startsWith('http');
-            
             if (isUrl) {
                 const title = lastLine || 'Untitled Video';
-                currentChapter.videos.push({
-                    id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
-                    title: title,
-                    filename: line,
-                    duration: '00:00'
-                });
+                currentChapter.videos.push({ id: Date.now().toString() + Math.random().toString(36).substr(2, 5), title: title, filename: line, duration: '00:00' });
                 lastLine = ''; 
             } else {
                 if (line.toLowerCase().includes('chapter') || line.endsWith(':')) {
-                    if (currentChapter.videos.length > 0) {
-                        importedChapters.push(currentChapter);
-                    }
-                    currentChapter = {
-                        id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
-                        title: line.replace(':', ''),
-                        videos: [],
-                        notes: []
-                    };
+                    if (currentChapter.videos.length > 0) { importedChapters.push(currentChapter); }
+                    currentChapter = { id: Date.now().toString() + Math.random().toString(36).substr(2, 5), title: line.replace(':', ''), videos: [], notes: [] };
                     lastLine = '';
-                } else {
-                    lastLine = line;
-                }
+                } else { lastLine = line; }
             }
         });
-
-        if (currentChapter.videos.length > 0) {
-            importedChapters.push(currentChapter);
-        }
-
-        if (importedChapters.length > 0) {
-            setChapters([...chapters, ...importedChapters]);
-            setShowImportModal(false);
-            setImportText('');
-            alert(`Imported ${importedChapters.length} chapters.`);
-        } else {
-            alert("Could not parse videos. Ensure format is Title on one line, Link on next.");
-        }
+        if (currentChapter.videos.length > 0) { importedChapters.push(currentChapter); }
+        if (importedChapters.length > 0) { setChapters([...chapters, ...importedChapters]); setShowImportModal(false); setImportText(''); alert(`Imported ${importedChapters.length} chapters.`); } else { alert("Could not parse videos. Ensure format is Title on one line, Link on next."); }
     };
 
     return (
         <div className="fixed inset-0 z-[70] bg-black/50 backdrop-blur flex items-center justify-center p-4 animate-fade-in">
             <div className="bg-white w-full max-w-4xl h-[85vh] rounded-3xl p-6 flex flex-col shadow-2xl overflow-hidden relative">
-                <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-bold font-display text-gray-900">Manage Content: {course.title}</h2>
-                    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full"><X className="w-6 h-6"/></button>
-                </div>
-
+                <div className="flex justify-between items-center mb-6"><h2 className="text-2xl font-bold font-display text-gray-900">Manage Content: {course.title}</h2><button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full"><X className="w-6 h-6"/></button></div>
                 <div className="flex-1 overflow-y-auto pr-2 space-y-6">
-                    <div className="flex flex-col md:flex-row gap-2 mb-6 bg-gray-50 p-4 rounded-xl border border-gray-200">
-                        <input 
-                            value={newChapterTitle} 
-                            onChange={e => setNewChapterTitle(e.target.value)} 
-                            placeholder="New Chapter Title (e.g., Thermodynamics)"
-                            className="flex-1 p-3 bg-white border border-gray-200 rounded-xl text-gray-900 text-sm"
-                        />
-                        <button onClick={addChapter} className="bg-brand text-white px-6 py-2 rounded-xl font-bold text-sm hover:bg-brand-dark transition-colors">
-                            Add Chapter
-                        </button>
-                        <button onClick={() => setShowImportModal(true)} className="bg-blue-100 text-blue-700 px-6 py-2 rounded-xl font-bold text-sm hover:bg-blue-200 transition-colors flex items-center gap-2">
-                            <Download className="w-4 h-4"/> Bulk Import
-                        </button>
-                    </div>
-
+                    <div className="flex flex-col md:flex-row gap-2 mb-6 bg-gray-50 p-4 rounded-xl border border-gray-200"><input value={newChapterTitle} onChange={e => setNewChapterTitle(e.target.value)} placeholder="New Chapter Title (e.g., Thermodynamics)" className="flex-1 p-3 bg-white border border-gray-200 rounded-xl text-gray-900 text-sm" /><button onClick={addChapter} className="bg-brand text-white px-6 py-2 rounded-xl font-bold text-sm hover:bg-brand-dark transition-colors">Add Chapter</button><button onClick={() => setShowImportModal(true)} className="bg-blue-100 text-blue-700 px-6 py-2 rounded-xl font-bold text-sm hover:bg-blue-200 transition-colors flex items-center gap-2"><Download className="w-4 h-4"/> Bulk Import</button></div>
                     {chapters.map((chapter, cIdx) => (
                         <div key={chapter.id} className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
-                            <div className="bg-gray-100 p-4 flex justify-between items-center">
-                                <h3 className="font-bold text-gray-800 text-lg">{chapter.title}</h3>
-                                <div className="flex gap-2">
-                                    <button onClick={() => setEditingChapterIdx(cIdx === editingChapterIdx ? null : cIdx)} className="text-xs font-bold bg-brand/10 text-brand px-3 py-1.5 rounded-lg hover:bg-brand/20">
-                                        {cIdx === editingChapterIdx ? 'Cancel' : '+ Add Video'}
-                                    </button>
-                                    <button onClick={() => deleteChapter(cIdx)} className="text-red-500 hover:text-red-700 p-1"><Trash2 className="w-5 h-5"/></button>
-                                </div>
-                            </div>
-
+                            <div className="bg-gray-100 p-4 flex justify-between items-center"><h3 className="font-bold text-gray-800 text-lg">{chapter.title}</h3><div className="flex gap-2"><button onClick={() => setEditingChapterIdx(cIdx === editingChapterIdx ? null : cIdx)} className="text-xs font-bold bg-brand/10 text-brand px-3 py-1.5 rounded-lg hover:bg-brand/20">{cIdx === editingChapterIdx ? 'Cancel' : '+ Add Video'}</button><button onClick={() => deleteChapter(cIdx)} className="text-red-500 hover:text-red-700 p-1"><Trash2 className="w-5 h-5"/></button></div></div>
                             {editingChapterIdx === cIdx && (
-                                <div className="p-4 bg-blue-50 border-b border-blue-100 grid gap-3">
-                                    <h4 className="text-xs font-bold text-blue-700 uppercase">Add New Video</h4>
-                                    <input 
-                                        placeholder="Video Title" 
-                                        value={newVideo.title} 
-                                        onChange={e => setNewVideo({...newVideo, title: e.target.value})}
-                                        className="p-2.5 rounded-lg border border-blue-200 text-sm text-gray-900"
-                                    />
-                                    <div className="flex gap-2">
-                                        <input 
-                                            placeholder="Video URL / Filename" 
-                                            value={newVideo.filename} 
-                                            onChange={e => setNewVideo({...newVideo, filename: e.target.value})}
-                                            className="flex-1 p-2.5 rounded-lg border border-blue-200 text-sm text-gray-900"
-                                        />
-                                        <input 
-                                            placeholder="Duration (MM:SS)" 
-                                            value={newVideo.duration} 
-                                            onChange={e => setNewVideo({...newVideo, duration: e.target.value})}
-                                            className="w-32 p-2.5 rounded-lg border border-blue-200 text-sm text-gray-900"
-                                        />
-                                    </div>
-                                    <button onClick={() => addVideoToChapter(cIdx)} className="bg-blue-600 text-white py-2 rounded-lg font-bold text-sm shadow-md hover:bg-blue-700">
-                                        Add Video
-                                    </button>
-                                </div>
+                                <div className="p-4 bg-blue-50 border-b border-blue-100 grid gap-3"><h4 className="text-xs font-bold text-blue-700 uppercase">Add New Video</h4><input placeholder="Video Title" value={newVideo.title} onChange={e => setNewVideo({...newVideo, title: e.target.value})} className="p-2.5 rounded-lg border border-blue-200 text-sm text-gray-900" /><div className="flex gap-2"><input placeholder="Video URL / Filename" value={newVideo.filename} onChange={e => setNewVideo({...newVideo, filename: e.target.value})} className="flex-1 p-2.5 rounded-lg border border-blue-200 text-sm text-gray-900" /><input placeholder="Duration (MM:SS)" value={newVideo.duration} onChange={e => setNewVideo({...newVideo, duration: e.target.value})} className="w-32 p-2.5 rounded-lg border border-blue-200 text-sm text-gray-900" /></div><button onClick={() => addVideoToChapter(cIdx)} className="bg-blue-600 text-white py-2 rounded-lg font-bold text-sm shadow-md hover:bg-blue-700">Add Video</button></div>
                             )}
-
                             <div className="divide-y divide-gray-100">
-                                {chapter.videos.length === 0 ? (
-                                    <div className="p-4 text-center text-gray-400 text-sm italic">No videos yet.</div>
-                                ) : (
-                                    chapter.videos.map(video => (
-                                        <div key={video.id} className="p-3 pl-4 flex items-center justify-between hover:bg-gray-50 group">
-                                            <div className="flex items-center gap-3 overflow-hidden">
-                                                <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-none text-gray-500">
-                                                    <PlayCircle className="w-4 h-4" />
-                                                </div>
-                                                <div className="min-w-0">
-                                                    <p className="text-sm font-medium text-gray-900 truncate">{video.title}</p>
-                                                    <p className="text-[10px] text-gray-500 truncate max-w-[200px]">{video.filename}</p>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-4">
-                                                <span className="text-xs font-mono text-gray-400 bg-gray-100 px-2 py-1 rounded">{video.duration}</span>
-                                                <button onClick={() => deleteVideo(cIdx, video.id)} className="text-gray-300 hover:text-red-500 transition-colors">
-                                                    <X className="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))
-                                )}
+                                {chapter.videos.length === 0 ? <div className="p-4 text-center text-gray-400 text-sm italic">No videos yet.</div> : chapter.videos.map(video => (
+                                    <div key={video.id} className="p-3 pl-4 flex items-center justify-between hover:bg-gray-50 group"><div className="flex items-center gap-3 overflow-hidden"><div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-none text-gray-500"><PlayCircle className="w-4 h-4" /></div><div className="min-w-0"><p className="text-sm font-medium text-gray-900 truncate">{video.title}</p><p className="text-[10px] text-gray-500 truncate max-w-[200px]">{video.filename}</p></div></div><div className="flex items-center gap-4"><span className="text-xs font-mono text-gray-400 bg-gray-100 px-2 py-1 rounded">{video.duration}</span><button onClick={() => deleteVideo(cIdx, video.id)} className="text-gray-300 hover:text-red-500 transition-colors"><X className="w-4 h-4" /></button></div></div>
+                                ))}
                             </div>
                         </div>
                     ))}
                 </div>
-
-                <div className="mt-6 pt-4 border-t flex justify-end">
-                    <button onClick={handleSave} className="bg-gray-900 text-white px-8 py-3 rounded-xl font-bold hover:bg-black transition-colors shadow-lg">Save All Changes</button>
-                </div>
-
-                {showImportModal && (
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-6">
-                        <div className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl">
-                            <h3 className="text-xl font-bold mb-2">Import from Telegram / Text</h3>
-                            <p className="text-xs text-gray-500 mb-4">Paste content copied from a Telegram channel. Format: Title on one line, Link on the next.</p>
-                            <textarea 
-                                value={importText}
-                                onChange={e => setImportText(e.target.value)}
-                                className="w-full h-64 p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-mono"
-                                placeholder={`Chapter 1: Basics\n\nIntro Video\nhttps://youtu.be/...\n\nPart 2\nhttps://youtu.be/...`}
-                            />
-                            <div className="flex gap-2 mt-4">
-                                <button onClick={() => setShowImportModal(false)} className="flex-1 py-2 text-gray-500 font-bold">Cancel</button>
-                                <button onClick={handleImport} className="flex-1 py-2 bg-brand text-white rounded-xl font-bold">Parse & Import</button>
-                            </div>
-                        </div>
-                    </div>
-                )}
+                <div className="mt-6 pt-4 border-t flex justify-end"><button onClick={handleSave} className="bg-gray-900 text-white px-8 py-3 rounded-xl font-bold hover:bg-black transition-colors shadow-lg">Save All Changes</button></div>
+                {showImportModal && (<div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-6"><div className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl"><h3 className="text-xl font-bold mb-2">Import from Telegram / Text</h3><p className="text-xs text-gray-500 mb-4">Paste content copied from a Telegram channel. Format: Title on one line, Link on the next.</p><textarea value={importText} onChange={e => setImportText(e.target.value)} className="w-full h-64 p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-mono" placeholder={`Chapter 1: Basics\n\nIntro Video\nhttps://youtu.be/...\n\nPart 2\nhttps://youtu.be/...`} /><div className="flex gap-2 mt-4"><button onClick={() => setShowImportModal(false)} className="flex-1 py-2 text-gray-500 font-bold">Cancel</button><button onClick={handleImport} className="flex-1 py-2 bg-brand text-white rounded-xl font-bold">Parse & Import</button></div></div></div>)}
             </div>
         </div>
     );
@@ -1729,149 +1275,22 @@ const ExamManager = ({ course, onClose }: { course: Course, onClose: () => void 
     const [view, setView] = useState<'list' | 'edit'>('list');
     const [editingExam, setEditingExam] = useState<Exam | null>(null);
     const [examTitle, setExamTitle] = useState('');
-    
-    // Question Form
     const [qForm, setQForm] = useState({ question: '', options: ['', '', '', ''], correctAnswer: 0 });
 
-    const handleCreateExam = () => {
-        if(!examTitle.trim()) return;
-        const newExam: Exam = {
-            id: Date.now().toString(),
-            title: examTitle,
-            questions: []
-        };
-        setExams([...exams, newExam]);
-        updateCourse({ ...course, exams: [...exams, newExam] });
-        setExamTitle('');
-    };
-
-    const handleDeleteExam = (id: string) => {
-        if(!confirm("Delete Exam?")) return;
-        const updated = exams.filter(e => e.id !== id);
-        setExams(updated);
-        updateCourse({ ...course, exams: updated });
-    };
-
-    const handleEditExam = (exam: Exam) => {
-        setEditingExam(exam);
-        setView('edit');
-    };
-
-    const handleAddQuestion = () => {
-        if(!editingExam || !qForm.question.trim()) return;
-        const newQ: Question = {
-            id: Date.now().toString(),
-            question: qForm.question,
-            options: qForm.options,
-            correctAnswer: qForm.correctAnswer
-        };
-        
-        const updatedExam = { ...editingExam, questions: [...editingExam.questions, newQ] };
-        setEditingExam(updatedExam);
-        
-        // Update globally
-        const updatedExams = exams.map(e => e.id === updatedExam.id ? updatedExam : e);
-        setExams(updatedExams);
-        updateCourse({ ...course, exams: updatedExams });
-        
-        // Reset form
-        setQForm({ question: '', options: ['', '', '', ''], correctAnswer: 0 });
-    };
-
-    const handleDeleteQuestion = (qId: string) => {
-        if(!editingExam) return;
-        const updatedExam = { ...editingExam, questions: editingExam.questions.filter(q => q.id !== qId) };
-        setEditingExam(updatedExam);
-        const updatedExams = exams.map(e => e.id === updatedExam.id ? updatedExam : e);
-        setExams(updatedExams);
-        updateCourse({ ...course, exams: updatedExams });
-    };
+    const handleCreateExam = () => { if(!examTitle.trim()) return; const newExam: Exam = { id: Date.now().toString(), title: examTitle, questions: [] }; setExams([...exams, newExam]); updateCourse({ ...course, exams: [...exams, newExam] }); setExamTitle(''); };
+    const handleDeleteExam = (id: string) => { if(!confirm("Delete Exam?")) return; const updated = exams.filter(e => e.id !== id); setExams(updated); updateCourse({ ...course, exams: updated }); };
+    const handleEditExam = (exam: Exam) => { setEditingExam(exam); setView('edit'); };
+    const handleAddQuestion = () => { if(!editingExam || !qForm.question.trim()) return; const newQ: Question = { id: Date.now().toString(), question: qForm.question, options: qForm.options, correctAnswer: qForm.correctAnswer }; const updatedExam = { ...editingExam, questions: [...editingExam.questions, newQ] }; setEditingExam(updatedExam); const updatedExams = exams.map(e => e.id === updatedExam.id ? updatedExam : e); setExams(updatedExams); updateCourse({ ...course, exams: updatedExams }); setQForm({ question: '', options: ['', '', '', ''], correctAnswer: 0 }); };
+    const handleDeleteQuestion = (qId: string) => { if(!editingExam) return; const updatedExam = { ...editingExam, questions: editingExam.questions.filter(q => q.id !== qId) }; setEditingExam(updatedExam); const updatedExams = exams.map(e => e.id === updatedExam.id ? updatedExam : e); setExams(updatedExams); updateCourse({ ...course, exams: updatedExams }); };
 
     return (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="bg-white w-full max-w-2xl rounded-3xl p-6 h-[80vh] flex flex-col">
-                <div className="flex justify-between items-center mb-6 border-b pb-4">
-                    <h2 className="text-xl font-bold text-gray-900">
-                        {view === 'list' ? 'Manage Exams' : `Editing: ${editingExam?.title}`}
-                    </h2>
-                    <div className="flex gap-2">
-                        {view === 'edit' && <button onClick={() => setView('list')} className="text-sm font-bold text-gray-500 hover:text-gray-800">Back to List</button>}
-                        <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full"><X className="w-5 h-5"/></button>
-                    </div>
-                </div>
-
+                <div className="flex justify-between items-center mb-6 border-b pb-4"><h2 className="text-xl font-bold text-gray-900">{view === 'list' ? 'Manage Exams' : `Editing: ${editingExam?.title}`}</h2><div className="flex gap-2">{view === 'edit' && <button onClick={() => setView('list')} className="text-sm font-bold text-gray-500 hover:text-gray-800">Back to List</button>}<button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full"><X className="w-5 h-5"/></button></div></div>
                 {view === 'list' ? (
-                    <div className="flex flex-col gap-4">
-                         <div className="flex gap-2 mb-4">
-                             <input value={examTitle} onChange={e => setExamTitle(e.target.value)} placeholder="New Exam Title" className="flex-1 p-3 bg-gray-50 rounded-xl border border-gray-200" />
-                             <button onClick={handleCreateExam} className="bg-brand text-white px-4 rounded-xl font-bold">Create</button>
-                         </div>
-                         <div className="space-y-2">
-                             {exams.map(ex => (
-                                 <div key={ex.id} className="p-4 border border-gray-200 rounded-xl flex justify-between items-center hover:bg-gray-50">
-                                     <span className="font-bold text-gray-800">{ex.title} <span className="text-gray-400 text-xs ml-2">({ex.questions.length} Qs)</span></span>
-                                     <div className="flex gap-2">
-                                         <button onClick={() => handleEditExam(ex)} className="text-blue-600 hover:text-blue-800"><Edit className="w-4 h-4"/></button>
-                                         <button onClick={() => handleDeleteExam(ex.id)} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4"/></button>
-                                     </div>
-                                 </div>
-                             ))}
-                             {exams.length === 0 && <p className="text-center text-gray-400 py-4">No exams created.</p>}
-                         </div>
-                    </div>
+                    <div className="flex flex-col gap-4"><div className="flex gap-2 mb-4"><input value={examTitle} onChange={e => setExamTitle(e.target.value)} placeholder="New Exam Title" className="flex-1 p-3 bg-gray-50 rounded-xl border border-gray-200" /><button onClick={handleCreateExam} className="bg-brand text-white px-4 rounded-xl font-bold">Create</button></div><div className="space-y-2">{exams.map(ex => (<div key={ex.id} className="p-4 border border-gray-200 rounded-xl flex justify-between items-center hover:bg-gray-50"><span className="font-bold text-gray-800">{ex.title} <span className="text-gray-400 text-xs ml-2">({ex.questions.length} Qs)</span></span><div className="flex gap-2"><button onClick={() => handleEditExam(ex)} className="text-blue-600 hover:text-blue-800"><Edit className="w-4 h-4"/></button><button onClick={() => handleDeleteExam(ex.id)} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4"/></button></div></div>))}{exams.length === 0 && <p className="text-center text-gray-400 py-4">No exams created.</p>}</div></div>
                 ) : (
-                    <div className="flex-1 overflow-y-auto pr-2">
-                        {/* Add Question Form */}
-                        <div className="bg-gray-50 p-4 rounded-xl mb-6 border border-gray-200">
-                            <h4 className="font-bold text-sm text-gray-700 mb-3">Add Question</h4>
-                            <textarea 
-                                placeholder="Question Text" 
-                                className="w-full p-2 rounded-lg border border-gray-300 mb-2 text-sm"
-                                value={qForm.question}
-                                onChange={e => setQForm({...qForm, question: e.target.value})}
-                            />
-                            <div className="grid grid-cols-2 gap-2 mb-2">
-                                {qForm.options.map((opt, i) => (
-                                    <div key={i} className="flex gap-1">
-                                        <input 
-                                            placeholder={`Option ${i+1}`}
-                                            className={`flex-1 p-2 rounded-lg border text-sm ${qForm.correctAnswer === i ? 'border-green-500 ring-1 ring-green-500' : 'border-gray-300'}`}
-                                            value={opt}
-                                            onChange={e => {
-                                                const newOpts = [...qForm.options];
-                                                newOpts[i] = e.target.value;
-                                                setQForm({...qForm, options: newOpts});
-                                            }}
-                                        />
-                                        <button 
-                                           onClick={() => setQForm({...qForm, correctAnswer: i})}
-                                           className={`p-2 rounded-lg border ${qForm.correctAnswer === i ? 'bg-green-500 text-white border-green-500' : 'bg-white text-gray-400 border-gray-300'}`}
-                                        >
-                                           <CheckCircle className="w-4 h-4"/>
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                            <button onClick={handleAddQuestion} className="w-full bg-blue-600 text-white py-2 rounded-lg font-bold text-sm">Add Question</button>
-                        </div>
-
-                        {/* Question List */}
-                        <div className="space-y-3">
-                            {editingExam?.questions.map((q, i) => (
-                                <div key={q.id} className="p-4 border border-gray-200 rounded-xl relative group">
-                                    <button onClick={() => handleDeleteQuestion(q.id)} className="absolute top-2 right-2 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-4 h-4"/></button>
-                                    <p className="font-bold text-sm text-gray-800 mb-2"><span className="text-gray-400 mr-2">Q{i+1}.</span>{q.question}</p>
-                                    <div className="grid grid-cols-2 gap-2">
-                                        {q.options.map((o, idx) => (
-                                            <div key={idx} className={`text-xs p-1.5 rounded ${idx === q.correctAnswer ? 'bg-green-50 text-green-700 font-bold' : 'bg-gray-50 text-gray-500'}`}>
-                                                {o}
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
+                    <div className="flex-1 overflow-y-auto pr-2"><div className="bg-gray-50 p-4 rounded-xl mb-6 border border-gray-200"><h4 className="font-bold text-sm text-gray-700 mb-3">Add Question</h4><textarea placeholder="Question Text" className="w-full p-2 rounded-lg border border-gray-300 mb-2 text-sm" value={qForm.question} onChange={e => setQForm({...qForm, question: e.target.value})}/><div className="grid grid-cols-2 gap-2 mb-2">{qForm.options.map((opt, i) => (<div key={i} className="flex gap-1"><input placeholder={`Option ${i+1}`} className={`flex-1 p-2 rounded-lg border text-sm ${qForm.correctAnswer === i ? 'border-green-500 ring-1 ring-green-500' : 'border-gray-300'}`} value={opt} onChange={e => { const newOpts = [...qForm.options]; newOpts[i] = e.target.value; setQForm({...qForm, options: newOpts}); }}/><button onClick={() => setQForm({...qForm, correctAnswer: i})} className={`p-2 rounded-lg border ${qForm.correctAnswer === i ? 'bg-green-500 text-white border-green-500' : 'bg-white text-gray-400 border-gray-300'}`}><CheckCircle className="w-4 h-4"/></button></div>))}</div><button onClick={handleAddQuestion} className="w-full bg-blue-600 text-white py-2 rounded-lg font-bold text-sm">Add Question</button></div><div className="space-y-3">{editingExam?.questions.map((q, i) => (<div key={q.id} className="p-4 border border-gray-200 rounded-xl relative group"><button onClick={() => handleDeleteQuestion(q.id)} className="absolute top-2 right-2 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-4 h-4"/></button><p className="font-bold text-sm text-gray-800 mb-2"><span className="text-gray-400 mr-2">Q{i+1}.</span>{q.question}</p><div className="grid grid-cols-2 gap-2">{q.options.map((o, idx) => (<div key={idx} className={`text-xs p-1.5 rounded ${idx === q.correctAnswer ? 'bg-green-50 text-green-700 font-bold' : 'bg-gray-50 text-gray-500'}`}>{o}</div>))}</div></div>))}</div></div>
                 )}
             </div>
         </div>
@@ -1950,7 +1369,6 @@ const AdminPanel = () => {
             const separator = baseUrl.includes('?') ? '&' : '?';
             const fetchUrl = `${baseUrl}${separator}api=${settings.linkShortenerApiKey}&url=${encodedDest}`;
             
-            // Try fetch with fallback for CORS on Vercel
             let response;
             try {
                 response = await fetch(fetchUrl);
@@ -2008,7 +1426,7 @@ const AdminPanel = () => {
              {tab === 'settings' && <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100"><form onSubmit={(e) => { e.preventDefault(); const formData = new FormData(e.currentTarget); updateSettings({ ...settings, appName: formData.get('appName') as string, adminEmail: formData.get('adminEmail') as string, supportPhone: formData.get('supportPhone') as string, uiColor: formData.get('uiColor') as string, videoApiKey: formData.get('videoApiKey') as string, linkShortenerApiUrl: formData.get('linkShortenerApiUrl') as string, linkShortenerApiKey: formData.get('linkShortenerApiKey') as string, adsCode: formData.get('adsCode') as string }); alert('Settings Saved!'); }} className="space-y-4"><div><label className="text-xs font-bold text-gray-500 uppercase">App Name</label><input name="appName" defaultValue={settings.appName} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" /></div><div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-gray-500 uppercase">Brand Color</label><div className="flex gap-2 mt-1"><input type="color" name="uiColor" defaultValue={settings.uiColor} className="h-10 w-10 rounded-lg cursor-pointer" /><input type="text" defaultValue={settings.uiColor} className="flex-1 p-2 bg-gray-50 border border-gray-200 rounded-xl uppercase text-gray-900 placeholder:text-gray-500" readOnly /></div></div><div><label className="text-xs font-bold text-gray-500 uppercase">Admin Email</label><input name="adminEmail" defaultValue={settings.adminEmail} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" /></div></div><div><label className="text-xs font-bold text-gray-500 uppercase">Support Contact (Phone or Telegram)</label><input name="supportPhone" defaultValue={settings.supportPhone} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" /></div><div className="bg-gray-50 p-4 rounded-xl border border-gray-200"><h4 className="font-bold text-gray-900 mb-3 text-sm">Link Shortener Configuration</h4><div className="grid gap-3"><div><label className="text-xs font-bold text-gray-500 uppercase">API URL (e.g. reel2earn.com/api)</label><input name="linkShortenerApiUrl" defaultValue={settings.linkShortenerApiUrl} placeholder="https://..." className="w-full p-3 bg-white border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" /></div><div><label className="text-xs font-bold text-gray-500 uppercase">API Key</label><input name="linkShortenerApiKey" defaultValue={settings.linkShortenerApiKey} className="w-full p-3 bg-white border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" /></div></div></div><div><label className="text-xs font-bold text-gray-500 uppercase">Ad Code (HTML)</label><textarea name="adsCode" defaultValue={settings.adsCode} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl mt-1 font-mono text-xs text-gray-900 placeholder:text-gray-500" rows={3} /></div><button className="w-full bg-brand text-white py-3 rounded-xl font-bold">Save Settings</button></form></div>}
              {showCourseModal && (<div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"><div className="bg-white w-full max-w-lg rounded-3xl p-6 max-h-[90vh] overflow-y-auto"><h2 className="text-xl font-bold mb-4 text-gray-900">{editingCourse ? 'Edit Batch' : 'New Batch'}</h2><form onSubmit={handleSaveCourse} className="space-y-3"><input name="title" defaultValue={editingCourse?.title} placeholder="Batch Title" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required /><textarea name="description" defaultValue={editingCourse?.description} placeholder="Description" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" rows={2} required /><input name="image" defaultValue={editingCourse?.image} placeholder="Image URL" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required /><input name="category" defaultValue={editingCourse?.category} placeholder="Category (e.g. Science)" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required /><div className="grid grid-cols-2 gap-3"><input type="number" name="price" defaultValue={editingCourse?.price} placeholder="Price" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" /><input type="number" name="mrp" defaultValue={editingCourse?.mrp} placeholder="MRP" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" /></div><div className="flex items-center gap-3 bg-gray-50 p-3 rounded-xl"><input type="checkbox" name="isPaid" defaultChecked={editingCourse?.isPaid} id="isPaid" className="w-5 h-5 accent-brand" /><label htmlFor="isPaid" className="font-medium text-gray-700">Premium Course (Locked)</label></div><input name="accessKey" defaultValue={editingCourse?.accessKey} placeholder="Access Key (if Premium)" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" /><input name="telegramChannelLink" defaultValue={editingCourse?.telegramChannelLink} placeholder="Telegram Channel Link (Optional)" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" /><div className="flex gap-2"><input name="shortenerLink" ref={linkInputRef} defaultValue={editingCourse?.shortenerLink} placeholder="Temp Access Short Link" className="flex-1 p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" />{editingCourse && (<button type="button" onClick={handleGenerateLink} disabled={isGeneratingLink} className="bg-gray-100 text-gray-600 px-3 rounded-xl font-bold text-xs hover:bg-gray-200 disabled:opacity-50">{isGeneratingLink ? <Loader2 className="w-4 h-4 animate-spin"/> : 'Generate'}</button>)}</div><div className="flex gap-3 pt-4"><button type="button" onClick={() => setShowCourseModal(false)} className="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-100 rounded-xl">Cancel</button><button type="submit" className="flex-1 py-3 bg-brand text-white font-bold rounded-xl shadow-lg shadow-brand/20">Save Batch</button></div></form></div></div>)}
              {showUserModal && (<div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"><div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl"><h2 className="text-xl font-bold mb-4 text-gray-900">Add New User</h2><form onSubmit={handleAddUser} className="space-y-3"><input name="name" placeholder="Full Name" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required /><input name="email" type="email" placeholder="Email Address" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required /><input name="phone" placeholder="Phone Number" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" /><input name="password" type="password" placeholder="Password" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required /><div><label className="text-xs font-bold text-gray-500 uppercase ml-1">Role</label><select name="role" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 mt-1"><option value={UserRole.USER}>Student (User)</option><option value={UserRole.EDITOR}>Editor (Manager)</option><option value={UserRole.ADMIN}>Admin</option></select></div><div className="flex gap-3 pt-4"><button type="button" onClick={() => setShowUserModal(false)} className="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-100 rounded-xl">Cancel</button><button type="submit" className="flex-1 py-3 bg-brand text-white font-bold rounded-xl shadow-lg shadow-brand/20">Create User</button></div></form></div></div>)}
-             {showEnrollModal && (<div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"><div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl"><h2 className="text-xl font-bold mb-4 text-gray-900">Enroll User in Batch</h2><div className="space-y-2 max-h-[60vh] overflow-y-auto">{courses.map(c => { const targetUser = users.find(u => u.id === showEnrollModal); const isEnrolled = targetUser?.purchasedCourseIds.includes(c.id); return (<button key={c.id} disabled={isEnrolled} onClick={() => { addCourseToUser(showEnrollModal, c.id); setShowEnrollModal(null); }} className={`w-full text-left p-3 rounded-xl border flex items-center justify-between ${isEnrolled ? 'bg-green-50 border-green-200 cursor-default' : 'bg-white border-gray-200 hover:bg-gray-50'}`}><span className={`text-sm font-bold ${isEnrolled ? 'text-green-700' : 'text-gray-700'}`}>{c.title}</span>{isEnrolled && <CheckCircle className="w-4 h-4 text-green-600"/>}</button>); })}</div><button onClick={() => setShowEnrollModal(null)} className="w-full mt-4 py-3 bg-gray-100 text-gray-600 font-bold rounded-xl hover:bg-gray-200">Cancel</button></div></div>)}
+             {showEnrollModal && (<div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"><div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl"><h2 className="text-xl font-bold mb-4 text-gray-900">Enroll User in Batch</h2><div className="space-y-2 max-h-[60vh] overflow-y-auto">{courses.map(c => { const targetUser = users.find(u => u.id === showEnrollModal); const isEnrolled = targetUser?.purchasedCourseIds.includes(c.id); return (<button key={c.id} disabled={isEnrolled} onClick={() => { if(showEnrollModal) { addCourseToUser(showEnrollModal, c.id); setShowEnrollModal(null); } }} className={`w-full text-left p-3 rounded-xl border flex items-center justify-between ${isEnrolled ? 'bg-green-50 border-green-200 cursor-default' : 'bg-white border-gray-200 hover:bg-gray-50'}`}><span className={`text-sm font-bold ${isEnrolled ? 'text-green-700' : 'text-gray-700'}`}>{c.title}</span>{isEnrolled && <CheckCircle className="w-4 h-4 text-green-600"/>}</button>); })}</div><button onClick={() => setShowEnrollModal(null)} className="w-full mt-4 py-3 bg-gray-100 text-gray-600 font-bold rounded-xl hover:bg-gray-200">Cancel</button></div></div>)}
              {showExamManager && <ExamManager course={showExamManager} onClose={() => setShowExamManager(null)} />}
              {showContentManager && <ContentManager course={showContentManager} onClose={() => setShowContentManager(null)} />}
         </div>

@@ -262,6 +262,11 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
         }
         return u;
     }));
+    
+    // Also update current user state if the admin is modifying themselves
+    if (currentUser && currentUser.id === userId && !currentUser.purchasedCourseIds.includes(courseId)) {
+        setCurrentUser({ ...currentUser, purchasedCourseIds: [...currentUser.purchasedCourseIds, courseId] });
+    }
   };
 
   const removeCourseFromUser = (userId: string, courseId: string) => {
@@ -271,6 +276,11 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
         }
         return u;
     }));
+
+    // Also update current user state if the admin is modifying themselves
+    if (currentUser && currentUser.id === userId) {
+        setCurrentUser({ ...currentUser, purchasedCourseIds: currentUser.purchasedCourseIds.filter(id => id !== courseId) });
+    }
   };
 
   const grantTempAccess = (courseId: string) => {

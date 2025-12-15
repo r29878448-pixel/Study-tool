@@ -5,7 +5,7 @@ import { StoreProvider, useStore } from '../store';
 import { 
   Home, BookOpen, User, HelpCircle, Menu, LogOut, 
   Search, PlayCircle, Lock, LayoutDashboard, Settings, Plus, Trash2, Edit, Save, X, ChevronDown, 
-  MessageCircle, CheckCircle, FileText, Download, ClipboardList, Timer, Clock, Key, ExternalLink, Play, Bot, Brain, Loader2, ArrowLeft, Video as VideoIcon
+  MessageCircle, CheckCircle, FileText, Download, ClipboardList, Timer, Clock, Key, ExternalLink, Play, Bot, Brain, Loader2, ArrowLeft, Video as VideoIcon, Upload
 } from '../components/Icons';
 import VideoPlayer from '../components/VideoPlayer';
 import ChatBot from '../components/ChatBot';
@@ -561,27 +561,19 @@ const Watch = () => {
     const [quizLoading, setQuizLoading] = useState(false);
     const [quizScore, setQuizScore] = useState<number | null>(null);
     const [userAnswers, setUserAnswers] = useState<number[]>([]);
-    
-    // Notes State
     const [noteGenerating, setNoteGenerating] = useState(false);
     const [generatedNote, setGeneratedNote] = useState<SavedNote | null>(null);
     const [showNoteModal, setShowNoteModal] = useState(false);
-
     const navigate = useNavigate();
-
     const course = courses.find(c => c.id === courseId);
-    
-    // Flatten videos to get a playlist
     const allVideos: { video: Video, chapterId: string, chapterTitle: string }[] = [];
     course?.chapters.forEach(chap => {
         chap.videos.forEach(vid => {
             allVideos.push({ video: vid, chapterId: chap.id, chapterTitle: chap.title });
         });
     });
-
     const [currentVideoIdx, setCurrentVideoIdx] = useState(0);
 
-    // Initial load
     useEffect(() => {
         if(allVideos.length > 0) {
             setCurrentVideo(allVideos[currentVideoIdx].video);
@@ -590,9 +582,7 @@ const Watch = () => {
     }, [currentVideoIdx, courses]);
 
     const handleVideoProgress = (currentTime: number, duration: number) => {
-        if (currentVideo) {
-            saveVideoProgress(currentVideo.id, currentTime, duration);
-        }
+        if (currentVideo) saveVideoProgress(currentVideo.id, currentTime, duration);
     };
 
     const generateAiQuiz = async () => {
@@ -601,34 +591,25 @@ const Watch = () => {
         setShowQuiz(true);
         setQuizScore(null);
         setUserAnswers([]);
-
         const existingQuiz = currentUser?.generatedQuizzes?.find(q => q.videoId === currentVideo.id);
         if (existingQuiz) {
             setQuizQuestions(existingQuiz.questions);
             setQuizLoading(false);
             return;
         }
-
         try {
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-            const prompt = `Create 5 multiple choice questions based on the topic "${currentVideo.title}" from the course "${course?.title}". 
-            Format strictly as a JSON array of objects with keys: "id", "question", "options" (array of 4 strings), "correctAnswer" (number index 0-3).`;
-
+            const prompt = `Create 5 multiple choice questions based on the topic "${currentVideo.title}" from the course "${course?.title}". Format strictly as a JSON array of objects with keys: "id", "question", "options" (array of 4 strings), "correctAnswer" (number index 0-3).`;
             const response = await ai.models.generateContent({
                 model: 'gemini-2.5-flash',
                 contents: prompt,
                 config: { responseMimeType: 'application/json' }
             });
-
             const text = response.text;
             if (text) {
                 const data = JSON.parse(text);
                 setQuizQuestions(data);
-                saveAiQuiz({
-                    videoId: currentVideo.id,
-                    questions: data,
-                    generatedAt: new Date().toISOString()
-                });
+                saveAiQuiz({ videoId: currentVideo.id, questions: data, generatedAt: new Date().toISOString() });
             }
         } catch (e) {
             console.error(e);
@@ -644,56 +625,23 @@ const Watch = () => {
         setNoteGenerating(true);
         setShowNoteModal(true);
         setGeneratedNote(null);
-
         try {
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-            
-            // 1. Generate Text Content
-            const textPrompt = `You are an expert CBSE school teacher. Create comprehensive, concise, point-wise study notes for the topic "${currentVideo.title}" from the chapter "${allVideos[currentVideoIdx].chapterTitle}" in the course "${course.title}".
-            STRICTLY follow the latest CBSE 2025-26 syllabus.
-            Exclude irrelevant information.
-            Use bold headings and bullet points.
-            The output must be in Markdown format.`;
-
-            const textResponse = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: textPrompt,
-            });
-            
+            const textPrompt = `You are an expert CBSE school teacher. Create comprehensive, concise, point-wise study notes for the topic "${currentVideo.title}" from the chapter "${allVideos[currentVideoIdx].chapterTitle}" in the course "${course.title}". STRICTLY follow the latest CBSE 2025-26 syllabus. Exclude irrelevant information. Use bold headings and bullet points. The output must be in Markdown format.`;
+            const textResponse = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: textPrompt });
             const markdownContent = textResponse.text || "No content generated.";
-
-            // 2. Generate Image Diagram
             const imagePrompt = `Draw a clear, educational diagram or flowchart explaining the concept of "${currentVideo.title}" suitable for school students. White background, black lines, simple style.`;
-            
-            const note: SavedNote = {
-                id: Date.now().toString(),
-                videoId: currentVideo.id,
-                videoTitle: currentVideo.title,
-                courseTitle: course.title,
-                content: markdownContent,
-                generatedAt: new Date().toISOString(),
-                syllabusVersion: 'CBSE 2025-26',
-                imageUrl: undefined // We will try to fill this if we can
-            };
-
+            const note: SavedNote = { id: Date.now().toString(), videoId: currentVideo.id, videoTitle: currentVideo.title, courseTitle: course.title, content: markdownContent, generatedAt: new Date().toISOString(), syllabusVersion: 'CBSE 2025-26', imageUrl: undefined };
             try {
-                 const imageResponse = await ai.models.generateContent({
-                    model: 'gemini-2.5-flash-image',
-                    contents: imagePrompt,
-                 });
-                 
+                 const imageResponse = await ai.models.generateContent({ model: 'gemini-2.5-flash-image', contents: imagePrompt });
                  for (const part of imageResponse.candidates?.[0]?.content?.parts || []) {
                     if (part.inlineData) {
                         note.imageUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
                         break;
                     }
                  }
-            } catch (imgErr) {
-                console.warn("Image generation failed or model not available, proceeding with text only", imgErr);
-            }
-
+            } catch (imgErr) { console.warn("Image generation failed or model not available, proceeding with text only", imgErr); }
             setGeneratedNote(note);
-
         } catch (e) {
             console.error("Note generation failed", e);
             alert("Failed to generate notes. Please try again.");
@@ -704,45 +652,30 @@ const Watch = () => {
     };
 
     const handleSaveNote = () => {
-        if (generatedNote) {
-            saveNote(generatedNote);
-            alert("Notes saved to your profile!");
-            setShowNoteModal(false);
-        }
+        if (generatedNote) { saveNote(generatedNote); alert("Notes saved to your profile!"); setShowNoteModal(false); }
     };
 
     const handleDownloadNote = () => {
         if (!generatedNote) return;
-        
-        // Simple text download
         const element = document.createElement("a");
         const file = new Blob([generatedNote.content], {type: 'text/plain'});
         element.href = URL.createObjectURL(file);
         element.download = `${generatedNote.videoTitle}_Notes.md`;
         document.body.appendChild(element);
         element.click();
-        
-        // Let's trigger window print for better UX
         setTimeout(() => window.print(), 500);
     };
 
     const submitQuiz = () => {
         let score = 0;
-        quizQuestions.forEach((q, i) => {
-            if (userAnswers[i] === q.correctAnswer) score++;
-        });
+        quizQuestions.forEach((q, i) => { if (userAnswers[i] === q.correctAnswer) score++; });
         setQuizScore(score);
     };
 
     if (!currentUser) return <Navigate to="/login" />;
     if (!course) return <Navigate to="/" />;
-
-    const hasAccess = currentUser.purchasedCourseIds.includes(course.id) || 
-                      (currentUser.tempAccess?.[course.id] && new Date(currentUser.tempAccess[course.id]) > new Date());
-
-    if (!hasAccess) {
-        return <Navigate to={`/course/${courseId}`} />;
-    }
+    const hasAccess = currentUser.purchasedCourseIds.includes(course.id) || (currentUser.tempAccess?.[course.id] && new Date(currentUser.tempAccess[course.id]) > new Date());
+    if (!hasAccess) return <Navigate to={`/course/${courseId}`} />;
 
     return (
         <div className="min-h-screen bg-gray-900 text-white flex flex-col md:flex-row h-screen overflow-hidden">
@@ -755,9 +688,7 @@ const Watch = () => {
                             onBack={() => navigate(`/course/${courseId}`)}
                             initialTime={currentUser.videoProgress?.[currentVideo.id]?.timestamp || 0}
                         />
-                    ) : (
-                        <div className="text-gray-500">Select a video</div>
-                    )}
+                    ) : <div className="text-gray-500">Select a video</div>}
                 </div>
                 <div className="p-4 bg-gray-900 border-t border-gray-800 flex justify-between items-center">
                     <div>
@@ -767,46 +698,25 @@ const Watch = () => {
                     <div className="flex gap-2">
                         {currentVideo && (
                             <>
-                                <button 
-                                    onClick={generateAiQuiz}
-                                    className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-indigo-700 transition-colors"
-                                >
-                                    <Brain className="w-4 h-4" /> Take AI Quiz
-                                </button>
-                                <button 
-                                    onClick={handleGenerateNotes}
-                                    className="bg-green-600 text-white px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-green-700 transition-colors"
-                                >
-                                    <FileText className="w-4 h-4" /> Generate Notes
-                                </button>
+                                <button onClick={generateAiQuiz} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-indigo-700 transition-colors"><Brain className="w-4 h-4" /> Take AI Quiz</button>
+                                <button onClick={handleGenerateNotes} className="bg-green-600 text-white px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-green-700 transition-colors"><FileText className="w-4 h-4" /> Generate Notes</button>
                             </>
                         )}
                     </div>
                 </div>
-
-                {/* AI Quiz Modal (Existing) */}
+                {/* AI Quiz Modal */}
                 {showQuiz && (
                     <div className="absolute inset-0 z-50 bg-gray-900/95 backdrop-blur-sm p-4 overflow-y-auto">
                         <div className="max-w-2xl mx-auto bg-gray-800 rounded-3xl p-6 border border-gray-700">
                             <div className="flex justify-between items-center mb-6">
-                                <h2 className="text-xl font-bold flex items-center gap-2">
-                                    <Brain className="text-indigo-400"/> 
-                                    Quiz: {currentVideo?.title}
-                                </h2>
-                                <button onClick={() => setShowQuiz(false)} className="p-2 hover:bg-gray-700 rounded-full">
-                                    <X className="w-5 h-5"/>
-                                </button>
+                                <h2 className="text-xl font-bold flex items-center gap-2"><Brain className="text-indigo-400"/> Quiz: {currentVideo?.title}</h2>
+                                <button onClick={() => setShowQuiz(false)} className="p-2 hover:bg-gray-700 rounded-full"><X className="w-5 h-5"/></button>
                             </div>
-
                             {quizLoading ? (
-                                <div className="py-20 flex flex-col items-center justify-center text-center">
-                                    <Loader2 className="w-12 h-12 text-indigo-500 animate-spin mb-4"/>
-                                    <p className="text-gray-400">Generating questions with AI...</p>
-                                </div>
+                                <div className="py-20 flex flex-col items-center justify-center text-center"><Loader2 className="w-12 h-12 text-indigo-500 animate-spin mb-4"/><p className="text-gray-400">Generating questions with AI...</p></div>
                             ) : (
                                 <div className="space-y-6">
                                     {quizQuestions.map((q, idx) => {
-                                        const isAnswered = userAnswers[idx] !== undefined;
                                         const showResult = quizScore !== null;
                                         return (
                                             <div key={idx} className="bg-gray-700/50 p-4 rounded-xl border border-gray-700">
@@ -818,149 +728,66 @@ const Watch = () => {
                                                             if (oIdx === q.correctAnswer) btnClass = "bg-green-900/50 border-green-500 text-green-200";
                                                             else if (userAnswers[idx] === oIdx) btnClass = "bg-red-900/50 border-red-500 text-red-200";
                                                             else btnClass = "bg-gray-800 border-gray-700 opacity-50";
-                                                        } else if (userAnswers[idx] === oIdx) {
-                                                            btnClass = "bg-indigo-600 border-indigo-500";
-                                                        }
-                                                        return (
-                                                            <button 
-                                                                key={oIdx}
-                                                                disabled={showResult}
-                                                                onClick={() => {
-                                                                    const newAns = [...userAnswers];
-                                                                    newAns[idx] = oIdx;
-                                                                    setUserAnswers(newAns);
-                                                                }}
-                                                                className={`p-3 rounded-lg border text-left text-sm font-medium transition-all ${btnClass}`}
-                                                            >
-                                                                {opt}
-                                                            </button>
-                                                        );
+                                                        } else if (userAnswers[idx] === oIdx) btnClass = "bg-indigo-600 border-indigo-500";
+                                                        return (<button key={oIdx} disabled={showResult} onClick={() => { const newAns = [...userAnswers]; newAns[idx] = oIdx; setUserAnswers(newAns); }} className={`p-3 rounded-lg border text-left text-sm font-medium transition-all ${btnClass}`}>{opt}</button>);
                                                     })}
                                                 </div>
                                             </div>
                                         );
                                     })}
                                     {quizScore === null ? (
-                                        <button 
-                                            onClick={submitQuiz}
-                                            disabled={userAnswers.filter(a => a !== undefined).length !== quizQuestions.length}
-                                            className="w-full py-3 bg-indigo-600 rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-indigo-700 transition-colors"
-                                        >
-                                            Submit Quiz
-                                        </button>
+                                        <button onClick={submitQuiz} disabled={userAnswers.filter(a => a !== undefined).length !== quizQuestions.length} className="w-full py-3 bg-indigo-600 rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-indigo-700 transition-colors">Submit Quiz</button>
                                     ) : (
-                                        <div className="text-center p-6 bg-gray-800 rounded-xl border border-gray-700">
-                                            <p className="text-gray-400 text-sm uppercase font-bold mb-1">Your Score</p>
-                                            <p className="text-4xl font-bold text-white mb-4">{quizScore} / {quizQuestions.length}</p>
-                                            <button onClick={() => setShowQuiz(false)} className="px-6 py-2 bg-gray-700 rounded-lg font-bold hover:bg-gray-600">Close</button>
-                                        </div>
+                                        <div className="text-center p-6 bg-gray-800 rounded-xl border border-gray-700"><p className="text-gray-400 text-sm uppercase font-bold mb-1">Your Score</p><p className="text-4xl font-bold text-white mb-4">{quizScore} / {quizQuestions.length}</p><button onClick={() => setShowQuiz(false)} className="px-6 py-2 bg-gray-700 rounded-lg font-bold hover:bg-gray-600">Close</button></div>
                                     )}
                                 </div>
                             )}
                         </div>
                     </div>
                 )}
-
                 {/* AI Notes Modal */}
                 {showNoteModal && (
                     <div className="absolute inset-0 z-50 bg-gray-900/95 backdrop-blur-sm p-4 overflow-y-auto">
                         <div className="max-w-3xl mx-auto bg-white text-gray-900 rounded-3xl p-8 border border-gray-200 shadow-2xl printable-content">
                             <div className="flex justify-between items-start mb-6 border-b pb-4 no-print">
-                                <div>
-                                    <h2 className="text-2xl font-display font-bold flex items-center gap-2 text-gray-900">
-                                        <FileText className="text-green-600"/> 
-                                        AI Study Notes
-                                    </h2>
-                                    <p className="text-sm text-gray-500 mt-1">Based on CBSE 2025-26 Syllabus</p>
-                                </div>
-                                <button onClick={() => setShowNoteModal(false)} className="p-2 hover:bg-gray-100 rounded-full text-gray-500">
-                                    <X className="w-6 h-6"/>
-                                </button>
+                                <div><h2 className="text-2xl font-display font-bold flex items-center gap-2 text-gray-900"><FileText className="text-green-600"/> AI Study Notes</h2><p className="text-sm text-gray-500 mt-1">Based on CBSE 2025-26 Syllabus</p></div>
+                                <button onClick={() => setShowNoteModal(false)} className="p-2 hover:bg-gray-100 rounded-full text-gray-500"><X className="w-6 h-6"/></button>
                             </div>
-
                             {noteGenerating ? (
-                                <div className="py-20 flex flex-col items-center justify-center text-center">
-                                    <Loader2 className="w-12 h-12 text-green-600 animate-spin mb-4"/>
-                                    <p className="text-gray-500 font-medium">Analyzing video and generating notes...</p>
-                                    <p className="text-xs text-gray-400 mt-2">Generating engaging diagrams...</p>
-                                </div>
+                                <div className="py-20 flex flex-col items-center justify-center text-center"><Loader2 className="w-12 h-12 text-green-600 animate-spin mb-4"/><p className="text-gray-500 font-medium">Analyzing video and generating notes...</p><p className="text-xs text-gray-400 mt-2">Generating engaging diagrams...</p></div>
                             ) : generatedNote ? (
                                 <div>
                                     <div className="prose max-w-none mb-6">
                                         <h1 className="text-3xl font-bold mb-2">{generatedNote.videoTitle}</h1>
                                         <p className="text-sm text-gray-500 mb-6 uppercase tracking-wider">{generatedNote.courseTitle} • {new Date(generatedNote.generatedAt).toLocaleDateString()}</p>
-                                        
-                                        {/* Render Image if available */}
-                                        {generatedNote.imageUrl && (
-                                            <div className="mb-6 p-2 border rounded-xl bg-gray-50 flex justify-center">
-                                                <img src={generatedNote.imageUrl} alt="AI Diagram" className="max-h-64 object-contain rounded-lg" />
-                                            </div>
-                                        )}
-
-                                        <div className="whitespace-pre-wrap text-sm md:text-base leading-relaxed text-gray-800">
-                                            {generatedNote.content}
-                                        </div>
+                                        {generatedNote.imageUrl && (<div className="mb-6 p-2 border rounded-xl bg-gray-50 flex justify-center"><img src={generatedNote.imageUrl} alt="AI Diagram" className="max-h-64 object-contain rounded-lg" /></div>)}
+                                        <div className="whitespace-pre-wrap text-sm md:text-base leading-relaxed text-gray-800">{generatedNote.content}</div>
                                     </div>
-
                                     <div className="flex gap-4 border-t pt-6 no-print">
-                                        <button 
-                                            onClick={handleSaveNote}
-                                            className="flex-1 py-3 bg-brand text-white rounded-xl font-bold shadow-lg shadow-brand/20 hover:bg-brand-dark transition-colors flex items-center justify-center gap-2"
-                                        >
-                                            <Save className="w-5 h-5" /> Save to Profile
-                                        </button>
-                                        <button 
-                                            onClick={handleDownloadNote}
-                                            className="flex-1 py-3 bg-gray-100 text-gray-800 rounded-xl font-bold hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
-                                        >
-                                            <Download className="w-5 h-5" /> Print / Download
-                                        </button>
+                                        <button onClick={handleSaveNote} className="flex-1 py-3 bg-brand text-white rounded-xl font-bold shadow-lg shadow-brand/20 hover:bg-brand-dark transition-colors flex items-center justify-center gap-2"><Save className="w-5 h-5" /> Save to Profile</button>
+                                        <button onClick={handleDownloadNote} className="flex-1 py-3 bg-gray-100 text-gray-800 rounded-xl font-bold hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"><Download className="w-5 h-5" /> Print / Download</button>
                                     </div>
                                 </div>
-                            ) : (
-                                <div className="text-center py-10 text-gray-500">Failed to load content.</div>
-                            )}
+                            ) : <div className="text-center py-10 text-gray-500">Failed to load content.</div>}
                         </div>
                     </div>
                 )}
             </div>
-
             <div className="w-full md:w-80 bg-gray-800 border-l border-gray-700 flex flex-col h-[40vh] md:h-full overflow-hidden">
-                <div className="p-4 border-b border-gray-700 bg-gray-800">
-                    <h2 className="font-bold text-lg">Course Content</h2>
-                    <p className="text-xs text-gray-400">{allVideos.length} Videos</p>
-                </div>
+                <div className="p-4 border-b border-gray-700 bg-gray-800"><h2 className="font-bold text-lg">Course Content</h2><p className="text-xs text-gray-400">{allVideos.length} Videos</p></div>
                 <div className="flex-1 overflow-y-auto">
                     {course.chapters.map((chap) => (
                         <div key={chap.id}>
-                            <div className="px-4 py-2 bg-gray-700/50 text-xs font-bold text-gray-300 uppercase sticky top-0 backdrop-blur-sm z-10">
-                                {chap.title}
-                            </div>
+                            <div className="px-4 py-2 bg-gray-700/50 text-xs font-bold text-gray-300 uppercase sticky top-0 backdrop-blur-sm z-10">{chap.title}</div>
                             {chap.videos.map((vid) => {
                                 const idx = allVideos.findIndex(v => v.video.id === vid.id);
                                 const isPlaying = idx === currentVideoIdx;
                                 const progress = currentUser.videoProgress?.[vid.id];
                                 const isCompleted = progress?.completed;
-
                                 return (
-                                    <button 
-                                        key={vid.id}
-                                        onClick={() => setCurrentVideoIdx(idx)}
-                                        className={`w-full text-left p-3 flex gap-3 hover:bg-gray-700 transition-colors border-b border-gray-700/50 ${isPlaying ? 'bg-gray-700 border-l-4 border-l-brand' : ''}`}
-                                    >
-                                        <div className="mt-1">
-                                            {isPlaying ? (
-                                                <div className="w-4 h-4 text-brand"><PlayCircle className="w-full h-full" fill="currentColor" /></div>
-                                            ) : isCompleted ? (
-                                                <CheckCircle className="w-4 h-4 text-green-500" />
-                                            ) : (
-                                                <div className="w-4 h-4 rounded-full border border-gray-500" />
-                                            )}
-                                        </div>
-                                        <div>
-                                            <p className={`text-sm font-medium ${isPlaying ? 'text-white' : 'text-gray-300'}`}>{vid.title}</p>
-                                            <p className="text-xs text-gray-500">{vid.duration}</p>
-                                        </div>
+                                    <button key={vid.id} onClick={() => setCurrentVideoIdx(idx)} className={`w-full text-left p-3 flex gap-3 hover:bg-gray-700 transition-colors border-b border-gray-700/50 ${isPlaying ? 'bg-gray-700 border-l-4 border-l-brand' : ''}`}>
+                                        <div className="mt-1">{isPlaying ? <div className="w-4 h-4 text-brand"><PlayCircle className="w-full h-full" fill="currentColor" /></div> : isCompleted ? <CheckCircle className="w-4 h-4 text-green-500" /> : <div className="w-4 h-4 rounded-full border border-gray-500" />}</div>
+                                        <div><p className={`text-sm font-medium ${isPlaying ? 'text-white' : 'text-gray-300'}`}>{vid.title}</p><p className="text-xs text-gray-500">{vid.duration}</p></div>
                                     </button>
                                 );
                             })}
@@ -1109,142 +936,6 @@ const Profile = () => {
    );
 };
 
-const AdminPanel = () => {
-    const { currentUser, courses, users, banners, settings, addCourse, updateCourse, deleteCourse, addBanner, deleteBanner, updateSettings, addUser, deleteUser, addCourseToUser } = useStore();
-    const [tab, setTab] = useState<'courses' | 'users' | 'banners' | 'settings'>('courses');
-    const [showCourseModal, setShowCourseModal] = useState(false);
-    const [editingCourse, setEditingCourse] = useState<Course | null>(null);
-    const [showExamManager, setShowExamManager] = useState<Course | null>(null);
-    const [showContentManager, setShowContentManager] = useState<Course | null>(null);
-    const [showUserModal, setShowUserModal] = useState(false);
-    const [isGeneratingLink, setIsGeneratingLink] = useState(false);
-    const linkInputRef = useRef<HTMLInputElement>(null);
-    const [showEnrollModal, setShowEnrollModal] = useState<string | null>(null); 
-    
-    if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.EDITOR)) return <Navigate to="/" />;
-
-    const handleSaveCourse = (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        const formData = new FormData(e.currentTarget);
-        const courseData: any = {
-            id: editingCourse?.id || Date.now().toString(),
-            title: formData.get('title') as string,
-            description: formData.get('description') as string,
-            image: formData.get('image') as string,
-            category: formData.get('category') as string,
-            price: Number(formData.get('price')),
-            mrp: Number(formData.get('mrp')),
-            isPaid: formData.get('isPaid') === 'on',
-            accessKey: formData.get('accessKey') as string,
-            telegramChannelLink: formData.get('telegramChannelLink') as string,
-            shortenerLink: formData.get('shortenerLink') as string,
-            chapters: editingCourse?.chapters || [],
-            exams: editingCourse?.exams || [],
-            createdAt: editingCourse?.createdAt || new Date().toISOString()
-        };
-        if (editingCourse) updateCourse(courseData); else addCourse(courseData);
-        setShowCourseModal(false); setEditingCourse(null);
-    };
-
-    const handleAddUser = (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        const formData = new FormData(e.currentTarget);
-        addUser({
-            id: Date.now().toString(),
-            name: formData.get('name') as string,
-            email: formData.get('email') as string,
-            password: formData.get('password') as string,
-            phone: formData.get('phone') as string,
-            role: formData.get('role') as UserRole,
-            purchasedCourseIds: [],
-            examResults: []
-        });
-        setShowUserModal(false);
-    };
-
-    const handleGenerateLink = async () => {
-        if(!settings.linkShortenerApiKey || !settings.linkShortenerApiUrl) {
-            alert("Please configure Link Shortener in Settings first!");
-            return;
-        }
-        const courseId = editingCourse?.id;
-        if(!courseId) { alert("Please save the batch first, then edit it to generate a link."); return; }
-
-        setIsGeneratingLink(true);
-        try {
-            let baseUrl = settings.linkShortenerApiUrl.trim();
-            if(baseUrl.endsWith('/')) baseUrl = baseUrl.slice(0, -1);
-
-            // Force production URL
-            const destinationUrl = `https://study-tool-rosy.vercel.app/#/verify/${courseId}`;
-            const encodedDest = encodeURIComponent(destinationUrl);
-            const separator = baseUrl.includes('?') ? '&' : '?';
-            const fetchUrl = `${baseUrl}${separator}api=${settings.linkShortenerApiKey}&url=${encodedDest}`;
-            
-            let response;
-            try {
-                response = await fetch(fetchUrl);
-            } catch (err) {
-                console.warn("Direct fetch failed, trying proxy", err);
-                response = await fetch(`https://corsproxy.io/?${encodeURIComponent(fetchUrl)}`);
-            }
-
-            const data = await response.json();
-            
-            if(data.status === 'success' || data.shortenedUrl || data.shortlink) {
-                const shortUrl = data.shortenedUrl || data.shortlink || data.url;
-                if(linkInputRef.current) {
-                    linkInputRef.current.value = shortUrl;
-                }
-            } else {
-                console.error("API Error Data:", data);
-                alert(`Failed to generate link. API Response: ${JSON.stringify(data)}`);
-            }
-        } catch(e) {
-            console.error(e);
-            alert("Network error. Please manually shorten this URL: https://study-tool-rosy.vercel.app/#/verify/" + courseId);
-        } finally {
-            setIsGeneratingLink(false);
-        }
-    };
-
-    return (
-        <div className="pb-24 pt-24 p-6 min-h-screen bg-gray-50">
-             <div className="flex justify-between items-center mb-6"><h1 className="text-3xl font-display font-bold text-gray-900">Batch & User Management</h1></div>
-             <div className="flex gap-2 overflow-x-auto pb-4 mb-4 no-scrollbar">
-                 {['courses', 'users', 'banners', 'settings'].map(t => (
-                     <button key={t} onClick={() => setTab(t as any)} className={`px-5 py-2.5 rounded-xl font-bold capitalize whitespace-nowrap transition-all ${tab === t ? 'bg-brand text-white shadow-lg shadow-brand/30' : 'bg-white text-gray-600 shadow-sm'}`}>{t === 'courses' ? 'Batches' : t}</button>
-                 ))}
-             </div>
-             {tab === 'courses' && (
-                 <div className="space-y-4">
-                     <button onClick={() => { setEditingCourse(null); setShowCourseModal(true); }} className="w-full py-4 bg-white border-2 border-dashed border-gray-300 rounded-2xl text-gray-400 font-bold flex items-center justify-center gap-2 hover:border-brand hover:text-brand transition-all"><Plus className="w-5 h-5" /> Add New Batch</button>
-                     {courses.map(c => (
-                         <div key={c.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row gap-4 items-start md:items-center">
-                             <img src={c.image} className="w-16 h-16 rounded-lg object-cover bg-gray-100" />
-                             <div className="flex-1"><h3 className="font-bold text-gray-900">{c.title}</h3><p className="text-xs text-gray-500">{c.chapters.length} Chapters • {c.isPaid ? `₹${c.price}` : 'Free'}</p></div>
-                             <div className="flex gap-2 flex-wrap">
-                                 <button onClick={() => setShowContentManager(c)} className="px-3 py-2 text-green-700 bg-green-50 rounded-lg hover:bg-green-100 font-bold text-xs flex items-center gap-1 shadow-sm border border-green-100" title="Manage Content"><VideoIcon className="w-4 h-4" /> Manage Content</button>
-                                 <button onClick={() => setShowExamManager(c)} className="p-2 text-purple-600 bg-purple-50 rounded-lg hover:bg-purple-100 border border-purple-100" title="Manage Exams"><ClipboardList className="w-4 h-4" /></button>
-                                 <button onClick={() => { setEditingCourse(c); setShowCourseModal(true); }} className="p-2 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 border border-blue-100" title="Edit"><Edit className="w-4 h-4" /></button>
-                                 <button onClick={() => { if(confirm('Delete course?')) deleteCourse(c.id); }} className="p-2 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 border border-red-100" title="Delete"><Trash2 className="w-4 h-4" /></button>
-                             </div>
-                         </div>
-                     ))}
-                 </div>
-             )}
-             {tab === 'users' && <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden"><div className="p-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center"><span className="font-bold text-gray-700">All Users ({users.length})</span><button onClick={() => setShowUserModal(true)} className="text-xs bg-brand text-white px-4 py-2 rounded-lg font-bold shadow-lg shadow-brand/20 hover:scale-105 transition-transform flex items-center gap-1"><Plus className="w-3 h-3" /> Create User / Manager</button></div><div className="divide-y divide-gray-100">{users.map(u => (<div key={u.id} className="p-4 flex flex-col md:flex-row justify-between items-start md:items-center hover:bg-gray-50 gap-4"><div><div className="flex items-center gap-2"><p className="font-bold text-sm text-gray-900">{u.name}</p><span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase ${u.role === UserRole.ADMIN ? 'bg-red-100 text-red-600' : u.role === UserRole.EDITOR ? 'bg-purple-100 text-purple-600' : 'bg-gray-100 text-gray-500'}`}>{u.role}</span></div><p className="text-xs text-gray-500">{u.email}</p><p className="text-[10px] text-gray-400 mt-1">Enrolled in: {u.purchasedCourseIds.length} Batches</p></div><div className="flex items-center gap-2"><button onClick={() => setShowEnrollModal(u.id)} className="text-xs font-bold bg-blue-50 text-blue-600 px-3 py-2 rounded-lg hover:bg-blue-100">Enroll</button>{u.role !== UserRole.ADMIN && (<button onClick={() => { if(confirm('Delete user?')) deleteUser(u.id); }} className="text-gray-400 hover:text-red-500 p-2"><Trash2 className="w-4 h-4" /></button>)}</div></div>))}</div></div>}
-             {tab === 'banners' && <div className="space-y-4"><div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100"><h3 className="font-bold mb-4 text-gray-900">Add Banner</h3><form onSubmit={(e) => { e.preventDefault(); const form = e.currentTarget; addBanner({ id: Date.now().toString(), image: form.image.value, link: form.link.value }); form.reset(); }} className="flex gap-2"><input name="image" placeholder="Image URL" className="flex-1 bg-gray-50 px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder:text-gray-500" required /><input name="link" placeholder="Link (Optional)" className="flex-1 bg-gray-50 px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder:text-gray-500" /><button className="bg-brand text-white px-4 py-2 rounded-xl font-bold text-sm">Add</button></form></div><div className="grid grid-cols-1 md:grid-cols-2 gap-4">{banners.map(b => (<div key={b.id} className="relative aspect-video rounded-xl overflow-hidden group"><img src={b.image} className="w-full h-full object-cover" /><button onClick={() => deleteBanner(b.id)} className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-4 h-4" /></button></div>))}</div></div>}
-             {tab === 'settings' && <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100"><form onSubmit={(e) => { e.preventDefault(); const formData = new FormData(e.currentTarget); updateSettings({ ...settings, appName: formData.get('appName') as string, adminEmail: formData.get('adminEmail') as string, supportPhone: formData.get('supportPhone') as string, uiColor: formData.get('uiColor') as string, videoApiKey: formData.get('videoApiKey') as string, linkShortenerApiUrl: formData.get('linkShortenerApiUrl') as string, linkShortenerApiKey: formData.get('linkShortenerApiKey') as string, adsCode: formData.get('adsCode') as string }); alert('Settings Saved!'); }} className="space-y-4"><div><label className="text-xs font-bold text-gray-500 uppercase">App Name</label><input name="appName" defaultValue={settings.appName} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" /></div><div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-gray-500 uppercase">Brand Color</label><div className="flex gap-2 mt-1"><input type="color" name="uiColor" defaultValue={settings.uiColor} className="h-10 w-10 rounded-lg cursor-pointer" /><input type="text" defaultValue={settings.uiColor} className="flex-1 p-2 bg-gray-50 border border-gray-200 rounded-xl uppercase text-gray-900 placeholder:text-gray-500" readOnly /></div></div><div><label className="text-xs font-bold text-gray-500 uppercase">Admin Email</label><input name="adminEmail" defaultValue={settings.adminEmail} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" /></div></div><div><label className="text-xs font-bold text-gray-500 uppercase">Support Contact (Phone or Telegram)</label><input name="supportPhone" defaultValue={settings.supportPhone} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" /></div><div className="bg-gray-50 p-4 rounded-xl border border-gray-200"><h4 className="font-bold text-gray-900 mb-3 text-sm">Link Shortener Configuration</h4><div className="grid gap-3"><div><label className="text-xs font-bold text-gray-500 uppercase">API URL (e.g. reel2earn.com/api)</label><input name="linkShortenerApiUrl" defaultValue={settings.linkShortenerApiUrl} placeholder="https://..." className="w-full p-3 bg-white border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" /></div><div><label className="text-xs font-bold text-gray-500 uppercase">API Key</label><input name="linkShortenerApiKey" defaultValue={settings.linkShortenerApiKey} className="w-full p-3 bg-white border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" /></div></div></div><div><label className="text-xs font-bold text-gray-500 uppercase">Ad Code (HTML)</label><textarea name="adsCode" defaultValue={settings.adsCode} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl mt-1 font-mono text-xs text-gray-900 placeholder:text-gray-500" rows={3} /></div><button className="w-full bg-brand text-white py-3 rounded-xl font-bold">Save Settings</button></form></div>}
-             {showCourseModal && (<div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"><div className="bg-white w-full max-w-lg rounded-3xl p-6 max-h-[90vh] overflow-y-auto"><h2 className="text-xl font-bold mb-4 text-gray-900">{editingCourse ? 'Edit Batch' : 'New Batch'}</h2><form onSubmit={handleSaveCourse} className="space-y-3"><input name="title" defaultValue={editingCourse?.title} placeholder="Batch Title" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required /><textarea name="description" defaultValue={editingCourse?.description} placeholder="Description" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" rows={2} required /><input name="image" defaultValue={editingCourse?.image} placeholder="Image URL" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required /><input name="category" defaultValue={editingCourse?.category} placeholder="Category (e.g. Science)" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required /><div className="grid grid-cols-2 gap-3"><input type="number" name="price" defaultValue={editingCourse?.price} placeholder="Price" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" /><input type="number" name="mrp" defaultValue={editingCourse?.mrp} placeholder="MRP" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" /></div><div className="flex items-center gap-3 bg-gray-50 p-3 rounded-xl"><input type="checkbox" name="isPaid" defaultChecked={editingCourse?.isPaid} id="isPaid" className="w-5 h-5 accent-brand" /><label htmlFor="isPaid" className="font-medium text-gray-700">Premium Course (Locked)</label></div><input name="accessKey" defaultValue={editingCourse?.accessKey} placeholder="Access Key (if Premium)" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" /><input name="telegramChannelLink" defaultValue={editingCourse?.telegramChannelLink} placeholder="Telegram Channel Link (Optional)" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" /><div className="flex gap-2"><input name="shortenerLink" ref={linkInputRef} defaultValue={editingCourse?.shortenerLink} placeholder="Temp Access Short Link" className="flex-1 p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" />{editingCourse && (<button type="button" onClick={handleGenerateLink} disabled={isGeneratingLink} className="bg-gray-100 text-gray-600 px-3 rounded-xl font-bold text-xs hover:bg-gray-200 disabled:opacity-50">{isGeneratingLink ? <Loader2 className="w-4 h-4 animate-spin"/> : 'Generate'}</button>)}</div><div className="flex gap-3 pt-4"><button type="button" onClick={() => setShowCourseModal(false)} className="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-100 rounded-xl">Cancel</button><button type="submit" className="flex-1 py-3 bg-brand text-white font-bold rounded-xl shadow-lg shadow-brand/20">Save Batch</button></div></form></div></div>)}
-             {showUserModal && (<div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"><div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl"><h2 className="text-xl font-bold mb-4 text-gray-900">Add New User</h2><form onSubmit={handleAddUser} className="space-y-3"><input name="name" placeholder="Full Name" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required /><input name="email" type="email" placeholder="Email Address" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required /><input name="phone" placeholder="Phone Number" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" /><input name="password" type="password" placeholder="Password" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required /><div><label className="text-xs font-bold text-gray-500 uppercase ml-1">Role</label><select name="role" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 mt-1"><option value={UserRole.USER}>Student (User)</option><option value={UserRole.EDITOR}>Editor (Manager)</option><option value={UserRole.ADMIN}>Admin</option></select></div><div className="flex gap-3 pt-4"><button type="button" onClick={() => setShowUserModal(false)} className="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-100 rounded-xl">Cancel</button><button type="submit" className="flex-1 py-3 bg-brand text-white font-bold rounded-xl shadow-lg shadow-brand/20">Create User</button></div></form></div></div>)}
-             {showEnrollModal && (<div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"><div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl"><h2 className="text-xl font-bold mb-4 text-gray-900">Enroll User in Batch</h2><div className="space-y-2 max-h-[60vh] overflow-y-auto">{courses.map(c => { const targetUser = users.find(u => u.id === showEnrollModal); const isEnrolled = targetUser?.purchasedCourseIds.includes(c.id); return (<button key={c.id} disabled={isEnrolled} onClick={() => { if(showEnrollModal) { addCourseToUser(showEnrollModal, c.id); setShowEnrollModal(null); } }} className={`w-full text-left p-3 rounded-xl border flex items-center justify-between ${isEnrolled ? 'bg-green-50 border-green-200 cursor-default' : 'bg-white border-gray-200 hover:bg-gray-50'}`}><span className={`text-sm font-bold ${isEnrolled ? 'text-green-700' : 'text-gray-700'}`}>{c.title}</span>{isEnrolled && <CheckCircle className="w-4 h-4 text-green-600"/>}</button>); })}</div><button onClick={() => setShowEnrollModal(null)} className="w-full mt-4 py-3 bg-gray-100 text-gray-600 font-bold rounded-xl hover:bg-gray-200">Cancel</button></div></div>)}
-             {showExamManager && <ExamManager course={showExamManager} onClose={() => setShowExamManager(null)} />}
-             {showContentManager && <ContentManager course={showContentManager} onClose={() => setShowContentManager(null)} />}
-        </div>
-    );
-};
-
 const MyCourses = () => {
   const { currentUser, courses } = useStore();
   if (!currentUser) return <Navigate to="/login" />;
@@ -1293,9 +984,10 @@ const MyCourses = () => {
 
 const CourseDetail = () => {
     const { id } = useParams();
-    const { courses, currentUser, enrollCourse } = useStore();
+    const { courses, currentUser, enrollCourse, grantTempAccess } = useStore();
     const navigate = useNavigate();
     const course = courses.find(c => c.id === id);
+    const [verificationTimeLeft, setVerificationTimeLeft] = useState<number | null>(null);
 
     if (!course) return <div className="pt-24 text-center">Batch not found</div>;
 
@@ -1314,6 +1006,35 @@ const CourseDetail = () => {
         }
     };
 
+    const handleTempAccess = () => {
+        if (!currentUser) { navigate('/login'); return; }
+        
+        // Start 10s countdown
+        setVerificationTimeLeft(10);
+        
+        // Open short link if exists
+        if (course.shortenerLink) {
+            window.open(course.shortenerLink, '_blank');
+        }
+    };
+
+    useEffect(() => {
+        if (verificationTimeLeft === null) return;
+
+        if (verificationTimeLeft <= 0) {
+            grantTempAccess(course.id);
+            setVerificationTimeLeft(null);
+            alert("Temporary Access Granted! You have 24 hours.");
+            return;
+        }
+
+        const timer = setTimeout(() => {
+            setVerificationTimeLeft(prev => (prev !== null ? prev - 1 : null));
+        }, 1000);
+
+        return () => clearTimeout(timer);
+    }, [verificationTimeLeft, course.id, grantTempAccess]);
+
     return (
         <div className="pb-24 pt-0 min-h-screen bg-gray-50">
             <div className="relative h-64 md:h-80">
@@ -1328,20 +1049,40 @@ const CourseDetail = () => {
             </div>
             
             <div className="p-6 -mt-6 bg-gray-50 rounded-t-3xl relative z-10">
-                <div className="flex justify-between items-center mb-6">
-                    <div>
-                        <p className="text-gray-500 text-sm font-bold uppercase">Price</p>
-                        <p className="text-2xl font-bold text-gray-900">{course.isPaid ? `₹${course.price}` : 'Free'}</p>
+                <div className="flex flex-col gap-4 mb-6">
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <p className="text-gray-500 text-sm font-bold uppercase">Price</p>
+                            <p className="text-2xl font-bold text-gray-900">{course.isPaid ? `₹${course.price}` : 'Free'}</p>
+                        </div>
+                        {isEnrolled ? (
+                            <button className="bg-green-600 text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-green-500/30 cursor-default">
+                                <CheckCircle className="w-5 h-5" /> Enrolled
+                            </button>
+                        ) : (
+                            <div className="flex gap-2">
+                                <button onClick={handleEnroll} className="bg-brand text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-brand/30 hover:scale-105 transition-transform">
+                                    {course.isPaid ? <Lock className="w-5 h-5" /> : <PlayCircle className="w-5 h-5" />}
+                                    {course.isPaid ? 'Unlock' : 'Start'}
+                                </button>
+                            </div>
+                        )}
                     </div>
-                    {isEnrolled ? (
-                        <button className="bg-green-600 text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-green-500/30 cursor-default">
-                            <CheckCircle className="w-5 h-5" /> Enrolled
-                        </button>
-                    ) : (
-                        <button onClick={handleEnroll} className="bg-brand text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-brand/30 hover:scale-105 transition-transform">
-                            {course.isPaid ? <Lock className="w-5 h-5" /> : <PlayCircle className="w-5 h-5" />}
-                            {course.isPaid ? 'Unlock Now' : 'Start Learning'}
-                        </button>
+
+                    {!isEnrolled && course.isPaid && (
+                        <div className="w-full">
+                            {verificationTimeLeft !== null ? (
+                                <button disabled className="w-full bg-gray-200 text-gray-600 px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 cursor-wait">
+                                    <Loader2 className="w-5 h-5 animate-spin" /> 
+                                    Verifying in {verificationTimeLeft}s...
+                                </button>
+                            ) : (
+                                <button onClick={handleTempAccess} className="w-full bg-white border-2 border-brand text-brand px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-brand/5 transition-colors">
+                                    <Clock className="w-5 h-5" /> Get Free Access (24h)
+                                </button>
+                            )}
+                            <p className="text-[10px] text-gray-400 text-center mt-2">Watch an ad to get temporary access</p>
+                        </div>
                     )}
                 </div>
 
@@ -1471,40 +1212,53 @@ const RevealKey = () => {
     );
 };
 
-// --- Managers ---
-
 const ContentManager = ({ course, onClose }: { course: Course, onClose: () => void }) => {
     const { updateCourse } = useStore();
     const [chapters, setChapters] = useState<Chapter[]>(course.chapters);
+    const [view, setView] = useState<'list' | 'addChapter' | 'addVideo'>('list');
+    
+    // Form States
     const [newChapterTitle, setNewChapterTitle] = useState('');
-    const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
+    const [targetChapterId, setTargetChapterId] = useState<string | null>(null);
+    const [videoData, setVideoData] = useState({ title: '', url: '', duration: '' });
 
     const handleSave = () => {
         updateCourse({ ...course, chapters });
+        onClose();
     };
 
     const addChapter = () => {
-        if(!newChapterTitle) return;
+        if(!newChapterTitle.trim()) return;
         setChapters([...chapters, { id: Date.now().toString(), title: newChapterTitle, videos: [], notes: [] }]);
         setNewChapterTitle('');
+        setView('list');
     };
 
     const deleteChapter = (id: string) => {
         if(confirm('Delete chapter?')) setChapters(chapters.filter(c => c.id !== id));
     };
 
-    const addVideo = (chapterId: string) => {
-        const title = prompt('Video Title:');
-        const url = prompt('Video URL (YouTube/MP4/Drive):');
-        const duration = prompt('Duration (e.g. 10:00):', '00:00');
-        if (title && url) {
-            setChapters(chapters.map(c => {
-                if (c.id === chapterId) {
-                    return { ...c, videos: [...c.videos, { id: Date.now().toString(), title, filename: url, duration: duration || '00:00' }] };
-                }
-                return c;
-            }));
-        }
+    const addVideo = () => {
+        if (!videoData.title || !videoData.url || !targetChapterId) return;
+        
+        setChapters(chapters.map(c => {
+            if (c.id === targetChapterId) {
+                return { 
+                    ...c, 
+                    videos: [...c.videos, { 
+                        id: Date.now().toString(), 
+                        title: videoData.title, 
+                        filename: videoData.url, 
+                        duration: videoData.duration || '00:00' 
+                    }] 
+                };
+            }
+            return c;
+        }));
+        
+        setVideoData({ title: '', url: '', duration: '' });
+        setTargetChapterId(null);
+        setView('list');
     };
     
     const deleteVideo = (chapterId: string, videoId: string) => {
@@ -1520,54 +1274,154 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
 
     return (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-2xl rounded-3xl p-6 max-h-[85vh] flex flex-col">
+            <div className="bg-white w-full max-w-2xl rounded-3xl p-6 max-h-[85vh] flex flex-col animate-slide-up">
+                
+                {/* Header */}
                 <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-bold text-gray-900">Manage Content: {course.title}</h2>
+                    <div className="flex items-center gap-2">
+                        {view !== 'list' && (
+                            <button onClick={() => setView('list')} className="p-1 hover:bg-gray-100 rounded-full"><ArrowLeft className="w-5 h-5"/></button>
+                        )}
+                        <h2 className="text-xl font-display font-bold text-gray-900">
+                            {view === 'list' ? 'Manage Content' : view === 'addChapter' ? 'New Chapter' : 'Add Video'}
+                        </h2>
+                    </div>
                     <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full"><X className="w-5 h-5"/></button>
                 </div>
                 
-                <div className="flex-1 overflow-y-auto pr-2">
-                    <div className="flex gap-2 mb-6">
+                {/* LIST VIEW */}
+                {view === 'list' && (
+                    <div className="flex-1 overflow-y-auto pr-2">
+                        <button 
+                            onClick={() => setView('addChapter')}
+                            className="w-full py-3 mb-4 bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 font-bold hover:bg-brand/5 hover:border-brand hover:text-brand transition-all flex items-center justify-center gap-2"
+                        >
+                            <Plus className="w-5 h-5" /> Add New Chapter
+                        </button>
+
+                        <div className="space-y-4">
+                            {chapters.map((chapter, idx) => (
+                                <div key={chapter.id} className="border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
+                                    <div className="bg-gray-50 p-4 flex justify-between items-center border-b border-gray-200">
+                                        <span className="font-bold text-gray-800">{idx + 1}. {chapter.title}</span>
+                                        <div className="flex gap-2">
+                                            <button 
+                                                onClick={() => { setTargetChapterId(chapter.id); setView('addVideo'); }}
+                                                className="text-xs bg-white border border-gray-300 px-3 py-1.5 rounded-lg hover:bg-gray-100 font-bold text-gray-700 flex items-center gap-1"
+                                            >
+                                                <Plus className="w-3 h-3" /> Video
+                                            </button>
+                                            <button onClick={() => deleteChapter(chapter.id)} className="text-red-500 hover:bg-red-50 p-1.5 rounded-lg"><Trash2 className="w-4 h-4"/></button>
+                                        </div>
+                                    </div>
+                                    <div className="p-2 space-y-1">
+                                        {chapter.videos.length === 0 && <p className="text-center text-gray-400 text-xs py-4 italic">No videos in this chapter</p>}
+                                        {chapter.videos.map(video => (
+                                            <div key={video.id} className="flex justify-between items-center p-3 hover:bg-gray-50 rounded-lg group transition-colors">
+                                                <div className="flex items-center gap-3 overflow-hidden">
+                                                    <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500">
+                                                        <PlayCircle className="w-4 h-4" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm font-bold text-gray-800 truncate">{video.title}</p>
+                                                        <p className="text-[10px] text-gray-400">{video.duration || '00:00'}</p>
+                                                    </div>
+                                                </div>
+                                                <button onClick={() => deleteVideo(chapter.id, video.id)} className="text-gray-400 hover:text-red-500 p-2 opacity-0 group-hover:opacity-100 transition-opacity"><X className="w-4 h-4"/></button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* ADD CHAPTER VIEW */}
+                {view === 'addChapter' && (
+                    <div className="flex-1 flex flex-col justify-center max-w-sm mx-auto w-full space-y-4">
+                        <div className="text-center mb-4">
+                            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 text-brand">
+                                <BookOpen className="w-8 h-8" />
+                            </div>
+                            <p className="text-gray-500 text-sm">Organize your videos into chapters.</p>
+                        </div>
                         <input 
                             value={newChapterTitle} 
                             onChange={e => setNewChapterTitle(e.target.value)}
-                            placeholder="New Chapter Title"
-                            className="flex-1 p-3 bg-gray-50 rounded-xl border border-gray-200"
+                            placeholder="Chapter Title (e.g. Thermodynamics)"
+                            className="w-full p-4 bg-gray-50 rounded-xl border border-gray-200 focus:outline-none focus:border-brand font-medium"
+                            autoFocus
                         />
-                        <button onClick={addChapter} className="bg-brand text-white px-4 rounded-xl font-bold">Add</button>
+                        <button onClick={addChapter} className="w-full bg-brand text-white py-4 rounded-xl font-bold shadow-lg shadow-brand/20">
+                            Create Chapter
+                        </button>
                     </div>
+                )}
 
-                    <div className="space-y-4">
-                        {chapters.map((chapter, idx) => (
-                            <div key={chapter.id} className="border border-gray-200 rounded-xl overflow-hidden">
-                                <div className="bg-gray-50 p-4 flex justify-between items-center border-b border-gray-200">
-                                    <span className="font-bold text-gray-800">{idx + 1}. {chapter.title}</span>
-                                    <div className="flex gap-2">
-                                        <button onClick={() => addVideo(chapter.id)} className="text-xs bg-white border border-gray-300 px-2 py-1 rounded hover:bg-gray-100 font-bold">+ Video</button>
-                                        <button onClick={() => deleteChapter(chapter.id)} className="text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 className="w-4 h-4"/></button>
-                                    </div>
-                                </div>
-                                <div className="p-2 space-y-1">
-                                    {chapter.videos.length === 0 && <p className="text-center text-gray-400 text-xs py-2">No videos</p>}
-                                    {chapter.videos.map(video => (
-                                        <div key={video.id} className="flex justify-between items-center p-2 hover:bg-gray-50 rounded-lg group">
-                                            <div className="flex items-center gap-2 overflow-hidden">
-                                                <PlayCircle className="w-4 h-4 text-gray-400" />
-                                                <span className="text-sm text-gray-700 truncate">{video.title}</span>
-                                            </div>
-                                            <button onClick={() => deleteVideo(chapter.id, video.id)} className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><X className="w-4 h-4"/></button>
-                                        </div>
-                                    ))}
-                                </div>
+                {/* ADD VIDEO VIEW */}
+                {view === 'addVideo' && (
+                    <div className="flex-1 overflow-y-auto">
+                        <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-6 text-sm text-blue-700 flex items-start gap-3">
+                            <Bot className="w-5 h-5 flex-none mt-0.5" />
+                            <div>
+                                <p className="font-bold mb-1">Supported Formats:</p>
+                                <ul className="list-disc list-inside space-y-1 opacity-80 text-xs">
+                                    <li>YouTube Links (Standard or Shorts)</li>
+                                    <li>Google Drive Links</li>
+                                    <li>Vimeo & Loom Links</li>
+                                    <li>Direct MP4/WebM Links</li>
+                                    <li>Embed Code (<code>&lt;iframe...</code>)</li>
+                                </ul>
                             </div>
-                        ))}
-                    </div>
-                </div>
+                        </div>
 
-                <div className="pt-4 border-t border-gray-100 mt-4 flex justify-end gap-3">
-                    <button onClick={onClose} className="px-6 py-2 text-gray-500 font-bold hover:bg-gray-100 rounded-xl">Cancel</button>
-                    <button onClick={() => { handleSave(); onClose(); }} className="px-6 py-2 bg-brand text-white font-bold rounded-xl shadow-lg shadow-brand/20">Save Changes</button>
-                </div>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="text-xs font-bold text-gray-500 uppercase ml-1">Video Title</label>
+                                <input 
+                                    value={videoData.title} 
+                                    onChange={e => setVideoData({...videoData, title: e.target.value})}
+                                    placeholder="e.g. Introduction to Algebra"
+                                    className="w-full p-3 mt-1 bg-gray-50 rounded-xl border border-gray-200 focus:outline-none focus:border-brand"
+                                />
+                            </div>
+                            
+                            <div>
+                                <label className="text-xs font-bold text-gray-500 uppercase ml-1">Video URL or Embed Code</label>
+                                <textarea 
+                                    value={videoData.url} 
+                                    onChange={e => setVideoData({...videoData, url: e.target.value})}
+                                    placeholder="Paste URL or <iframe> code here..."
+                                    className="w-full p-3 mt-1 bg-gray-50 rounded-xl border border-gray-200 focus:outline-none focus:border-brand min-h-[100px] resize-y"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="text-xs font-bold text-gray-500 uppercase ml-1">Duration (Optional)</label>
+                                <input 
+                                    value={videoData.duration} 
+                                    onChange={e => setVideoData({...videoData, duration: e.target.value})}
+                                    placeholder="e.g. 15:30"
+                                    className="w-full p-3 mt-1 bg-gray-50 rounded-xl border border-gray-200 focus:outline-none focus:border-brand"
+                                />
+                            </div>
+
+                            <button onClick={addVideo} className="w-full bg-brand text-white py-4 rounded-xl font-bold shadow-lg shadow-brand/20 mt-4">
+                                Add Video
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Footer Actions (Only for List View) */}
+                {view === 'list' && (
+                    <div className="pt-4 border-t border-gray-100 mt-4 flex justify-end gap-3">
+                        <button onClick={handleSave} className="w-full py-3 bg-gray-900 text-white font-bold rounded-xl shadow-lg hover:bg-black transition-colors">
+                            Save Changes
+                        </button>
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -1719,6 +1573,142 @@ const QuestionEditor = ({ exam, onSave, onCancel }: { exam: Exam, onSave: (e: Ex
             <div className="pt-4 border-t mt-4">
                 <button onClick={() => onSave({ ...exam, questions })} className="w-full py-3 bg-brand text-white font-bold rounded-xl shadow-lg shadow-brand/20">Save Exam</button>
             </div>
+        </div>
+    );
+};
+
+const AdminPanel = () => {
+    const { currentUser, courses, users, banners, settings, addCourse, updateCourse, deleteCourse, addBanner, deleteBanner, updateSettings, addUser, deleteUser, addCourseToUser } = useStore();
+    const [tab, setTab] = useState<'courses' | 'users' | 'banners' | 'settings'>('courses');
+    const [showCourseModal, setShowCourseModal] = useState(false);
+    const [editingCourse, setEditingCourse] = useState<Course | null>(null);
+    const [showExamManager, setShowExamManager] = useState<Course | null>(null);
+    const [showContentManager, setShowContentManager] = useState<Course | null>(null);
+    const [showUserModal, setShowUserModal] = useState(false);
+    const [isGeneratingLink, setIsGeneratingLink] = useState(false);
+    const linkInputRef = useRef<HTMLInputElement>(null);
+    const [showEnrollModal, setShowEnrollModal] = useState<string | null>(null); 
+    
+    if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.EDITOR)) return <Navigate to="/" />;
+
+    const handleSaveCourse = (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        const formData = new FormData(e.currentTarget);
+        const courseData: any = {
+            id: editingCourse?.id || Date.now().toString(),
+            title: formData.get('title') as string,
+            description: formData.get('description') as string,
+            image: formData.get('image') as string,
+            category: formData.get('category') as string,
+            price: Number(formData.get('price')),
+            mrp: Number(formData.get('mrp')),
+            isPaid: formData.get('isPaid') === 'on',
+            accessKey: formData.get('accessKey') as string,
+            telegramChannelLink: formData.get('telegramChannelLink') as string,
+            shortenerLink: formData.get('shortenerLink') as string,
+            chapters: editingCourse?.chapters || [],
+            exams: editingCourse?.exams || [],
+            createdAt: editingCourse?.createdAt || new Date().toISOString()
+        };
+        if (editingCourse) updateCourse(courseData); else addCourse(courseData);
+        setShowCourseModal(false); setEditingCourse(null);
+    };
+
+    const handleAddUser = (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        const formData = new FormData(e.currentTarget);
+        addUser({
+            id: Date.now().toString(),
+            name: formData.get('name') as string,
+            email: formData.get('email') as string,
+            password: formData.get('password') as string,
+            phone: formData.get('phone') as string,
+            role: formData.get('role') as UserRole,
+            purchasedCourseIds: [],
+            examResults: []
+        });
+        setShowUserModal(false);
+    };
+
+    const handleGenerateLink = async () => {
+        if(!settings.linkShortenerApiKey || !settings.linkShortenerApiUrl) {
+            alert("Please configure Link Shortener in Settings first!");
+            return;
+        }
+        const courseId = editingCourse?.id;
+        if(!courseId) { alert("Please save the batch first, then edit it to generate a link."); return; }
+
+        setIsGeneratingLink(true);
+        try {
+            let baseUrl = settings.linkShortenerApiUrl.trim();
+            if(baseUrl.endsWith('/')) baseUrl = baseUrl.slice(0, -1);
+
+            // Force production URL
+            const destinationUrl = `https://study-tool-rosy.vercel.app/#/verify/${courseId}`;
+            const encodedDest = encodeURIComponent(destinationUrl);
+            const separator = baseUrl.includes('?') ? '&' : '?';
+            const fetchUrl = `${baseUrl}${separator}api=${settings.linkShortenerApiKey}&url=${encodedDest}`;
+            
+            let response;
+            try {
+                response = await fetch(fetchUrl);
+            } catch (err) {
+                console.warn("Direct fetch failed, trying proxy", err);
+                response = await fetch(`https://corsproxy.io/?${encodeURIComponent(fetchUrl)}`);
+            }
+
+            const data = await response.json();
+            
+            if(data.status === 'success' || data.shortenedUrl || data.shortlink) {
+                const shortUrl = data.shortenedUrl || data.shortlink || data.url;
+                if(linkInputRef.current) {
+                    linkInputRef.current.value = shortUrl;
+                }
+            } else {
+                console.error("API Error Data:", data);
+                alert(`Failed to generate link. API Response: ${JSON.stringify(data)}`);
+            }
+        } catch(e) {
+            console.error(e);
+            alert("Network error. Please manually shorten this URL: https://study-tool-rosy.vercel.app/#/verify/" + courseId);
+        } finally {
+            setIsGeneratingLink(false);
+        }
+    };
+
+    return (
+        <div className="pb-24 pt-24 p-6 min-h-screen bg-gray-50">
+             <div className="flex justify-between items-center mb-6"><h1 className="text-3xl font-display font-bold text-gray-900">Batch & User Management</h1></div>
+             <div className="flex gap-2 overflow-x-auto pb-4 mb-4 no-scrollbar">
+                 {['courses', 'users', 'banners', 'settings'].map(t => (
+                     <button key={t} onClick={() => setTab(t as any)} className={`px-5 py-2.5 rounded-xl font-bold capitalize whitespace-nowrap transition-all ${tab === t ? 'bg-brand text-white shadow-lg shadow-brand/30' : 'bg-white text-gray-600 shadow-sm'}`}>{t === 'courses' ? 'Batches' : t}</button>
+                 ))}
+             </div>
+             {tab === 'courses' && (
+                 <div className="space-y-4">
+                     <button onClick={() => { setEditingCourse(null); setShowCourseModal(true); }} className="w-full py-4 bg-white border-2 border-dashed border-gray-300 rounded-2xl text-gray-400 font-bold flex items-center justify-center gap-2 hover:border-brand hover:text-brand transition-all"><Plus className="w-5 h-5" /> Add New Batch</button>
+                     {courses.map(c => (
+                         <div key={c.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row gap-4 items-start md:items-center">
+                             <img src={c.image} className="w-16 h-16 rounded-lg object-cover bg-gray-100" />
+                             <div className="flex-1"><h3 className="font-bold text-gray-900">{c.title}</h3><p className="text-xs text-gray-500">{c.chapters.length} Chapters • {c.isPaid ? `₹${c.price}` : 'Free'}</p></div>
+                             <div className="flex gap-2 flex-wrap">
+                                 <button onClick={() => setShowContentManager(c)} className="px-3 py-2 text-green-700 bg-green-50 rounded-lg hover:bg-green-100 font-bold text-xs flex items-center gap-1 shadow-sm border border-green-100" title="Manage Content"><VideoIcon className="w-4 h-4" /> Manage Content</button>
+                                 <button onClick={() => setShowExamManager(c)} className="p-2 text-purple-600 bg-purple-50 rounded-lg hover:bg-purple-100 border border-purple-100" title="Manage Exams"><ClipboardList className="w-4 h-4" /></button>
+                                 <button onClick={() => { setEditingCourse(c); setShowCourseModal(true); }} className="p-2 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 border border-blue-100" title="Edit"><Edit className="w-4 h-4" /></button>
+                                 <button onClick={() => { if(confirm('Delete course?')) deleteCourse(c.id); }} className="p-2 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 border border-red-100" title="Delete"><Trash2 className="w-4 h-4" /></button>
+                             </div>
+                         </div>
+                     ))}
+                 </div>
+             )}
+             {tab === 'users' && <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden"><div className="p-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center"><span className="font-bold text-gray-700">All Users ({users.length})</span><button onClick={() => setShowUserModal(true)} className="text-xs bg-brand text-white px-4 py-2 rounded-lg font-bold shadow-lg shadow-brand/20 hover:scale-105 transition-transform flex items-center gap-1"><Plus className="w-3 h-3" /> Create User / Manager</button></div><div className="divide-y divide-gray-100">{users.map(u => (<div key={u.id} className="p-4 flex flex-col md:flex-row justify-between items-start md:items-center hover:bg-gray-50 gap-4"><div><div className="flex items-center gap-2"><p className="font-bold text-sm text-gray-900">{u.name}</p><span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase ${u.role === UserRole.ADMIN ? 'bg-red-100 text-red-600' : u.role === UserRole.EDITOR ? 'bg-purple-100 text-purple-600' : 'bg-gray-100 text-gray-500'}`}>{u.role}</span></div><p className="text-xs text-gray-500">{u.email}</p><p className="text-[10px] text-gray-400 mt-1">Enrolled in: {u.purchasedCourseIds.length} Batches</p></div><div className="flex items-center gap-2"><button onClick={() => setShowEnrollModal(u.id)} className="text-xs font-bold bg-blue-50 text-blue-600 px-3 py-2 rounded-lg hover:bg-blue-100">Enroll</button>{u.role !== UserRole.ADMIN && (<button onClick={() => { if(confirm('Delete user?')) deleteUser(u.id); }} className="text-gray-400 hover:text-red-500 p-2"><Trash2 className="w-4 h-4" /></button>)}</div></div>))}</div></div>}
+             {tab === 'banners' && <div className="space-y-4"><div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100"><h3 className="font-bold mb-4 text-gray-900">Add Banner</h3><form onSubmit={(e) => { e.preventDefault(); const form = e.currentTarget; addBanner({ id: Date.now().toString(), image: form.image.value, link: form.link.value }); form.reset(); }} className="flex gap-2"><input name="image" placeholder="Image URL" className="flex-1 bg-gray-50 px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder:text-gray-500" required /><input name="link" placeholder="Link (Optional)" className="flex-1 bg-gray-50 px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder:text-gray-500" /><button className="bg-brand text-white px-4 py-2 rounded-xl font-bold text-sm">Add</button></form></div><div className="grid grid-cols-1 md:grid-cols-2 gap-4">{banners.map(b => (<div key={b.id} className="relative aspect-video rounded-xl overflow-hidden group"><img src={b.image} className="w-full h-full object-cover" /><button onClick={() => deleteBanner(b.id)} className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-4 h-4" /></button></div>))}</div></div>}
+             {tab === 'settings' && <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100"><form onSubmit={(e) => { e.preventDefault(); const formData = new FormData(e.currentTarget); updateSettings({ ...settings, appName: formData.get('appName') as string, adminEmail: formData.get('adminEmail') as string, supportPhone: formData.get('supportPhone') as string, uiColor: formData.get('uiColor') as string, videoApiKey: formData.get('videoApiKey') as string, linkShortenerApiUrl: formData.get('linkShortenerApiUrl') as string, linkShortenerApiKey: formData.get('linkShortenerApiKey') as string, adsCode: formData.get('adsCode') as string }); alert('Settings Saved!'); }} className="space-y-4"><div><label className="text-xs font-bold text-gray-500 uppercase">App Name</label><input name="appName" defaultValue={settings.appName} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" /></div><div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-gray-500 uppercase">Brand Color</label><div className="flex gap-2 mt-1"><input type="color" name="uiColor" defaultValue={settings.uiColor} className="h-10 w-10 rounded-lg cursor-pointer" /><input type="text" defaultValue={settings.uiColor} className="flex-1 p-2 bg-gray-50 border border-gray-200 rounded-xl uppercase text-gray-900 placeholder:text-gray-500" readOnly /></div></div><div><label className="text-xs font-bold text-gray-500 uppercase">Admin Email</label><input name="adminEmail" defaultValue={settings.adminEmail} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" /></div></div><div><label className="text-xs font-bold text-gray-500 uppercase">Support Contact (Phone or Telegram)</label><input name="supportPhone" defaultValue={settings.supportPhone} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" /></div><div className="bg-gray-50 p-4 rounded-xl border border-gray-200"><h4 className="font-bold text-gray-900 mb-3 text-sm">Link Shortener Configuration</h4><div className="grid gap-3"><div><label className="text-xs font-bold text-gray-500 uppercase">API URL (e.g. reel2earn.com/api)</label><input name="linkShortenerApiUrl" defaultValue={settings.linkShortenerApiUrl} placeholder="https://..." className="w-full p-3 bg-white border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" /></div><div><label className="text-xs font-bold text-gray-500 uppercase">API Key</label><input name="linkShortenerApiKey" defaultValue={settings.linkShortenerApiKey} className="w-full p-3 bg-white border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" /></div></div></div><div><label className="text-xs font-bold text-gray-500 uppercase">Ad Code (HTML)</label><textarea name="adsCode" defaultValue={settings.adsCode} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl mt-1 font-mono text-xs text-gray-900 placeholder:text-gray-500" rows={3} /></div><button className="w-full bg-brand text-white py-3 rounded-xl font-bold">Save Settings</button></form></div>}
+             {showCourseModal && (<div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"><div className="bg-white w-full max-w-lg rounded-3xl p-6 max-h-[90vh] overflow-y-auto"><h2 className="text-xl font-bold mb-4 text-gray-900">{editingCourse ? 'Edit Batch' : 'New Batch'}</h2><form onSubmit={handleSaveCourse} className="space-y-3"><input name="title" defaultValue={editingCourse?.title} placeholder="Batch Title" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required /><textarea name="description" defaultValue={editingCourse?.description} placeholder="Description" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" rows={2} required /><input name="image" defaultValue={editingCourse?.image} placeholder="Image URL" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required /><input name="category" defaultValue={editingCourse?.category} placeholder="Category (e.g. Science)" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required /><div className="grid grid-cols-2 gap-3"><input type="number" name="price" defaultValue={editingCourse?.price} placeholder="Price" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" /><input type="number" name="mrp" defaultValue={editingCourse?.mrp} placeholder="MRP" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" /></div><div className="flex items-center gap-3 bg-gray-50 p-3 rounded-xl"><input type="checkbox" name="isPaid" defaultChecked={editingCourse?.isPaid} id="isPaid" className="w-5 h-5 accent-brand" /><label htmlFor="isPaid" className="font-medium text-gray-700">Premium Course (Locked)</label></div><input name="accessKey" defaultValue={editingCourse?.accessKey} placeholder="Access Key (if Premium)" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" /><input name="telegramChannelLink" defaultValue={editingCourse?.telegramChannelLink} placeholder="Telegram Channel Link (Optional)" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" /><div className="flex gap-2"><input name="shortenerLink" ref={linkInputRef} defaultValue={editingCourse?.shortenerLink} placeholder="Temp Access Short Link" className="flex-1 p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" />{editingCourse && (<button type="button" onClick={handleGenerateLink} disabled={isGeneratingLink} className="bg-gray-100 text-gray-600 px-3 rounded-xl font-bold text-xs hover:bg-gray-200 disabled:opacity-50">{isGeneratingLink ? <Loader2 className="w-4 h-4 animate-spin"/> : 'Generate'}</button>)}</div><div className="flex gap-3 pt-4"><button type="button" onClick={() => setShowCourseModal(false)} className="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-100 rounded-xl">Cancel</button><button type="submit" className="flex-1 py-3 bg-brand text-white font-bold rounded-xl shadow-lg shadow-brand/20">Save Batch</button></div></form></div></div>)}
+             {showUserModal && (<div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"><div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl"><h2 className="text-xl font-bold mb-4 text-gray-900">Add New User</h2><form onSubmit={handleAddUser} className="space-y-3"><input name="name" placeholder="Full Name" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required /><input name="email" type="email" placeholder="Email Address" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required /><input name="phone" placeholder="Phone Number" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" /><input name="password" type="password" placeholder="Password" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required /><div><label className="text-xs font-bold text-gray-500 uppercase ml-1">Role</label><select name="role" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 mt-1"><option value={UserRole.USER}>Student (User)</option><option value={UserRole.EDITOR}>Editor (Manager)</option><option value={UserRole.ADMIN}>Admin</option></select></div><div className="flex gap-3 pt-4"><button type="button" onClick={() => setShowUserModal(false)} className="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-100 rounded-xl">Cancel</button><button type="submit" className="flex-1 py-3 bg-brand text-white font-bold rounded-xl shadow-lg shadow-brand/20">Create User</button></div></form></div></div>)}
+             {showEnrollModal && (<div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"><div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl"><h2 className="text-xl font-bold mb-4 text-gray-900">Enroll User in Batch</h2><div className="space-y-2 max-h-[60vh] overflow-y-auto">{courses.map(c => { const targetUser = users.find(u => u.id === showEnrollModal); const isEnrolled = targetUser?.purchasedCourseIds.includes(c.id); return (<button key={c.id} disabled={isEnrolled} onClick={() => { if(showEnrollModal) { addCourseToUser(showEnrollModal, c.id); setShowEnrollModal(null); } }} className={`w-full text-left p-3 rounded-xl border flex items-center justify-between ${isEnrolled ? 'bg-green-50 border-green-200 cursor-default' : 'bg-white border-gray-200 hover:bg-gray-50'}`}><span className={`text-sm font-bold ${isEnrolled ? 'text-green-700' : 'text-gray-700'}`}>{c.title}</span>{isEnrolled && <CheckCircle className="w-4 h-4 text-green-600"/>}</button>); })}</div><button onClick={() => setShowEnrollModal(null)} className="w-full mt-4 py-3 bg-gray-100 text-gray-600 font-bold rounded-xl hover:bg-gray-200">Cancel</button></div></div>)}
+             {showExamManager && <ExamManager course={showExamManager} onClose={() => setShowExamManager(null)} />}
+             {showContentManager && <ContentManager course={showContentManager} onClose={() => setShowContentManager(null)} />}
         </div>
     );
 };

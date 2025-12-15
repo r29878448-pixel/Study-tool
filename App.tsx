@@ -552,7 +552,6 @@ const CourseListing = () => {
 };
 
 const Watch = () => {
-    // ... (Content of Watch Component)
     const { courseId } = useParams();
     const { courses, currentUser, saveVideoProgress, saveAiQuiz, saveNote } = useStore();
     const [currentVideoUrl, setCurrentVideoUrl] = useState<string>('');
@@ -935,6 +934,482 @@ const Profile = () => {
          </button>
       </div>
    );
+};
+
+const MyCourses = () => {
+  const { currentUser, courses } = useStore();
+  if (!currentUser) return <Navigate to="/login" />;
+  
+  const myCourses = courses.filter(c => 
+    currentUser.purchasedCourseIds.includes(c.id) || 
+    (currentUser.tempAccess && currentUser.tempAccess[c.id] && new Date(currentUser.tempAccess[c.id]) > new Date())
+  );
+
+  return (
+    <div className="pb-24 pt-24 p-6 min-h-screen bg-gray-50">
+       <h1 className="text-2xl font-display font-bold text-gray-900 mb-6">My Batches</h1>
+       {myCourses.length === 0 ? (
+           <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-gray-200">
+               <BookOpen className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+               <p className="text-gray-500 font-medium">You haven't enrolled in any batches yet.</p>
+               <Link to="/courses" className="text-brand font-bold mt-2 inline-block">Browse Batches</Link>
+           </div>
+       ) : (
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+               {myCourses.map(course => (
+                   <Link to={`/course/${course.id}`} key={course.id} className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden flex gap-4 p-4 hover:border-brand transition-colors group">
+                       <div className="w-24 h-24 rounded-xl overflow-hidden flex-none">
+                           <img src={course.image} alt={course.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
+                       </div>
+                       <div className="flex-1 flex flex-col justify-center">
+                           <h3 className="font-bold text-gray-900 line-clamp-1">{course.title}</h3>
+                           <p className="text-xs text-gray-500 mb-2">{course.chapters.length} Chapters</p>
+                           <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                               <div className="bg-brand h-full w-1/3"></div>
+                           </div>
+                           <p className="text-[10px] text-gray-400 mt-1">30% Completed</p>
+                       </div>
+                       <div className="flex items-center justify-center">
+                           <div className="w-10 h-10 rounded-full bg-brand/10 text-brand flex items-center justify-center">
+                               <PlayCircle className="w-6 h-6" />
+                           </div>
+                       </div>
+                   </Link>
+               ))}
+           </div>
+       )}
+    </div>
+  );
+};
+
+const CourseDetail = () => {
+    const { id } = useParams();
+    const { courses, currentUser, enrollCourse } = useStore();
+    const navigate = useNavigate();
+    const course = courses.find(c => c.id === id);
+
+    if (!course) return <div className="pt-24 text-center">Batch not found</div>;
+
+    const isEnrolled = currentUser && (
+        currentUser.purchasedCourseIds.includes(course.id) || 
+        (currentUser.tempAccess && currentUser.tempAccess[course.id] && new Date(currentUser.tempAccess[course.id]) > new Date())
+    );
+
+    const handleEnroll = () => {
+        if (!currentUser) { navigate('/login'); return; }
+        if (!course.isPaid) {
+            enrollCourse(course.id);
+            alert('Enrolled successfully!');
+        } else {
+            navigate(`/verify/${course.id}`);
+        }
+    };
+
+    return (
+        <div className="pb-24 pt-0 min-h-screen bg-gray-50">
+            <div className="relative h-64 md:h-80">
+                <img src={course.image} className="w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-gradient-to-t from-gray-900 to-transparent"></div>
+                <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
+                    <span className="bg-brand text-xs font-bold px-2 py-1 rounded mb-2 inline-block">{course.category}</span>
+                    <h1 className="text-3xl font-display font-bold mb-2">{course.title}</h1>
+                    <p className="text-gray-300 line-clamp-2 max-w-2xl">{course.description}</p>
+                </div>
+                <button onClick={() => navigate(-1)} className="absolute top-6 left-4 bg-black/30 p-2 rounded-full text-white backdrop-blur-sm"><ArrowLeft className="w-6 h-6"/></button>
+            </div>
+            
+            <div className="p-6 -mt-6 bg-gray-50 rounded-t-3xl relative z-10">
+                <div className="flex justify-between items-center mb-6">
+                    <div>
+                        <p className="text-gray-500 text-sm font-bold uppercase">Price</p>
+                        <p className="text-2xl font-bold text-gray-900">{course.isPaid ? `₹${course.price}` : 'Free'}</p>
+                    </div>
+                    {isEnrolled ? (
+                        <button className="bg-green-600 text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-green-500/30 cursor-default">
+                            <CheckCircle className="w-5 h-5" /> Enrolled
+                        </button>
+                    ) : (
+                        <button onClick={handleEnroll} className="bg-brand text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-brand/30 hover:scale-105 transition-transform">
+                            {course.isPaid ? <Lock className="w-5 h-5" /> : <PlayCircle className="w-5 h-5" />}
+                            {course.isPaid ? 'Unlock Now' : 'Start Learning'}
+                        </button>
+                    )}
+                </div>
+
+                {isEnrolled && course.exams && course.exams.length > 0 && (
+                     <div className="mb-6 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-2xl p-6 text-white relative overflow-hidden">
+                        <div className="relative z-10 flex justify-between items-center">
+                            <div>
+                                <h3 className="font-bold text-lg">Test Your Knowledge</h3>
+                                <p className="text-purple-100 text-sm">Take exams to check your progress</p>
+                            </div>
+                            <button onClick={() => navigate(`/exam/${course.id}`)} className="bg-white text-purple-600 px-4 py-2 rounded-lg font-bold text-sm shadow-md hover:bg-gray-100 transition-colors">
+                                View Exams
+                            </button>
+                        </div>
+                     </div>
+                )}
+
+                <h3 className="font-bold text-gray-900 text-lg mb-4">Course Content</h3>
+                <div className="space-y-4">
+                    {course.chapters.map((chapter, idx) => (
+                        <div key={chapter.id} className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+                            <div className="p-4 bg-gray-50/50 border-b border-gray-100 font-bold text-gray-800 flex justify-between items-center">
+                                <span>{idx + 1}. {chapter.title}</span>
+                                <span className="text-xs text-gray-500 font-medium">{chapter.videos.length} Videos</span>
+                            </div>
+                            <div className="divide-y divide-gray-100">
+                                {chapter.videos.map((video) => (
+                                    <div 
+                                        key={video.id} 
+                                        onClick={() => {
+                                            if (isEnrolled) navigate(`/watch/${course.id}`);
+                                            else handleEnroll();
+                                        }}
+                                        className={`p-4 flex items-center gap-3 hover:bg-gray-50 cursor-pointer ${!isEnrolled ? 'opacity-50' : ''}`}
+                                    >
+                                        <div className="w-8 h-8 rounded-full bg-brand/10 text-brand flex items-center justify-center flex-none">
+                                            {isEnrolled ? <PlayCircle className="w-5 h-5" /> : <Lock className="w-4 h-4" />}
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="text-sm font-medium text-gray-900">{video.title}</p>
+                                            <p className="text-xs text-gray-500">{video.duration}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                                {chapter.videos.length === 0 && <div className="p-4 text-center text-gray-400 text-sm">No videos uploaded yet</div>}
+                            </div>
+                        </div>
+                    ))}
+                    {course.chapters.length === 0 && <div className="text-center py-10 text-gray-400">No chapters added yet</div>}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const VerifyAccess = () => {
+    const { courseId } = useParams();
+    const { courses, enrollCourse, currentUser } = useStore();
+    const [key, setKey] = useState('');
+    const [error, setError] = useState('');
+    const navigate = useNavigate();
+    const course = courses.find(c => c.id === courseId);
+
+    if (!course) return <Navigate to="/" />;
+    if (!currentUser) {
+        localStorage.setItem('pendingCourseVerification', courseId || '');
+        return <Navigate to="/login" />;
+    }
+
+    const handleVerify = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (key === course.accessKey) {
+            enrollCourse(course.id);
+            alert('Access Granted! Welcome to the batch.');
+            navigate(`/course/${course.id}`);
+        } else {
+            setError('Invalid Access Key. Please check and try again.');
+        }
+    };
+
+    return (
+        <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6">
+            <div className="bg-white p-8 rounded-3xl shadow-xl max-w-md w-full">
+                <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4 text-yellow-600">
+                    <Lock className="w-8 h-8" />
+                </div>
+                <h2 className="text-2xl font-display font-bold text-center text-gray-900 mb-2">Unlock Batch</h2>
+                <p className="text-center text-gray-500 mb-6 text-sm">Enter the access key to unlock <strong>{course.title}</strong></p>
+                
+                <form onSubmit={handleVerify} className="space-y-4">
+                    <input 
+                        type="text" 
+                        placeholder="Enter Access Key" 
+                        className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl text-center font-mono text-lg tracking-widest uppercase focus:outline-none focus:border-brand"
+                        value={key}
+                        onChange={(e) => { setKey(e.target.value); setError(''); }}
+                    />
+                    {error && <p className="text-red-500 text-xs text-center font-bold">{error}</p>}
+                    <button className="w-full py-4 bg-brand text-white rounded-xl font-bold shadow-lg shadow-brand/20 hover:bg-brand-dark transition-colors">
+                        Unlock Now
+                    </button>
+                </form>
+                
+                <div className="mt-6 text-center">
+                    <Link to="/help" className="text-brand text-xs font-bold hover:underline">Where to get a key?</Link>
+                </div>
+                <button onClick={() => navigate(-1)} className="w-full mt-4 text-gray-400 text-xs font-bold hover:text-gray-600">Cancel</button>
+            </div>
+        </div>
+    );
+};
+
+const RevealKey = () => {
+    const { key } = useParams();
+    // This could be a page that automatically copies a key or something
+    return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white p-6">
+            <div className="text-center">
+                <h1 className="text-3xl font-bold mb-4">Access Key Revealed</h1>
+                <div className="bg-white/10 p-6 rounded-2xl border border-white/20 backdrop-blur-md">
+                    <code className="text-2xl font-mono text-yellow-400 tracking-wider select-all">{key}</code>
+                </div>
+                <p className="mt-4 text-gray-400">Copy this key and paste it in the verification screen.</p>
+                <Link to="/" className="inline-block mt-8 text-brand hover:text-white transition-colors">Go to App</Link>
+            </div>
+        </div>
+    );
+};
+
+const ContentManager = ({ course, onClose }: { course: Course, onClose: () => void }) => {
+    const { updateCourse } = useStore();
+    const [chapters, setChapters] = useState<Chapter[]>(course.chapters);
+    const [newChapterTitle, setNewChapterTitle] = useState('');
+    const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
+
+    const handleSave = () => {
+        updateCourse({ ...course, chapters });
+    };
+
+    const addChapter = () => {
+        if(!newChapterTitle) return;
+        setChapters([...chapters, { id: Date.now().toString(), title: newChapterTitle, videos: [], notes: [] }]);
+        setNewChapterTitle('');
+    };
+
+    const deleteChapter = (id: string) => {
+        if(confirm('Delete chapter?')) setChapters(chapters.filter(c => c.id !== id));
+    };
+
+    const addVideo = (chapterId: string) => {
+        const title = prompt('Video Title:');
+        const url = prompt('Video URL (YouTube/MP4/Drive):');
+        const duration = prompt('Duration (e.g. 10:00):', '00:00');
+        if (title && url) {
+            setChapters(chapters.map(c => {
+                if (c.id === chapterId) {
+                    return { ...c, videos: [...c.videos, { id: Date.now().toString(), title, filename: url, duration: duration || '00:00' }] };
+                }
+                return c;
+            }));
+        }
+    };
+    
+    const deleteVideo = (chapterId: string, videoId: string) => {
+        if(confirm('Delete video?')) {
+            setChapters(chapters.map(c => {
+                if(c.id === chapterId) {
+                    return { ...c, videos: c.videos.filter(v => v.id !== videoId) };
+                }
+                return c;
+            }));
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-2xl rounded-3xl p-6 max-h-[85vh] flex flex-col">
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-bold text-gray-900">Manage Content: {course.title}</h2>
+                    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full"><X className="w-5 h-5"/></button>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto pr-2">
+                    <div className="flex gap-2 mb-6">
+                        <input 
+                            value={newChapterTitle} 
+                            onChange={e => setNewChapterTitle(e.target.value)}
+                            placeholder="New Chapter Title"
+                            className="flex-1 p-3 bg-gray-50 rounded-xl border border-gray-200"
+                        />
+                        <button onClick={addChapter} className="bg-brand text-white px-4 rounded-xl font-bold">Add</button>
+                    </div>
+
+                    <div className="space-y-4">
+                        {chapters.map((chapter, idx) => (
+                            <div key={chapter.id} className="border border-gray-200 rounded-xl overflow-hidden">
+                                <div className="bg-gray-50 p-4 flex justify-between items-center border-b border-gray-200">
+                                    <span className="font-bold text-gray-800">{idx + 1}. {chapter.title}</span>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => addVideo(chapter.id)} className="text-xs bg-white border border-gray-300 px-2 py-1 rounded hover:bg-gray-100 font-bold">+ Video</button>
+                                        <button onClick={() => deleteChapter(chapter.id)} className="text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 className="w-4 h-4"/></button>
+                                    </div>
+                                </div>
+                                <div className="p-2 space-y-1">
+                                    {chapter.videos.length === 0 && <p className="text-center text-gray-400 text-xs py-2">No videos</p>}
+                                    {chapter.videos.map(video => (
+                                        <div key={video.id} className="flex justify-between items-center p-2 hover:bg-gray-50 rounded-lg group">
+                                            <div className="flex items-center gap-2 overflow-hidden">
+                                                <PlayCircle className="w-4 h-4 text-gray-400" />
+                                                <span className="text-sm text-gray-700 truncate">{video.title}</span>
+                                            </div>
+                                            <button onClick={() => deleteVideo(chapter.id, video.id)} className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><X className="w-4 h-4"/></button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="pt-4 border-t border-gray-100 mt-4 flex justify-end gap-3">
+                    <button onClick={onClose} className="px-6 py-2 text-gray-500 font-bold hover:bg-gray-100 rounded-xl">Cancel</button>
+                    <button onClick={() => { handleSave(); onClose(); }} className="px-6 py-2 bg-brand text-white font-bold rounded-xl shadow-lg shadow-brand/20">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const ExamManager = ({ course, onClose }: { course: Course, onClose: () => void }) => {
+    const { updateCourse } = useStore();
+    const [exams, setExams] = useState<Exam[]>(course.exams || []);
+    const [editingExam, setEditingExam] = useState<Exam | null>(null);
+
+    const handleSave = () => {
+        updateCourse({ ...course, exams });
+    };
+
+    const addExam = () => {
+        const title = prompt("Exam Title:");
+        if (title) {
+            setExams([...exams, { id: Date.now().toString(), title, questions: [] }]);
+        }
+    };
+
+    const deleteExam = (id: string) => {
+        if(confirm("Delete this exam?")) setExams(exams.filter(e => e.id !== id));
+    };
+
+    const updateExam = (updated: Exam) => {
+        setExams(exams.map(e => e.id === updated.id ? updated : e));
+        setEditingExam(null);
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-3xl rounded-3xl p-6 max-h-[85vh] flex flex-col">
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-bold text-gray-900">Manage Exams: {course.title}</h2>
+                    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full"><X className="w-5 h-5"/></button>
+                </div>
+
+                {editingExam ? (
+                    <QuestionEditor exam={editingExam} onSave={updateExam} onCancel={() => setEditingExam(null)} />
+                ) : (
+                    <div className="flex-1 overflow-y-auto">
+                         <button onClick={addExam} className="w-full py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-400 font-bold hover:border-brand hover:text-brand transition-colors mb-4 flex items-center justify-center gap-2">
+                             <Plus className="w-5 h-5" /> Create New Exam
+                         </button>
+                         <div className="space-y-3">
+                             {exams.map(exam => (
+                                 <div key={exam.id} className="bg-gray-50 p-4 rounded-xl flex justify-between items-center border border-gray-200">
+                                     <div>
+                                         <h3 className="font-bold text-gray-900">{exam.title}</h3>
+                                         <p className="text-xs text-gray-500">{exam.questions.length} Questions</p>
+                                     </div>
+                                     <div className="flex gap-2">
+                                         <button onClick={() => setEditingExam(exam)} className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-xs font-bold hover:bg-brand hover:text-white hover:border-brand transition-colors">Edit Questions</button>
+                                         <button onClick={() => deleteExam(exam.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg"><Trash2 className="w-4 h-4"/></button>
+                                     </div>
+                                 </div>
+                             ))}
+                             {exams.length === 0 && <p className="text-center text-gray-400">No exams yet.</p>}
+                         </div>
+                    </div>
+                )}
+
+                {!editingExam && (
+                    <div className="pt-4 border-t border-gray-100 mt-4 flex justify-end gap-3">
+                        <button onClick={onClose} className="px-6 py-2 text-gray-500 font-bold hover:bg-gray-100 rounded-xl">Cancel</button>
+                        <button onClick={() => { handleSave(); onClose(); }} className="px-6 py-2 bg-brand text-white font-bold rounded-xl shadow-lg shadow-brand/20">Save Changes</button>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+const QuestionEditor = ({ exam, onSave, onCancel }: { exam: Exam, onSave: (e: Exam) => void, onCancel: () => void }) => {
+    const [questions, setQuestions] = useState<Question[]>(exam.questions);
+    
+    // Simple state to add a new question
+    const [qText, setQText] = useState('');
+    const [options, setOptions] = useState(['', '', '', '']);
+    const [correct, setCorrect] = useState(0);
+
+    const addQuestion = () => {
+        if (!qText || options.some(o => !o)) { alert("Fill all fields"); return; }
+        const newQ: Question = {
+            id: Date.now().toString(),
+            question: qText,
+            options: [...options],
+            correctAnswer: correct
+        };
+        setQuestions([...questions, newQ]);
+        setQText('');
+        setOptions(['', '', '', '']);
+        setCorrect(0);
+    };
+
+    const deleteQ = (id: string) => {
+        setQuestions(questions.filter(q => q.id !== id));
+    };
+
+    return (
+        <div className="flex flex-col h-full">
+            <div className="flex items-center gap-2 mb-4">
+                <button onClick={onCancel} className="text-gray-500"><ArrowLeft className="w-5 h-5"/></button>
+                <h3 className="font-bold text-lg">Editing: {exam.title}</h3>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto pr-2 space-y-6">
+                 {/* Add New Q Form */}
+                 <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                     <h4 className="font-bold text-sm text-gray-700 mb-2">Add New Question</h4>
+                     <textarea 
+                        value={qText} onChange={e => setQText(e.target.value)}
+                        placeholder="Question Text" 
+                        className="w-full p-3 rounded-lg border border-gray-300 mb-3 text-sm"
+                        rows={2}
+                     />
+                     <div className="grid grid-cols-2 gap-2 mb-3">
+                        {options.map((opt, i) => (
+                            <div key={i} className="flex items-center gap-2">
+                                <input type="radio" name="correct" checked={correct === i} onChange={() => setCorrect(i)} className="accent-brand" />
+                                <input 
+                                    value={opt} onChange={e => { const newOpts = [...options]; newOpts[i] = e.target.value; setOptions(newOpts); }}
+                                    placeholder={`Option ${i+1}`}
+                                    className="flex-1 p-2 rounded border border-gray-300 text-sm"
+                                />
+                            </div>
+                        ))}
+                     </div>
+                     <button onClick={addQuestion} className="w-full py-2 bg-gray-800 text-white rounded-lg text-sm font-bold">Add Question</button>
+                 </div>
+
+                 {/* List */}
+                 <div className="space-y-3">
+                    {questions.map((q, i) => (
+                        <div key={q.id} className="p-3 border rounded-xl relative group">
+                            <p className="font-bold text-sm pr-6">{i+1}. {q.question}</p>
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-2 text-xs text-gray-600">
+                                {q.options.map((o, idx) => (
+                                    <span key={idx} className={idx === q.correctAnswer ? "text-green-600 font-bold" : ""}>{String.fromCharCode(65+idx)}. {o}</span>
+                                ))}
+                            </div>
+                            <button onClick={() => deleteQ(q.id)} className="absolute top-3 right-3 text-gray-400 hover:text-red-500"><Trash2 className="w-4 h-4"/></button>
+                        </div>
+                    ))}
+                 </div>
+            </div>
+
+            <div className="pt-4 border-t mt-4">
+                <button onClick={() => onSave({ ...exam, questions })} className="w-full py-3 bg-brand text-white font-bold rounded-xl shadow-lg shadow-brand/20">Save Exam</button>
+            </div>
+        </div>
+    );
 };
 
 const AdminPanel = () => {

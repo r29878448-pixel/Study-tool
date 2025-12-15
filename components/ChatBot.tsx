@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageCircle, X, Send, Bot, Mic, Image as ImageIcon } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
@@ -21,6 +22,7 @@ const ChatBot = () => {
   const [isListening, setIsListening] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -29,6 +31,14 @@ const ChatBot = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages, isOpen]);
+
+  // Auto-resize textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 150)}px`; // Max height 150px
+    }
+  }, [inputValue]);
 
   // Voice Input Logic
   const startListening = () => {
@@ -87,14 +97,12 @@ const ChatBot = () => {
     setInputValue('');
     setSelectedImage(null);
     setIsLoading(true);
+    
+    // Reset height
+    if (textareaRef.current) textareaRef.current.style.height = 'auto';
 
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      
-      // Construct history for context
-      // Skip the initial greeting if it's just static text, or include it if desired.
-      // We start from index 1 (skipping first static model message) or 0 depending on logic.
-      // Here we map all previous messages to the 'contents' format.
       
       const contents = updatedMessages.map(msg => {
           const parts: any[] = [{ text: msg.text }];
@@ -224,7 +232,7 @@ const ChatBot = () => {
               />
               <button 
                 onClick={() => fileInputRef.current?.click()}
-                className="p-2.5 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                className="p-2.5 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors mb-0.5"
                 title="Upload Image"
               >
                 <ImageIcon className="w-5 h-5" />
@@ -232,7 +240,8 @@ const ChatBot = () => {
 
               {/* Text Input */}
               <textarea 
-                className="flex-1 bg-gray-100 rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand/50 text-gray-900 placeholder:text-gray-500 resize-none max-h-24 no-scrollbar"
+                ref={textareaRef}
+                className="flex-1 bg-gray-100 rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand/50 text-gray-900 placeholder:text-gray-500 resize-none no-scrollbar overflow-hidden"
                 placeholder="Ask in Hinglish..."
                 rows={1}
                 value={inputValue}
@@ -243,12 +252,13 @@ const ChatBot = () => {
                      handleSendMessage();
                    }
                 }}
+                style={{ minHeight: '44px' }}
               />
 
               {/* Voice Button */}
               <button 
                 onClick={startListening}
-                className={`p-2.5 rounded-full transition-colors ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                className={`p-2.5 rounded-full transition-colors mb-0.5 ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
                 title="Voice Input"
               >
                 <Mic className="w-5 h-5" />
@@ -258,7 +268,7 @@ const ChatBot = () => {
               <button 
                 onClick={handleSendMessage}
                 disabled={isLoading || (!inputValue.trim() && !selectedImage)}
-                className="p-2.5 bg-brand text-white rounded-full hover:bg-brand-dark disabled:opacity-50 transition-colors"
+                className="p-2.5 bg-brand text-white rounded-full hover:bg-brand-dark disabled:opacity-50 transition-colors mb-0.5"
               >
                 <Send className="w-5 h-5" />
               </button>

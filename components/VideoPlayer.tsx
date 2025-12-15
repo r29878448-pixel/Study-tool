@@ -13,34 +13,40 @@ interface VideoPlayerProps {
   onBack?: () => void;
 }
 
-// Helper to convert common video platform links to their embed equivalents
-const getEmbedUrl = (url: string) => {
-  if (!url) return '';
+// Helper to clean and extract URL from various inputs
+const getEmbedUrl = (input: string) => {
+  if (!input) return '';
 
-  // YouTube: Handle standard watch, short URLs, and existing embeds
-  const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+  // 1. Handle raw <iframe> code paste
+  if (input.includes('<iframe')) {
+    const srcMatch = input.match(/src="([^"]+)"/);
+    if (srcMatch && srcMatch[1]) return srcMatch[1];
+  }
+
+  // 2. YouTube
+  const ytMatch = input.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
   if (ytMatch && ytMatch[1]) {
-    // Add rel=0 to prevent related videos from other channels
     return `https://www.youtube.com/embed/${ytMatch[1]}?rel=0&modestbranding=1&playsinline=1`;
   }
 
-  // Vimeo
-  const vimeoMatch = url.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+  // 3. Vimeo
+  const vimeoMatch = input.match(/vimeo\.com\/(?:video\/)?(\d+)/);
   if (vimeoMatch && vimeoMatch[1]) {
     return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
   }
 
-  // Google Drive: Convert /view to /preview for embedding
-  if (url.includes('drive.google.com')) {
-    return url.replace(/\/view.*/, '/preview').replace(/\/edit.*/, '/preview');
+  // 4. Google Drive
+  if (input.includes('drive.google.com')) {
+    return input.replace(/\/view.*/, '/preview').replace(/\/edit.*/, '/preview');
   }
 
-  // Loom
-  if (url.includes('loom.com/share')) {
-      return url.replace('/share/', '/embed/');
+  // 5. Loom
+  if (input.includes('loom.com/share')) {
+      return input.replace('/share/', '/embed/');
   }
 
-  return url;
+  // 6. Generic fallback (return as is if it looks like a URL)
+  return input;
 };
 
 const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProgress, initialTime, onBack }) => {
@@ -58,23 +64,19 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
   const [isLoading, setIsLoading] = useState(false);
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Determine if source is a direct video file or an embed/iframe
-  // We assume it's a direct file if it ends in common video extensions.
-  // Otherwise, we treat it as an embed (YouTube, Vimeo, AI Video Generators).
-  const isDirectFile = /\.(mp4|webm|ogg|mov|m4v)$/i.test(src);
+  // Determine if source is a direct video file
+  const isDirectFile = /\.(mp4|webm|ogg|mov|m4v)($|\?)/i.test(src);
   const isEmbed = !isDirectFile;
 
-  // Process URL if it's an embed
+  // Process URL
   const displayUrl = isEmbed ? getEmbedUrl(src) : src;
 
-  // Set initial time if provided (e.g. from saved progress)
   useEffect(() => {
     if (videoRef.current && initialTime && initialTime > 0) {
        videoRef.current.currentTime = initialTime;
     }
   }, [initialTime]);
 
-  // Keyboard Shortcuts & Events
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
@@ -112,11 +114,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
   useEffect(() => {
     const handleContextMenu = (e: MouseEvent) => e.preventDefault();
     const videoElement = videoRef.current;
-    
     if (videoElement && isDirectFile) {
       videoElement.addEventListener('contextmenu', handleContextMenu);
     }
-    
     return () => {
       if (videoElement && isDirectFile) {
         videoElement.removeEventListener('contextmenu', handleContextMenu);
@@ -213,7 +213,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
     );
   }
 
-  // Generic Embed Player (YouTube, Vimeo, AI Generated, etc.)
+  // Embed Player
   if (isEmbed) {
     return (
       <div className="w-full aspect-video bg-black rounded-lg overflow-hidden shadow-lg relative group">
@@ -231,13 +231,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
           className="w-full h-full"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen
-          // Add sandbox permissions if needed for certain AI players, but default is usually fine
         ></iframe>
       </div>
     );
   }
 
-  // Native Player (MP4)
+  // Native Player
   return (
     <div 
       ref={containerRef}
@@ -259,10 +258,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
         onWaiting={() => setIsLoading(true)}
         onCanPlay={() => setIsLoading(false)}
         onClick={togglePlay}
-        controlsList="nodownload" // Built-in download disabled, using custom
+        controlsList="nodownload"
       />
       
-      {/* Back Button */}
       {onBack && (
         <button 
             onClick={onBack}
@@ -272,14 +270,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
         </button>
       )}
 
-      {/* Loading Spinner */}
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/20 z-20 pointer-events-none">
            <Loader2 className="w-12 h-12 text-white animate-spin opacity-80" />
         </div>
       )}
 
-      {/* Center Play Button Overlay (Only show if NOT playing and NOT loading) */}
       {!isPlaying && !isLoading && (
         <div 
           className="absolute inset-0 flex items-center justify-center bg-black/30 cursor-pointer z-10"
@@ -291,10 +287,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
         </div>
       )}
 
-      {/* Controls Overlay */}
       <div className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-4 transition-opacity duration-300 z-20 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
-        
-        {/* Progress Bar */}
         <div className="flex items-center gap-3 mb-2">
            <span className="text-white text-xs font-mono">{formatTime(currentTime)}</span>
            <input 
@@ -308,7 +301,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
            <span className="text-white text-xs font-mono">{formatTime(duration)}</span>
         </div>
 
-        {/* Buttons Row */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
              <button onClick={togglePlay} className="text-white hover:text-brand transition-colors">

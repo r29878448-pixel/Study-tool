@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useRef } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate, useLocation, Link, useNavigate, useParams } from 'react-router-dom';
 import { StoreProvider, useStore } from './store';
@@ -5,7 +6,7 @@ import {
   Home, BookOpen, User, HelpCircle, Menu, LogOut, 
   Search, PlayCircle, Lock, LayoutDashboard, Users, CreditCard, Settings, Plus, Trash2, Edit, Save, X, ChevronDown, ChevronUp,
   MessageCircle, CloudDownload, CheckCircle, Shield, Upload, FileText, Download, Youtube, Link as LinkIcon, Image as ImageIcon, Globe,
-  ClipboardList, Timer, Code, DollarSign, Clock, Eye, Smartphone, MoreVertical, Key, Copy, ExternalLink, Play, Bot, Brain, Wand2, Loader2, List, ArrowLeft
+  ClipboardList, Timer, Code, DollarSign, Clock, Eye, Smartphone, MoreVertical, Key, Copy, ExternalLink, Play, Bot, Brain, Wand2, Loader2, List, ArrowLeft, Video as VideoIcon
 } from './components/Icons';
 import VideoPlayer from './components/VideoPlayer';
 import ChatBot from './components/ChatBot';
@@ -662,114 +663,155 @@ const VerifyAccess = () => {
   );
 };
 
-const ExamManager = ({ course, onClose }: { course: Course; onClose: () => void }) => {
-    // ... (Existing ExamManager code unchanged)
+const ContentManager = ({ course, onClose }: { course: Course; onClose: () => void }) => {
     const { updateCourse } = useStore();
-    const [exams, setExams] = useState<Exam[]>(course.exams || []);
-    const [editingExamId, setEditingExamId] = useState<string | null>(null);
+    const [chapters, setChapters] = useState<Chapter[]>(course.chapters || []);
+    
+    // States for adding new items
+    const [newChapterTitle, setNewChapterTitle] = useState('');
+    const [editingChapterIdx, setEditingChapterIdx] = useState<number | null>(null);
+    const [newVideo, setNewVideo] = useState({ title: '', filename: '', duration: '' });
 
     const handleSave = () => {
-        updateCourse({ ...course, exams });
+        updateCourse({ ...course, chapters });
         onClose();
     };
 
-    const addExam = () => {
-        const newExam: Exam = { id: Date.now().toString(), title: "New Exam", questions: [] };
-        setExams([...exams, newExam]);
-        setEditingExamId(newExam.id);
+    const addChapter = () => {
+        if (!newChapterTitle.trim()) return;
+        const newChapter: Chapter = {
+            id: Date.now().toString(),
+            title: newChapterTitle,
+            videos: [],
+            notes: []
+        };
+        setChapters([...chapters, newChapter]);
+        setNewChapterTitle('');
     };
 
-    const updateExamTitle = (id: string, title: string) => {
-        setExams(exams.map(e => e.id === id ? { ...e, title } : e));
-    };
-    
-    const deleteExam = (id: string) => {
-        setExams(exams.filter(e => e.id !== id));
+    const deleteChapter = (idx: number) => {
+        if (confirm("Delete this chapter and all its videos?")) {
+            setChapters(chapters.filter((_, i) => i !== idx));
+        }
     };
 
-    const activeExam = exams.find(e => e.id === editingExamId);
-
-    const addQuestion = (examId: string) => {
-        const q: Question = { id: Date.now().toString(), question: "New Question", options: ["Option A", "Option B", "Option C", "Option D"], correctAnswer: 0 };
-        setExams(exams.map(e => e.id === examId ? { ...e, questions: [...e.questions, q] } : e));
+    const addVideoToChapter = (chapterIdx: number) => {
+        if (!newVideo.title || !newVideo.filename) return;
+        const video: Video = {
+            id: Date.now().toString(),
+            title: newVideo.title,
+            filename: newVideo.filename,
+            duration: newVideo.duration || '00:00'
+        };
+        
+        const updatedChapters = [...chapters];
+        updatedChapters[chapterIdx].videos.push(video);
+        setChapters(updatedChapters);
+        setNewVideo({ title: '', filename: '', duration: '' });
+        setEditingChapterIdx(null); // Close the adder
     };
 
-    const updateQuestion = (examId: string, qIndex: number, field: string, val: any) => {
-         setExams(exams.map(e => {
-             if(e.id !== examId) return e;
-             const qs = [...e.questions];
-             qs[qIndex] = { ...qs[qIndex], [field]: val };
-             return { ...e, questions: qs };
-         }));
-    };
-
-    const updateOption = (examId: string, qIndex: number, optIndex: number, val: string) => {
-         setExams(exams.map(e => {
-             if(e.id !== examId) return e;
-             const qs = [...e.questions];
-             const opts = [...qs[qIndex].options];
-             opts[optIndex] = val;
-             qs[qIndex] = { ...qs[qIndex], options: opts };
-             return { ...e, questions: qs };
-         }));
+    const deleteVideo = (chapterIdx: number, videoId: string) => {
+        const updatedChapters = [...chapters];
+        updatedChapters[chapterIdx].videos = updatedChapters[chapterIdx].videos.filter(v => v.id !== videoId);
+        setChapters(updatedChapters);
     };
 
     return (
         <div className="fixed inset-0 z-[70] bg-black/50 backdrop-blur flex items-center justify-center p-4 animate-fade-in">
-            <div className="bg-white w-full max-w-4xl h-[80vh] rounded-3xl p-6 flex flex-col shadow-2xl overflow-hidden">
+            <div className="bg-white w-full max-w-4xl h-[85vh] rounded-3xl p-6 flex flex-col shadow-2xl overflow-hidden">
                 <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-bold font-display text-gray-900">Manage Exams: {course.title}</h2>
+                    <h2 className="text-2xl font-bold font-display text-gray-900">Manage Content: {course.title}</h2>
                     <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full"><X className="w-6 h-6"/></button>
                 </div>
-                
-                <div className="flex-1 flex gap-6 overflow-hidden">
-                    <div className="w-1/3 border-r border-gray-100 pr-4 overflow-y-auto">
-                        <button onClick={addExam} className="w-full py-3 mb-4 bg-brand text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-brand/20"><Plus className="w-4 h-4"/> New Exam</button>
-                        <div className="space-y-2">
-                            {exams.map(exam => (
-                                <div key={exam.id} onClick={() => setEditingExamId(exam.id)} className={`p-4 rounded-xl cursor-pointer border transition-all ${editingExamId === exam.id ? 'bg-indigo-50 border-brand' : 'bg-gray-50 border-transparent hover:bg-gray-100'}`}>
-                                    <input value={exam.title} onChange={(e) => updateExamTitle(exam.id, e.target.value)} className="bg-transparent font-bold text-gray-900 w-full focus:outline-none" onClick={e => e.stopPropagation()} />
-                                    <div className="flex justify-between items-center mt-2">
-                                        <span className="text-xs text-gray-500">{exam.questions.length} Questions</span>
-                                        <button onClick={(e) => { e.stopPropagation(); deleteExam(exam.id); }} className="text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4"/></button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+
+                <div className="flex-1 overflow-y-auto pr-2 space-y-6">
+                    {/* Add Chapter Section */}
+                    <div className="flex gap-2 mb-6 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                        <input 
+                            value={newChapterTitle} 
+                            onChange={e => setNewChapterTitle(e.target.value)} 
+                            placeholder="New Chapter Title (e.g., Thermodynamics)"
+                            className="flex-1 p-3 bg-white border border-gray-200 rounded-xl text-gray-900 text-sm"
+                        />
+                        <button onClick={addChapter} className="bg-brand text-white px-6 py-2 rounded-xl font-bold text-sm hover:bg-brand-dark transition-colors">
+                            Add Chapter
+                        </button>
                     </div>
-                    <div className="flex-1 overflow-y-auto pl-2">
-                        {activeExam ? (
-                            <div className="space-y-6">
-                                <div className="flex justify-between items-center">
-                                    <h3 className="font-bold text-lg text-gray-900">Questions for {activeExam.title}</h3>
-                                    <button onClick={() => addQuestion(activeExam.id)} className="text-brand text-sm font-bold bg-brand-light px-3 py-1.5 rounded-lg">+ Add Question</button>
+
+                    {/* Chapters List */}
+                    {chapters.map((chapter, cIdx) => (
+                        <div key={chapter.id} className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+                            <div className="bg-gray-100 p-4 flex justify-between items-center">
+                                <h3 className="font-bold text-gray-800 text-lg">{chapter.title}</h3>
+                                <div className="flex gap-2">
+                                    <button onClick={() => setEditingChapterIdx(cIdx === editingChapterIdx ? null : cIdx)} className="text-xs font-bold bg-brand/10 text-brand px-3 py-1.5 rounded-lg hover:bg-brand/20">
+                                        {cIdx === editingChapterIdx ? 'Cancel Adding' : '+ Add Video'}
+                                    </button>
+                                    <button onClick={() => deleteChapter(cIdx)} className="text-red-500 hover:text-red-700 p-1"><Trash2 className="w-5 h-5"/></button>
                                 </div>
-                                {activeExam.questions.map((q, qIdx) => (
-                                    <div key={q.id} className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                                        <div className="flex gap-2 mb-2">
-                                            <span className="font-bold text-gray-400">Q{qIdx+1}</span>
-                                            <input className="flex-1 bg-white border border-gray-200 p-2 rounded-lg text-sm font-medium text-gray-900" value={q.question} onChange={e => updateQuestion(activeExam.id, qIdx, 'question', e.target.value)} placeholder="Question Text" />
-                                            <button onClick={() => {
-                                                const qs = [...activeExam.questions]; qs.splice(qIdx, 1);
-                                                setExams(exams.map(e => e.id === activeExam.id ? { ...e, questions: qs } : e));
-                                            }} className="text-red-400 p-2"><Trash2 className="w-4 h-4"/></button>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-2 pl-6">
-                                            {q.options.map((opt, oIdx) => (
-                                                <div key={oIdx} className="flex items-center gap-2">
-                                                    <input type="radio" checked={q.correctAnswer === oIdx} onChange={() => updateQuestion(activeExam.id, qIdx, 'correctAnswer', oIdx)} name={`q-${q.id}`} className="text-brand focus:ring-brand" />
-                                                    <input className="flex-1 bg-white border border-gray-200 p-2 rounded-lg text-xs text-gray-900" value={opt} onChange={e => updateOption(activeExam.id, qIdx, oIdx, e.target.value)} placeholder={`Option ${oIdx+1}`} />
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                ))}
                             </div>
-                        ) : (
-                            <div className="h-full flex items-center justify-center text-gray-400">Select an exam to edit</div>
-                        )}
-                    </div>
+
+                            {/* Add Video Form */}
+                            {editingChapterIdx === cIdx && (
+                                <div className="p-4 bg-blue-50 border-b border-blue-100 grid gap-3">
+                                    <h4 className="text-xs font-bold text-blue-700 uppercase">Add New Video</h4>
+                                    <input 
+                                        placeholder="Video Title" 
+                                        value={newVideo.title} 
+                                        onChange={e => setNewVideo({...newVideo, title: e.target.value})}
+                                        className="p-2.5 rounded-lg border border-blue-200 text-sm text-gray-900"
+                                    />
+                                    <div className="flex gap-2">
+                                        <input 
+                                            placeholder="Video URL / Filename" 
+                                            value={newVideo.filename} 
+                                            onChange={e => setNewVideo({...newVideo, filename: e.target.value})}
+                                            className="flex-1 p-2.5 rounded-lg border border-blue-200 text-sm text-gray-900"
+                                        />
+                                        <input 
+                                            placeholder="Duration (MM:SS)" 
+                                            value={newVideo.duration} 
+                                            onChange={e => setNewVideo({...newVideo, duration: e.target.value})}
+                                            className="w-32 p-2.5 rounded-lg border border-blue-200 text-sm text-gray-900"
+                                        />
+                                    </div>
+                                    <button onClick={() => addVideoToChapter(cIdx)} className="bg-blue-600 text-white py-2 rounded-lg font-bold text-sm shadow-md hover:bg-blue-700">
+                                        Add Video
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* Videos List */}
+                            <div className="divide-y divide-gray-100">
+                                {chapter.videos.length === 0 ? (
+                                    <div className="p-4 text-center text-gray-400 text-sm italic">No videos in this chapter yet.</div>
+                                ) : (
+                                    chapter.videos.map(video => (
+                                        <div key={video.id} className="p-3 pl-4 flex items-center justify-between hover:bg-gray-50 group">
+                                            <div className="flex items-center gap-3 overflow-hidden">
+                                                <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-none text-gray-500">
+                                                    <PlayCircle className="w-4 h-4" />
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <p className="text-sm font-medium text-gray-900 truncate">{video.title}</p>
+                                                    <p className="text-[10px] text-gray-500 truncate max-w-[200px]">{video.filename}</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-4">
+                                                <span className="text-xs font-mono text-gray-400 bg-gray-100 px-2 py-1 rounded">{video.duration}</span>
+                                                <button onClick={() => deleteVideo(cIdx, video.id)} className="text-gray-300 hover:text-red-500 transition-colors">
+                                                    <X className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    ))}
                 </div>
+
                 <div className="mt-6 pt-4 border-t flex justify-end">
                     <button onClick={handleSave} className="bg-gray-900 text-white px-8 py-3 rounded-xl font-bold hover:bg-black transition-colors shadow-lg">Save All Changes</button>
                 </div>
@@ -778,212 +820,253 @@ const ExamManager = ({ course, onClose }: { course: Course; onClose: () => void 
     );
 };
 
-const Watch = () => {
-    const { courseId } = useParams();
-    const { courses, currentUser, saveAiQuiz, saveVideoProgress } = useStore();
-    const [currentVideoUrl, setCurrentVideoUrl] = useState<string>('');
-    const [currentVideo, setCurrentVideo] = useState<Video | null>(null);
-    const [quizQuestions, setQuizQuestions] = useState<Question[]>([]);
-    const [showQuiz, setShowQuiz] = useState(false);
-    const [quizLoading, setQuizLoading] = useState(false);
-    const [quizScore, setQuizScore] = useState<number | null>(null);
-    const [userAnswers, setUserAnswers] = useState<number[]>([]);
-    const navigate = useNavigate();
-
-    const course = courses.find(c => c.id === courseId);
+const ExamManager = ({ course, onClose }: { course: Course; onClose: () => void }) => {
+    const { updateCourse } = useStore();
+    const [exams, setExams] = useState<Exam[]>(course.exams || []);
+    const [editingExamIdx, setEditingExamIdx] = useState<number | null>(null);
+    const [newExamTitle, setNewExamTitle] = useState('');
     
-    useEffect(() => {
-        if(course?.chapters[0]?.videos[0]) {
-            setCurrentVideoUrl(course.chapters[0].videos[0].filename);
-            setCurrentVideo(course.chapters[0].videos[0]);
-        }
-    }, [course]);
+    // For adding question
+    const [newQuestion, setNewQuestion] = useState<Partial<Question>>({ options: ['', '', '', ''], correctAnswer: 0 });
 
-    const generateAiQuiz = async () => {
-        if (!currentVideo) return;
-        setQuizLoading(true);
-        setShowQuiz(true);
-        setQuizScore(null);
-        setUserAnswers([]);
-
-        // Check if quiz already exists
-        const existingQuiz = currentUser?.generatedQuizzes?.find(q => q.videoId === currentVideo.id);
-        if (existingQuiz) {
-            setQuizQuestions(existingQuiz.questions);
-            setQuizLoading(false);
-            return;
-        }
-
-        try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-            const prompt = `Create 5 multiple choice questions based on the topic "${currentVideo.title}" from the course "${course?.title}". 
-            Format strictly as a JSON array of objects with keys: "id", "question", "options" (array of 4 strings), "correctAnswer" (number index 0-3).`;
-
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: prompt,
-                config: { responseMimeType: 'application/json' }
-            });
-
-            const text = response.text;
-            if (text) {
-                const data = JSON.parse(text);
-                setQuizQuestions(data);
-                // Save to store
-                saveAiQuiz({
-                    videoId: currentVideo.id,
-                    questions: data,
-                    generatedAt: new Date().toISOString()
-                });
-            }
-        } catch (e) {
-            console.error(e);
-            alert("Failed to generate AI quiz. Please try again.");
-            setShowQuiz(false);
-        } finally {
-            setQuizLoading(false);
-        }
+    const handleSave = () => {
+        updateCourse({ ...course, exams });
+        onClose();
     };
 
-    const submitQuiz = () => {
-        let score = 0;
-        quizQuestions.forEach((q, i) => {
-            if (userAnswers[i] === q.correctAnswer) score++;
+    const addExam = () => {
+        if (!newExamTitle.trim()) return;
+        setExams([...exams, { id: Date.now().toString(), title: newExamTitle, questions: [] }]);
+        setNewExamTitle('');
+    };
+
+    const deleteExam = (idx: number) => {
+        if (confirm("Delete this exam?")) {
+            setExams(exams.filter((_, i) => i !== idx));
+        }
+    };
+    
+    const addQuestion = (examIdx: number) => {
+        if (!newQuestion.question || !newQuestion.options || newQuestion.options.some(o => !o)) return;
+        
+        const updatedExams = [...exams];
+        updatedExams[examIdx].questions.push({
+            id: Date.now().toString(),
+            question: newQuestion.question,
+            options: newQuestion.options,
+            correctAnswer: newQuestion.correctAnswer || 0
         });
-        setQuizScore(score);
+        setExams(updatedExams);
+        setNewQuestion({ options: ['', '', '', ''], correctAnswer: 0 });
     };
 
-    if (!course) return <Navigate to="/" />;
+    const deleteQuestion = (examIdx: number, qIdx: number) => {
+        const updatedExams = [...exams];
+        updatedExams[examIdx].questions = updatedExams[examIdx].questions.filter((_, i) => i !== qIdx);
+        setExams(updatedExams);
+    };
 
     return (
-        <div className="min-h-screen bg-black text-white flex flex-col md:flex-row">
-            <div className="flex-1 flex flex-col relative">
-                <div className="w-full aspect-video bg-black">
-                     {currentVideoUrl ? (
-                        <VideoPlayer 
-                            src={currentVideoUrl} 
-                            onBack={() => navigate(`/course/${courseId}`)}
-                            initialTime={currentUser?.videoProgress?.[currentVideo?.id || '']?.timestamp || 0}
-                            onProgress={(time, duration) => {
-                                if(currentVideo) saveVideoProgress(currentVideo.id, time, duration);
-                            }}
-                        />
-                     ) : (
-                        <div className="h-full flex items-center justify-center">Select a video</div>
-                     )}
-                </div>
-                <div className="p-4 flex justify-between items-center bg-gray-900 border-b border-gray-800">
-                    <div>
-                        <h1 className="text-xl font-bold">{currentVideo?.title || course.title}</h1>
-                        <p className="text-sm text-gray-400">{course.title}</p>
-                    </div>
-                    {currentVideo && (
-                        <button 
-                            onClick={generateAiQuiz}
-                            className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-indigo-700 transition-colors"
-                        >
-                            <Brain className="w-4 h-4" /> Take AI Quiz
-                        </button>
-                    )}
+        <div className="fixed inset-0 z-[70] bg-black/50 backdrop-blur flex items-center justify-center p-4 animate-fade-in">
+            <div className="bg-white w-full max-w-4xl h-[85vh] rounded-3xl p-6 flex flex-col shadow-2xl overflow-hidden">
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-2xl font-bold font-display text-gray-900">Manage Exams: {course.title}</h2>
+                    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full"><X className="w-6 h-6"/></button>
                 </div>
 
-                {/* AI Quiz Modal Overlay */}
-                {showQuiz && (
-                    <div className="absolute inset-0 z-50 bg-gray-900/95 backdrop-blur-sm p-4 overflow-y-auto">
-                        <div className="max-w-2xl mx-auto bg-gray-800 rounded-3xl p-6 border border-gray-700">
-                            <div className="flex justify-between items-center mb-6">
-                                <h2 className="text-xl font-bold flex items-center gap-2">
-                                    <Brain className="text-indigo-400"/> 
-                                    Quiz: {currentVideo?.title}
-                                </h2>
-                                <button onClick={() => setShowQuiz(false)} className="p-2 hover:bg-gray-700 rounded-full">
-                                    <X className="w-5 h-5"/>
-                                </button>
+                <div className="flex-1 overflow-y-auto pr-2 space-y-6">
+                    <div className="flex gap-2 mb-6 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                        <input 
+                            value={newExamTitle} 
+                            onChange={e => setNewExamTitle(e.target.value)} 
+                            placeholder="New Exam Title (e.g., Chapter 1 Mock)"
+                            className="flex-1 p-3 bg-white border border-gray-200 rounded-xl text-gray-900 text-sm"
+                        />
+                        <button onClick={addExam} className="bg-brand text-white px-6 py-2 rounded-xl font-bold text-sm hover:bg-brand-dark transition-colors">
+                            Add Exam
+                        </button>
+                    </div>
+
+                    {exams.map((exam, eIdx) => (
+                        <div key={exam.id} className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+                            <div className="bg-gray-100 p-4 flex justify-between items-center">
+                                <h3 className="font-bold text-gray-800 text-lg">{exam.title} <span className="text-sm font-normal text-gray-500">({exam.questions.length} Qs)</span></h3>
+                                <div className="flex gap-2">
+                                    <button onClick={() => setEditingExamIdx(eIdx === editingExamIdx ? null : eIdx)} className="text-xs font-bold bg-purple-100 text-purple-700 px-3 py-1.5 rounded-lg hover:bg-purple-200">
+                                        {eIdx === editingExamIdx ? 'Close' : 'Manage Questions'}
+                                    </button>
+                                    <button onClick={() => deleteExam(eIdx)} className="text-red-500 hover:text-red-700 p-1"><Trash2 className="w-5 h-5"/></button>
+                                </div>
                             </div>
 
-                            {quizLoading ? (
-                                <div className="py-20 flex flex-col items-center justify-center text-center">
-                                    <Loader2 className="w-12 h-12 text-indigo-500 animate-spin mb-4"/>
-                                    <p className="text-gray-400">Generating questions with AI...</p>
-                                </div>
-                            ) : (
-                                <div className="space-y-6">
-                                    {quizQuestions.map((q, idx) => {
-                                        const isAnswered = userAnswers[idx] !== undefined;
-                                        const isCorrect = userAnswers[idx] === q.correctAnswer;
-                                        const showResult = quizScore !== null;
-
-                                        return (
-                                            <div key={idx} className="bg-gray-700/50 p-4 rounded-xl border border-gray-700">
-                                                <p className="font-bold mb-3">{idx + 1}. {q.question}</p>
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                                    {q.options.map((opt, oIdx) => {
-                                                        let btnClass = "bg-gray-800 border-gray-600 hover:bg-gray-700";
-                                                        if (showResult) {
-                                                            if (oIdx === q.correctAnswer) btnClass = "bg-green-900/50 border-green-500 text-green-200";
-                                                            else if (userAnswers[idx] === oIdx) btnClass = "bg-red-900/50 border-red-500 text-red-200";
-                                                            else btnClass = "bg-gray-800 border-gray-700 opacity-50";
-                                                        } else if (userAnswers[idx] === oIdx) {
-                                                            btnClass = "bg-indigo-600 border-indigo-500";
-                                                        }
-
-                                                        return (
-                                                            <button 
-                                                                key={oIdx}
-                                                                disabled={showResult}
-                                                                onClick={() => {
-                                                                    const newAns = [...userAnswers];
-                                                                    newAns[idx] = oIdx;
-                                                                    setUserAnswers(newAns);
-                                                                }}
-                                                                className={`p-3 rounded-lg border text-left text-sm font-medium transition-all ${btnClass}`}
-                                                            >
-                                                                {opt}
-                                                            </button>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-
-                                    {quizScore === null ? (
-                                        <button 
-                                            onClick={submitQuiz}
-                                            disabled={userAnswers.filter(a => a !== undefined).length !== quizQuestions.length}
-                                            className="w-full py-3 bg-indigo-600 rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-indigo-700 transition-colors"
-                                        >
-                                            Submit Quiz
-                                        </button>
-                                    ) : (
-                                        <div className="text-center p-6 bg-gray-800 rounded-xl border border-gray-700">
-                                            <p className="text-gray-400 text-sm uppercase font-bold mb-1">Your Score</p>
-                                            <p className="text-4xl font-bold text-white mb-4">{quizScore} / {quizQuestions.length}</p>
-                                            <button onClick={() => setShowQuiz(false)} className="px-6 py-2 bg-gray-700 rounded-lg font-bold hover:bg-gray-600">Close</button>
+                            {editingExamIdx === eIdx && (
+                                <div className="p-4 bg-gray-50 border-t border-gray-200">
+                                    <div className="mb-6 p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
+                                        <h4 className="font-bold text-sm text-gray-700 mb-3">Add New Question</h4>
+                                        <input 
+                                            placeholder="Question Text" 
+                                            className="w-full p-2 mb-2 border rounded-lg text-sm"
+                                            value={newQuestion.question || ''}
+                                            onChange={e => setNewQuestion({...newQuestion, question: e.target.value})}
+                                        />
+                                        <div className="grid grid-cols-2 gap-2 mb-2">
+                                            {[0, 1, 2, 3].map(i => (
+                                                <input 
+                                                    key={i}
+                                                    placeholder={`Option ${i + 1}`}
+                                                    className="p-2 border rounded-lg text-sm"
+                                                    value={newQuestion.options?.[i] || ''}
+                                                    onChange={e => {
+                                                        const newOpts = [...(newQuestion.options || [])];
+                                                        newOpts[i] = e.target.value;
+                                                        setNewQuestion({...newQuestion, options: newOpts});
+                                                    }}
+                                                />
+                                            ))}
                                         </div>
-                                    )}
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <span className="text-xs font-bold text-gray-500">Correct Answer:</span>
+                                            <select 
+                                                className="p-1 border rounded text-sm"
+                                                value={newQuestion.correctAnswer}
+                                                onChange={e => setNewQuestion({...newQuestion, correctAnswer: Number(e.target.value)})}
+                                            >
+                                                {[0, 1, 2, 3].map(i => <option key={i} value={i}>Option {i + 1}</option>)}
+                                            </select>
+                                        </div>
+                                        <button onClick={() => addQuestion(eIdx)} className="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-bold">Add Question</button>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        {exam.questions.map((q, qIdx) => (
+                                            <div key={q.id} className="p-3 bg-white rounded-lg border border-gray-200 flex justify-between items-start">
+                                                <div>
+                                                    <p className="font-bold text-sm text-gray-800">{qIdx + 1}. {q.question}</p>
+                                                    <p className="text-xs text-gray-500 mt-1">Ans: Option {q.correctAnswer + 1}</p>
+                                                </div>
+                                                <button onClick={() => deleteQuestion(eIdx, qIdx)} className="text-gray-400 hover:text-red-500"><X className="w-4 h-4"/></button>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             )}
                         </div>
+                    ))}
+                </div>
+                 <div className="mt-6 pt-4 border-t flex justify-end">
+                    <button onClick={handleSave} className="bg-gray-900 text-white px-8 py-3 rounded-xl font-bold hover:bg-black transition-colors shadow-lg">Save All Changes</button>
+                </div>
+            </div>
+        </div>
+    )
+};
+
+const Watch = () => {
+    const { courseId } = useParams();
+    const { courses, currentUser, saveVideoProgress } = useStore();
+    const navigate = useNavigate();
+    
+    // Find course
+    const course = courses.find(c => c.id === courseId);
+    
+    // Flatten videos to get a playlist
+    const allVideos: { video: Video, chapterId: string, chapterTitle: string }[] = [];
+    course?.chapters.forEach(chap => {
+        chap.videos.forEach(vid => {
+            allVideos.push({ video: vid, chapterId: chap.id, chapterTitle: chap.title });
+        });
+    });
+
+    const [currentVideoIdx, setCurrentVideoIdx] = useState(0);
+
+    if (!currentUser) return <Navigate to="/login" />;
+    if (!course) return <Navigate to="/" />;
+
+    const hasAccess = currentUser.purchasedCourseIds.includes(course.id) || 
+                      (currentUser.tempAccess?.[course.id] && new Date(currentUser.tempAccess[course.id]) > new Date());
+
+    if (!hasAccess) {
+        return <Navigate to={`/course/${courseId}`} />;
+    }
+
+    const currentVideoItem = allVideos[currentVideoIdx];
+
+    const handleVideoProgress = (currentTime: number, duration: number) => {
+        if (currentVideoItem) {
+            saveVideoProgress(currentVideoItem.video.id, currentTime, duration);
+        }
+    };
+
+    return (
+        <div className="min-h-screen bg-gray-900 text-white flex flex-col md:flex-row h-screen overflow-hidden">
+            {/* Video Player Section */}
+            <div className="flex-1 flex flex-col relative bg-black">
+                {currentVideoItem ? (
+                     <div className="flex-1 relative flex items-center justify-center">
+                        <VideoPlayer 
+                            src={currentVideoItem.video.filename} 
+                            onProgress={handleVideoProgress}
+                            onBack={() => navigate(`/course/${courseId}`)}
+                            // Pass saved timestamp if any
+                            initialTime={currentUser.videoProgress?.[currentVideoItem.video.id]?.timestamp || 0}
+                        />
+                     </div>
+                ) : (
+                    <div className="flex-1 flex items-center justify-center text-gray-500">
+                        Select a video to start watching
+                    </div>
+                )}
+                {currentVideoItem && (
+                    <div className="p-4 bg-gray-900 border-t border-gray-800">
+                        <h1 className="text-xl font-bold">{currentVideoItem.video.title}</h1>
+                        <p className="text-gray-400 text-sm">{currentVideoItem.chapterTitle}</p>
                     </div>
                 )}
             </div>
-            <div className="w-full md:w-80 bg-gray-900 overflow-y-auto h-[50vh] md:h-screen border-l border-gray-800">
-                <div className="p-4 font-bold border-b border-gray-800 bg-gray-900 sticky top-0 z-10">Course Content</div>
-                {course.chapters.map(chap => (
-                    <div key={chap.id}>
-                        <div className="bg-gray-800/50 px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider sticky top-14">{chap.title}</div>
-                        {chap.videos.map(v => (
-                            <button key={v.id} onClick={() => { setCurrentVideoUrl(v.filename); setCurrentVideo(v); }} className={`w-full text-left px-4 py-3 hover:bg-gray-800 flex gap-3 items-center border-b border-gray-800/50 transition-colors ${currentVideoUrl === v.filename ? 'bg-gray-800 text-indigo-400 border-l-4 border-l-indigo-500' : 'text-gray-300'}`}>
-                                <PlayCircle className={`w-4 h-4 flex-none ${currentVideoUrl === v.filename ? 'fill-current' : ''}`} />
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium truncate">{v.title}</p>
-                                    <p className="text-[10px] text-gray-500">{v.duration}</p>
-                                </div>
-                            </button>
-                        ))}
-                    </div>
-                ))}
+
+            {/* Playlist Sidebar */}
+            <div className="w-full md:w-80 bg-gray-800 border-l border-gray-700 flex flex-col h-[40vh] md:h-full overflow-hidden">
+                <div className="p-4 border-b border-gray-700 bg-gray-800">
+                    <h2 className="font-bold text-lg">Course Content</h2>
+                    <p className="text-xs text-gray-400">{allVideos.length} Videos</p>
+                </div>
+                <div className="flex-1 overflow-y-auto">
+                    {course.chapters.map((chap) => (
+                        <div key={chap.id}>
+                            <div className="px-4 py-2 bg-gray-700/50 text-xs font-bold text-gray-300 uppercase sticky top-0 backdrop-blur-sm z-10">
+                                {chap.title}
+                            </div>
+                            {chap.videos.map((vid) => {
+                                const idx = allVideos.findIndex(v => v.video.id === vid.id);
+                                const isPlaying = idx === currentVideoIdx;
+                                const progress = currentUser.videoProgress?.[vid.id];
+                                const isCompleted = progress?.completed;
+
+                                return (
+                                    <button 
+                                        key={vid.id}
+                                        onClick={() => setCurrentVideoIdx(idx)}
+                                        className={`w-full text-left p-3 flex gap-3 hover:bg-gray-700 transition-colors border-b border-gray-700/50 ${isPlaying ? 'bg-gray-700 border-l-4 border-l-brand' : ''}`}
+                                    >
+                                        <div className="mt-1">
+                                            {isPlaying ? (
+                                                <div className="w-4 h-4 text-brand"><PlayCircle className="w-full h-full" fill="currentColor" /></div>
+                                            ) : isCompleted ? (
+                                                <CheckCircle className="w-4 h-4 text-green-500" />
+                                            ) : (
+                                                <div className="w-4 h-4 rounded-full border border-gray-500" />
+                                            )}
+                                        </div>
+                                        <div>
+                                            <p className={`text-sm font-medium ${isPlaying ? 'text-white' : 'text-gray-300'}`}>{vid.title}</p>
+                                            <p className="text-xs text-gray-500">{vid.duration}</p>
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    ))}
+                </div>
             </div>
         </div>
     );
@@ -995,9 +1078,15 @@ const CourseDetail = () => {
     const navigate = useNavigate();
     const course = courses.find(c => c.id === id);
     const [keyInput, setKeyInput] = useState('');
+    const [verificationTimeLeft, setVerificationTimeLeft] = useState<number | null>(null);
+    const grantTempAccessRef = useRef(grantTempAccess);
     
     // Constant for the storage key
     const PENDING_ACCESS_KEY = `pending_access_${id}`;
+
+    useEffect(() => {
+        grantTempAccessRef.current = grantTempAccess;
+    }, [grantTempAccess]);
 
     if (!course) return <Navigate to="/" />;
     
@@ -1029,24 +1118,34 @@ const CourseDetail = () => {
     };
 
     // 3. Fallback: Automatically grant access if user returns after >10 seconds
-    // Using setInterval to aggressively check if time has passed, ensuring it works even if visibility change event is missed
     useEffect(() => {
         const interval = setInterval(() => {
             const pending = localStorage.getItem(PENDING_ACCESS_KEY);
             if (pending) {
                 const elapsed = Date.now() - parseInt(pending);
-                // If more than 10 seconds have passed since they clicked the link
-                if (elapsed > 10000) { 
-                    grantTempAccess(course.id);
+                const remaining = 10000 - elapsed;
+                
+                if (remaining <= 0) {
+                    grantTempAccessRef.current(course.id);
                     localStorage.removeItem(PENDING_ACCESS_KEY);
+                    setVerificationTimeLeft(null);
                     clearInterval(interval);
-                    alert("Verification successful! Temporary access granted.");
+                } else {
+                    setVerificationTimeLeft(Math.ceil(remaining / 1000));
                 }
+            } else {
+                setVerificationTimeLeft(null);
             }
-        }, 1000); // Check every second
+        }, 1000);
 
         return () => clearInterval(interval);
-    }, [course.id, grantTempAccess, PENDING_ACCESS_KEY]);
+    }, [course.id, PENDING_ACCESS_KEY]);
+
+    // Fallback for visual manual verify if auto doesn't trigger
+    const manualVerify = () => {
+        grantTempAccessRef.current(course.id);
+        localStorage.removeItem(PENDING_ACCESS_KEY);
+    };
 
     const getContactLink = () => {
         const contact = settings.supportPhone || '';
@@ -1087,12 +1186,30 @@ const CourseDetail = () => {
                             <div className="bg-gray-50 p-4 rounded-2xl border border-gray-200">
                                 <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-2"><Clock className="w-4 h-4 text-blue-500"/> Temporary Access</h3>
                                 <p className="text-xs text-gray-500 mb-3">Get 24 hours of free access by visiting a sponsor link.</p>
-                                <button 
-                                    onClick={handleTempAccess}
-                                    className="w-full py-3 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-colors shadow-sm"
-                                >
-                                    Get Free Access (24h)
-                                </button>
+                                
+                                {verificationTimeLeft !== null ? (
+                                    <div className="space-y-2">
+                                        <button 
+                                            disabled
+                                            className="w-full py-3 bg-gray-100 text-gray-500 font-bold rounded-xl flex items-center justify-center gap-2 cursor-wait"
+                                        >
+                                            <Loader2 className="w-4 h-4 animate-spin"/> Verifying... ({verificationTimeLeft}s)
+                                        </button>
+                                        <button 
+                                            onClick={manualVerify}
+                                            className="w-full text-xs text-blue-600 font-bold underline hover:text-blue-800 mt-2"
+                                        >
+                                            Stuck? Click here to verify instantly
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <button 
+                                        onClick={handleTempAccess}
+                                        className="w-full py-3 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-colors shadow-sm"
+                                    >
+                                        Get Free Access (24h)
+                                    </button>
+                                )}
                             </div>
 
                             <div className="flex items-center gap-2">
@@ -1321,6 +1438,7 @@ const AdminPanel = () => {
     const [showCourseModal, setShowCourseModal] = useState(false);
     const [editingCourse, setEditingCourse] = useState<Course | null>(null);
     const [showExamManager, setShowExamManager] = useState<Course | null>(null);
+    const [showContentManager, setShowContentManager] = useState<Course | null>(null);
     
     // User Management State
     const [showUserModal, setShowUserModal] = useState(false);
@@ -1450,16 +1568,21 @@ const AdminPanel = () => {
                                  <h3 className="font-bold text-gray-900">{c.title}</h3>
                                  <p className="text-xs text-gray-500">{c.chapters.length} Chapters • {c.isPaid ? `₹${c.price}` : 'Free'}</p>
                              </div>
-                             <div className="flex gap-2">
-                                 <button onClick={() => setShowExamManager(c)} className="p-2 text-purple-600 bg-purple-50 rounded-lg hover:bg-purple-100" title="Manage Exams"><ClipboardList className="w-4 h-4" /></button>
-                                 <button onClick={() => { setEditingCourse(c); setShowCourseModal(true); }} className="p-2 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100" title="Edit"><Edit className="w-4 h-4" /></button>
-                                 <button onClick={() => { if(confirm('Delete course?')) deleteCourse(c.id); }} className="p-2 text-red-600 bg-red-50 rounded-lg hover:bg-red-100" title="Delete"><Trash2 className="w-4 h-4" /></button>
+                             <div className="flex gap-2 flex-wrap">
+                                 {/* NEW: Explicit Content Manager Button */}
+                                 <button onClick={() => setShowContentManager(c)} className="px-3 py-2 text-green-700 bg-green-50 rounded-lg hover:bg-green-100 font-bold text-xs flex items-center gap-1 shadow-sm border border-green-100" title="Manage Content">
+                                     <VideoIcon className="w-4 h-4" /> Manage Content
+                                 </button>
+                                 <button onClick={() => setShowExamManager(c)} className="p-2 text-purple-600 bg-purple-50 rounded-lg hover:bg-purple-100 border border-purple-100" title="Manage Exams"><ClipboardList className="w-4 h-4" /></button>
+                                 <button onClick={() => { setEditingCourse(c); setShowCourseModal(true); }} className="p-2 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 border border-blue-100" title="Edit"><Edit className="w-4 h-4" /></button>
+                                 <button onClick={() => { if(confirm('Delete course?')) deleteCourse(c.id); }} className="p-2 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 border border-red-100" title="Delete"><Trash2 className="w-4 h-4" /></button>
                              </div>
                          </div>
                      ))}
                  </div>
              )}
 
+             {/* ... Users, Banners, Settings tabs (unchanged) ... */}
              {tab === 'users' && (
                  <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
                      <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
@@ -1659,6 +1782,11 @@ const AdminPanel = () => {
              {/* Exam Manager Modal Reuse */}
              {showExamManager && (
                  <ExamManager course={showExamManager} onClose={() => setShowExamManager(null)} />
+             )}
+
+             {/* Content Manager Modal Reuse */}
+             {showContentManager && (
+                 <ContentManager course={showContentManager} onClose={() => setShowContentManager(null)} />
              )}
         </div>
     );

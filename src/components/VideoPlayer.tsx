@@ -29,8 +29,8 @@ const getEmbedUrl = (input: string) => {
   // 2. YouTube (Handles Shorts, Watch, Embed, youtu.be)
   // modestbranding=1 minimizes YouTube logo.
   // rel=0 limits related videos to the same channel.
-  // controls=1 ensures native controls work.
-  // fs=1 enables the native fullscreen button.
+  // controls=1 ensures native controls work inside iframe.
+  // fs=1 allows native fullscreen button to work.
   const ytMatch = input.match(/^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/);
   if (ytMatch && ytMatch[7]?.length === 11) {
     const videoId = ytMatch[7];
@@ -230,7 +230,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
     );
   }
 
-  // Embed Player (YouTube/Vimeo)
+  // Embed Player
   if (isEmbed) {
     return (
       <div 
@@ -285,7 +285,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
     );
   }
 
-  // Native Player (Direct MP4/WebM)
+  // Native Player
   return (
     <div 
       ref={containerRef}

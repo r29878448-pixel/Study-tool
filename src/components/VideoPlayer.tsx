@@ -31,6 +31,7 @@ const getEmbedUrl = (input: string) => {
   // rel=0 limits related videos to the same channel.
   // controls=1 ensures native controls work inside iframe.
   // fs=1 allows native fullscreen button to work.
+  // showinfo=0 hides video title (deprecated but good to have)
   const ytMatch = input.match(/^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/);
   if (ytMatch && ytMatch[7]?.length === 11) {
     const videoId = ytMatch[7];

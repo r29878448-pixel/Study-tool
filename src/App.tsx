@@ -72,9 +72,9 @@ const ThemeHandler = () => {
 const FuturisticBackground = () => {
   return (
     <div className="fixed inset-0 z-[-1] overflow-hidden bg-[#F8FAFC] pointer-events-none">
-      {/* Abstract Glowing Orbs */}
-      <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-brand-light rounded-full blur-[120px] opacity-40 animate-pulse"></div>
-      <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-purple-100 rounded-full blur-[120px] opacity-40 animate-pulse delay-1000"></div>
+      {/* Enhanced Glowing Orbs */}
+      <div className="absolute top-[-20%] left-[-20%] w-[80%] h-[80%] bg-brand-light/50 rounded-full blur-[150px] opacity-40 animate-pulse"></div>
+      <div className="absolute bottom-[-20%] right-[-20%] w-[80%] h-[80%] bg-purple-100/60 rounded-full blur-[150px] opacity-40 animate-pulse delay-1000"></div>
       
       {/* "Snow/Particles" CSS Animation */}
       <div className="absolute inset-0 opacity-20">
@@ -162,9 +162,9 @@ const Header = () => {
   
   return (
     <>
-      <header className={`fixed top-0 left-0 right-0 h-16 flex items-center justify-between px-4 z-50 transition-all duration-300 ${scrolled ? 'bg-white/70 backdrop-blur-xl shadow-sm border-b border-white/50 text-gray-900' : 'bg-transparent text-gray-900'}`}>
+      <header className={`fixed top-0 left-0 right-0 h-16 flex items-center justify-between px-4 z-50 transition-all duration-300 ${scrolled ? 'bg-white/80 backdrop-blur-md shadow-sm border-b border-gray-100/50 text-gray-900' : 'bg-transparent text-gray-900'}`}>
         <div className="flex items-center gap-3">
-          <button onClick={() => setShowMenu(true)} className={`p-2 rounded-xl transition-colors ${scrolled ? 'hover:bg-gray-100' : 'bg-white/50 hover:bg-white'}`}>
+          <button onClick={() => setShowMenu(true)} className={`p-2 rounded-xl transition-colors ${scrolled ? 'hover:bg-gray-100' : 'bg-white/60 hover:bg-white backdrop-blur-sm'}`}>
             <Menu className="w-6 h-6" />
           </button>
           <div className={!scrolled && location.pathname === '/' ? 'opacity-0' : 'opacity-100 transition-opacity'}>
@@ -184,8 +184,8 @@ const Header = () => {
       {/* Sidebar Drawer */}
       {showMenu && (
         <div className="fixed inset-0 z-[60] flex">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-md" onClick={() => setShowMenu(false)} />
-          <div className="relative w-72 bg-white/90 backdrop-blur-xl h-full shadow-2xl flex flex-col animate-slide-in border-r border-white/50">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowMenu(false)} />
+          <div className="relative w-72 bg-white/95 backdrop-blur-xl h-full shadow-2xl flex flex-col animate-slide-in border-r border-white/50">
             <div className="h-48 bg-gradient-to-br from-brand to-purple-700 flex flex-col justify-end p-6 text-white relative overflow-hidden">
                <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full blur-2xl translate-x-10 -translate-y-10"></div>
                <div className="w-16 h-16 rounded-full bg-white text-brand flex items-center justify-center mb-4 text-2xl font-bold shadow-lg shadow-black/10">
@@ -230,7 +230,7 @@ const BottomNav = () => {
   const isActive = (path: string) => location.pathname === path ? 'text-brand' : 'text-gray-400';
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 h-16 bg-white/70 backdrop-blur-xl border-t border-white/50 flex items-center justify-around z-40 pb-safe shadow-lg">
+    <div className="fixed bottom-0 left-0 right-0 h-16 bg-white/90 backdrop-blur-xl border-t border-gray-200/50 flex items-center justify-around z-40 pb-safe shadow-lg">
       <Link to="/" className={`flex flex-col items-center transition-colors ${isActive('/')}`}>
         <Home className="w-6 h-6" />
         <span className="text-[10px] mt-1 font-bold">Home</span>
@@ -251,13 +251,15 @@ const BottomNav = () => {
   );
 };
 
+// --- Pages ---
+
 const Help = () => {
     const { settings } = useStore();
     const botUsername = settings.supportPhone.startsWith('@') ? settings.supportPhone.substring(1) : 'STUDY_PORTAL_ROBOT';
     
     return (
         <div className="pt-24 px-6 pb-20 min-h-screen flex flex-col items-center justify-center relative">
-            <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 text-center w-full max-w-md animate-fade-in relative z-10">
+            <div className="bg-white/80 backdrop-blur-xl p-8 rounded-3xl shadow-lg border border-white/50 text-center w-full max-w-md animate-fade-in relative z-10">
                 <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
                     <Bot className="w-10 h-10 text-brand" />
                 </div>
@@ -427,7 +429,7 @@ const HomePage = () => {
       {/* Banners */}
       {banners.length > 0 ? (
         <div className="px-4">
-            <div className="relative w-full aspect-[21/9] rounded-2xl overflow-hidden shadow-lg">
+            <div className="relative w-full aspect-[21/9] rounded-2xl overflow-hidden shadow-lg border border-white/20">
             {banners.map((b, i) => (
                 <img 
                 key={b.id} 
@@ -458,7 +460,7 @@ const HomePage = () => {
         
         <div className="flex overflow-x-auto space-x-4 pb-8 pr-4 no-scrollbar">
           {courses.slice(0, 5).map(course => (
-            <Link to={`/course/${course.id}`} key={course.id} className="flex-none w-72 bg-white/90 backdrop-blur-md rounded-3xl shadow-card border border-gray-100 overflow-hidden group hover:scale-[1.02] transition-transform duration-300">
+            <Link to={`/course/${course.id}`} key={course.id} className="flex-none w-72 bg-white/90 backdrop-blur-md rounded-3xl shadow-card border border-gray-100/50 overflow-hidden group hover:scale-[1.02] transition-transform duration-300">
               <div className="relative h-40 overflow-hidden">
                 <img src={course.image} alt={course.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                 <div className="absolute top-0 inset-x-0 h-full bg-gradient-to-t from-black/60 to-transparent"></div>
@@ -1631,14 +1633,8 @@ const AdminPanel = () => {
             const separator = baseUrl.includes('?') ? '&' : '?';
             const fetchUrl = `${baseUrl}${separator}api=${settings.linkShortenerApiKey}&url=${encodedDest}`;
             
-            let response;
-            try {
-                response = await fetch(fetchUrl);
-            } catch (err) {
-                console.warn("Direct fetch failed, trying proxy", err);
-                response = await fetch(`https://corsproxy.io/?${encodeURIComponent(fetchUrl)}`);
-            }
-
+            // DIRECT FETCH - Removed CORS Proxy to prevent errors and follow user instruction
+            const response = await fetch(fetchUrl);
             const data = await response.json();
             
             if(data.status === 'success' || data.shortenedUrl || data.shortlink) {
@@ -1652,7 +1648,7 @@ const AdminPanel = () => {
             }
         } catch(e) {
             console.error(e);
-            alert("Network error. Please manually shorten this URL: https://study-tool-rosy.vercel.app/#/verify/" + courseId);
+            alert("Network error. Please check your API URL and Key, or manually shorten the link.");
         } finally {
             setIsGeneratingLink(false);
         }

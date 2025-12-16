@@ -27,12 +27,14 @@ const getEmbedUrl = (input: string) => {
   }
 
   // 2. YouTube (Handles Shorts, Watch, Embed, youtu.be)
-  // Regex captures video ID from various formats
+  // modestbranding=1 minimizes YouTube logo.
+  // rel=0 limits related videos to the same channel.
+  // controls=1 ensures native controls work.
+  // fs=1 enables the native fullscreen button.
   const ytMatch = input.match(/^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/);
   if (ytMatch && ytMatch[7]?.length === 11) {
     const videoId = ytMatch[7];
-    // Add modestbranding, rel=0 to hide related videos from other channels, and disable controls to hide youtube logo in bottom right mostly
-    return `https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&playsinline=1&controls=0&showinfo=0&iv_load_policy=3`;
+    return `https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&playsinline=1&controls=1&showinfo=0&iv_load_policy=3&fs=1`;
   }
 
   // 3. Vimeo
@@ -186,10 +188,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
       containerRef.current.requestFullscreen().catch(err => {
         console.error(`Error attempting to enable fullscreen: ${err.message}`);
       });
-      setIsFullscreen(true);
+      // IsFullscreen state update happens in the event listener below
     } else {
       document.exitFullscreen();
-      setIsFullscreen(false);
     }
   };
 
@@ -211,51 +212,47 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
   };
 
   const handleMouseMove = () => {
-    if (isEmbed) {
-        // For Embeds, we generally want controls visible on hover so the custom overlay appears
-        setShowControls(true);
-        if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
-        controlsTimeoutRef.current = setTimeout(() => {
-            setShowControls(false);
-        }, 3000);
-        return;
-    }
     setShowControls(true);
     if (controlsTimeoutRef.current) {
       clearTimeout(controlsTimeoutRef.current);
     }
     controlsTimeoutRef.current = setTimeout(() => {
-      if (isPlaying) setShowControls(false);
+      if (isPlaying || isEmbed) setShowControls(false);
     }, 3000);
   };
 
   if (isLocked) {
     return (
-      <div className={`w-full ${className || 'aspect-video'} bg-gray-900 flex flex-col items-center justify-center text-white rounded-lg`}>
+      <div className={`w-full ${className || 'aspect-video'} bg-gray-900 flex flex-col items-center justify-center text-white rounded-xl shadow-inner`}>
         <Lock className="w-12 h-12 mb-2 text-gray-500" />
-        <p className="text-gray-400">Content Locked</p>
+        <p className="text-gray-400 font-medium">Content Locked</p>
       </div>
     );
   }
 
-  // Embed Player
+  // Embed Player (YouTube/Vimeo)
   if (isEmbed) {
     return (
       <div 
         ref={containerRef}
-        className={`w-full ${className || 'aspect-video'} bg-black rounded-lg overflow-hidden shadow-2xl relative group ${isFullscreen ? 'h-screen w-screen rounded-none' : ''}`}
+        className={`w-full bg-black rounded-xl overflow-hidden shadow-2xl relative group ${isFullscreen ? 'h-full w-full rounded-none' : (className || 'aspect-video')}`}
         onMouseMove={handleMouseMove}
         onMouseLeave={() => setShowControls(false)}
       >
-        {/* Header Overlay */}
-        <div className={`absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/80 to-transparent z-40 flex justify-between items-start transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
-            <button 
-                onClick={onBack}
-                className="p-2 bg-white/10 backdrop-blur-md rounded-full text-white hover:bg-white/20 transition-colors"
-            >
-                <ArrowLeft className="w-5 h-5" />
-            </button>
-            <div className="flex gap-2">
+        {/* Header Overlay for Embeds */}
+        <div className={`absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/80 to-transparent z-40 flex justify-between items-start transition-opacity duration-300 pointer-events-none ${showControls ? 'opacity-100' : 'opacity-0'}`}>
+            <div className="pointer-events-auto">
+            {onBack && (
+                <button 
+                    onClick={onBack}
+                    className="p-2 bg-white/10 backdrop-blur-md rounded-full text-white hover:bg-white/20 transition-colors"
+                >
+                    <ArrowLeft className="w-5 h-5" />
+                </button>
+            )}
+            </div>
+            
+            <div className="flex gap-2 pointer-events-auto">
                 {onDownload && (
                     <button 
                         onClick={onDownload}
@@ -265,6 +262,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
                         <Bookmark className="w-5 h-5" />
                     </button>
                 )}
+                {/* 
+                  Custom Fullscreen button for container
+                */}
                 <button 
                     onClick={toggleFullscreen}
                     className="p-2 bg-white/10 backdrop-blur-md rounded-full text-white hover:bg-white/20 transition-colors"
@@ -278,23 +278,19 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
           src={displayUrl} 
           title="Video Player"
           className="w-full h-full"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
           allowFullScreen
         ></iframe>
-        
-        {/* Invisible overlay to capture mouse events for showing controls if needed, 
-            but tricky with iframes. We rely on the container hover/mousemove. 
-            Often embeds consume mouse events. */}
       </div>
     );
   }
 
-  // Native Player
+  // Native Player (Direct MP4/WebM)
   return (
     <div 
       ref={containerRef}
       tabIndex={0}
-      className={`relative group w-full bg-black rounded-lg overflow-hidden shadow-2xl ${isFullscreen ? 'h-screen w-screen rounded-none' : (className || 'aspect-video')} select-none outline-none`}
+      className={`relative group w-full bg-black rounded-xl overflow-hidden shadow-2xl ${isFullscreen ? 'h-full w-full rounded-none' : (className || 'aspect-video')} select-none outline-none`}
       onMouseMove={handleMouseMove}
       onMouseLeave={() => isPlaying && setShowControls(false)}
       onDoubleClick={toggleFullscreen}
@@ -312,6 +308,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
         onCanPlay={() => setIsLoading(false)}
         onClick={togglePlay}
         controlsList="nodownload"
+        playsInline
       />
       
       {/* Top Controls Overlay */}
@@ -408,7 +405,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
             </div>
 
             {/* Quality Badge (Visual Only) */}
-            <div className="text-white/70 text-[10px] border border-white/20 px-1.5 py-0.5 rounded font-medium cursor-help" title="Auto Quality">
+            <div className="text-white/70 text-[10px] border border-white/20 px-1.5 py-0.5 rounded font-medium cursor-help hidden sm:block" title="Auto Quality">
                HD
             </div>
 

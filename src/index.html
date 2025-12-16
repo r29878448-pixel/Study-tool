@@ -8,7 +8,7 @@
     <!-- Google Fonts: Inter & Outfit -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;700;800&display=swap" rel="stylesheet">
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -27,8 +27,8 @@
               }
             },
             boxShadow: {
-              'glow': '0 0 20px rgba(2, 132, 199, 0.3)',
-              'card': '0 10px 30px -10px rgba(0, 0, 0, 0.05)',
+              'glow': '0 0 20px rgba(79, 70, 229, 0.3)',
+              'card': '0 10px 40px -10px rgba(0, 0, 0, 0.08)',
             }
           }
         }
@@ -47,6 +47,9 @@
         user-select: none;
         background-color: #F8FAFC;
         font-family: 'Inter', sans-serif;
+        overflow-x: hidden;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
       }
       h1, h2, h3, h4, h5, h6 {
         font-family: 'Outfit', sans-serif;
@@ -62,12 +65,19 @@
       .animate-fade-in {
         animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
       }
+      .animate-slide-in {
+        animation: slideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      }
       .animate-slide-up {
         animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1);
       }
       @keyframes fadeIn {
         from { opacity: 0; transform: scale(0.98); }
         to { opacity: 1; transform: scale(1); }
+      }
+      @keyframes slideIn {
+        from { transform: translateX(-100%); }
+        to { transform: translateX(0); }
       }
       @keyframes slideUp {
         from { opacity: 0; transform: translateY(20px); }

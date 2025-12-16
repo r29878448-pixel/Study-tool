@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useRef } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate, useLocation, Link, useNavigate, useParams } from 'react-router-dom';
 import { StoreProvider, useStore } from './store';
@@ -161,7 +162,7 @@ const Header = () => {
   
   return (
     <>
-      <header className={`fixed top-0 left-0 right-0 h-16 flex items-center justify-between px-4 z-50 transition-all duration-300 ${scrolled ? 'bg-white/80 backdrop-blur-md shadow-sm border-b border-gray-100 text-gray-900' : 'bg-transparent text-gray-900'}`}>
+      <header className={`fixed top-0 left-0 right-0 h-16 flex items-center justify-between px-4 z-50 transition-all duration-300 ${scrolled ? 'bg-white/70 backdrop-blur-xl shadow-sm border-b border-white/50 text-gray-900' : 'bg-transparent text-gray-900'}`}>
         <div className="flex items-center gap-3">
           <button onClick={() => setShowMenu(true)} className={`p-2 rounded-xl transition-colors ${scrolled ? 'hover:bg-gray-100' : 'bg-white/50 hover:bg-white'}`}>
             <Menu className="w-6 h-6" />
@@ -183,7 +184,7 @@ const Header = () => {
       {/* Sidebar Drawer */}
       {showMenu && (
         <div className="fixed inset-0 z-[60] flex">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowMenu(false)} />
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-md" onClick={() => setShowMenu(false)} />
           <div className="relative w-72 bg-white/90 backdrop-blur-xl h-full shadow-2xl flex flex-col animate-slide-in border-r border-white/50">
             <div className="h-48 bg-gradient-to-br from-brand to-purple-700 flex flex-col justify-end p-6 text-white relative overflow-hidden">
                <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full blur-2xl translate-x-10 -translate-y-10"></div>
@@ -229,7 +230,7 @@ const BottomNav = () => {
   const isActive = (path: string) => location.pathname === path ? 'text-brand' : 'text-gray-400';
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 h-16 bg-white/90 backdrop-blur-md border-t border-gray-200 flex items-center justify-around z-40 pb-safe shadow-lg">
+    <div className="fixed bottom-0 left-0 right-0 h-16 bg-white/70 backdrop-blur-xl border-t border-white/50 flex items-center justify-around z-40 pb-safe shadow-lg">
       <Link to="/" className={`flex flex-col items-center transition-colors ${isActive('/')}`}>
         <Home className="w-6 h-6" />
         <span className="text-[10px] mt-1 font-bold">Home</span>
@@ -249,8 +250,6 @@ const BottomNav = () => {
     </div>
   );
 };
-
-// --- Pages ---
 
 const Help = () => {
     const { settings } = useStore();

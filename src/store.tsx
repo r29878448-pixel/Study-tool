@@ -1,5 +1,6 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, Course, Banner, Order, AppSettings, UserRole, ExamResult, ExamProgress, VideoProgress, AiGeneratedQuiz, SavedNote } from './types';
+import { User, Course, Banner, Order, AppSettings, UserRole, ExamResult, ExamProgress, VideoProgress, AiGeneratedQuiz, SavedNote, OfflineContent } from './types';
 
 interface StoreContextType {
   currentUser: User | null;
@@ -32,6 +33,8 @@ interface StoreContextType {
   saveAiQuiz: (quiz: AiGeneratedQuiz) => void;
   saveNote: (note: SavedNote) => void;
   deleteNote: (noteId: string) => void;
+  saveOfflineContent: (content: OfflineContent) => void;
+  removeOfflineContent: (contentId: string) => void;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -457,6 +460,30 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
     setUsers(prevUsers => prevUsers.map(u => u.id === currentUser.id ? updatedUser : u));
   };
 
+  const saveOfflineContent = (content: OfflineContent) => {
+    if (!currentUser) return;
+    const currentLibrary = currentUser.offlineLibrary || [];
+    // Avoid duplicates
+    if (currentLibrary.some(c => c.id === content.id)) return;
+
+    const updatedUser: User = {
+      ...currentUser,
+      offlineLibrary: [content, ...currentLibrary]
+    };
+    setCurrentUser(updatedUser);
+    setUsers(prevUsers => prevUsers.map(u => u.id === currentUser.id ? updatedUser : u));
+  };
+
+  const removeOfflineContent = (contentId: string) => {
+    if (!currentUser) return;
+    const updatedUser: User = {
+      ...currentUser,
+      offlineLibrary: (currentUser.offlineLibrary || []).filter(c => c.id !== contentId)
+    };
+    setCurrentUser(updatedUser);
+    setUsers(prevUsers => prevUsers.map(u => u.id === currentUser.id ? updatedUser : u));
+  };
+
   return (
     <StoreContext.Provider value={{
       currentUser, users, courses, banners, orders, settings,
@@ -474,7 +501,9 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
       saveVideoProgress,
       saveAiQuiz,
       saveNote,
-      deleteNote
+      deleteNote,
+      saveOfflineContent,
+      removeOfflineContent
     }}>
       {children}
     </StoreContext.Provider>

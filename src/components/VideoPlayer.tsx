@@ -27,11 +27,6 @@ const getEmbedUrl = (input: string) => {
   }
 
   // 2. YouTube (Handles Shorts, Watch, Embed, youtu.be)
-  // modestbranding=1 minimizes YouTube logo.
-  // rel=0 limits related videos to the same channel.
-  // controls=1 ensures native controls work inside iframe.
-  // fs=1 allows native fullscreen button to work.
-  // showinfo=0 hides video title (deprecated but good to have)
   const ytMatch = input.match(/^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/);
   if (ytMatch && ytMatch[7]?.length === 11) {
     const videoId = ytMatch[7];
@@ -73,11 +68,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
   const [isLoading, setIsLoading] = useState(false);
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Determine if source is a direct video file
   const isDirectFile = /\.(mp4|webm|ogg|mov|m4v)($|\?)/i.test(src);
   const isEmbed = !isDirectFile;
-
-  // Process URL
   const displayUrl = isEmbed ? getEmbedUrl(src) : src;
 
   useEffect(() => {
@@ -189,13 +181,11 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
       containerRef.current.requestFullscreen().catch(err => {
         console.error(`Error attempting to enable fullscreen: ${err.message}`);
       });
-      // IsFullscreen state update happens in the event listener below
     } else {
       document.exitFullscreen();
     }
   };
 
-  // Listen for native fullscreen change (e.g. ESC key)
   useEffect(() => {
     const onFullscreenChange = () => {
       setIsFullscreen(!!document.fullscreenElement);
@@ -263,9 +253,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
                         <Bookmark className="w-5 h-5" />
                     </button>
                 )}
-                {/* 
-                  Custom Fullscreen button for container
-                */}
                 <button 
                     onClick={toggleFullscreen}
                     className="p-2 bg-white/10 backdrop-blur-md rounded-full text-white hover:bg-white/20 transition-colors"

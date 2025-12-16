@@ -1633,7 +1633,7 @@ const AdminPanel = () => {
             const separator = baseUrl.includes('?') ? '&' : '?';
             const fetchUrl = `${baseUrl}${separator}api=${settings.linkShortenerApiKey}&url=${encodedDest}`;
             
-            // DIRECT FETCH ONLY - Removed unsafe proxy
+            // DIRECT FETCH ONLY - Removing proxy to prevent errors
             const response = await fetch(fetchUrl);
             const data = await response.json();
             

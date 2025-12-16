@@ -72,13 +72,14 @@ const ThemeHandler = () => {
 const FuturisticBackground = () => {
   return (
     <div className="fixed inset-0 z-[-1] overflow-hidden bg-[#F8FAFC] pointer-events-none">
-      {/* Enhanced Glowing Orbs */}
-      <div className="absolute top-[-20%] left-[-20%] w-[80%] h-[80%] bg-brand-light/50 rounded-full blur-[150px] opacity-40 animate-pulse"></div>
-      <div className="absolute bottom-[-20%] right-[-20%] w-[80%] h-[80%] bg-purple-100/60 rounded-full blur-[150px] opacity-40 animate-pulse delay-1000"></div>
+      {/* Grid Pattern Background */}
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:24px_24px]"></div>
       
-      {/* "Snow/Particles" CSS Animation */}
-      <div className="absolute inset-0 opacity-20">
-         <div className="snow-container"></div>
+      {/* Abstract Moving Blobs */}
+      <div className="absolute inset-0 w-full h-full">
+         <div className="absolute top-[-10%] left-[-10%] w-[40rem] h-[40rem] bg-brand/20 rounded-full mix-blend-multiply filter blur-[100px] opacity-70 animate-blob"></div>
+         <div className="absolute top-[-10%] right-[-10%] w-[35rem] h-[35rem] bg-purple-300/30 rounded-full mix-blend-multiply filter blur-[100px] opacity-70 animate-blob" style={{ animationDelay: '2s' }}></div>
+         <div className="absolute -bottom-32 left-1/3 w-[45rem] h-[45rem] bg-blue-300/20 rounded-full mix-blend-multiply filter blur-[100px] opacity-70 animate-blob" style={{ animationDelay: '4s' }}></div>
       </div>
     </div>
   );

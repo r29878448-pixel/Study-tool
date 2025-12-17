@@ -5,7 +5,7 @@ import { StoreProvider, useStore } from './store';
 import { 
   Home, BookOpen, User, HelpCircle, Menu, LogOut, 
   Search, PlayCircle, Lock, LayoutDashboard, Settings, Plus, Trash2, Edit, Save, X, ChevronDown, 
-  MessageCircle, CheckCircle, FileText, Download, ClipboardList, Timer, Clock, Key, ExternalLink, Play, Bot, Brain, Loader2, ArrowLeft, Video as VideoIcon, Upload, Wand2, Maximize, Minimize, Bookmark
+  MessageCircle, CheckCircle, FileText, Download, ClipboardList, Timer, Clock, Key, ExternalLink, Play, Bot, Brain, Loader2, ArrowLeft, Video as VideoIcon, Upload, Wand2, Maximize, Minimize, Bookmark, Sparkles
 } from './components/Icons';
 import VideoPlayer from './components/VideoPlayer';
 import ChatBot from './components/ChatBot';
@@ -75,11 +75,11 @@ const FuturisticBackground = () => {
       {/* Grid Pattern Background */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:24px_24px]"></div>
       
-      {/* Abstract Moving Blobs */}
+      {/* Abstract Moving Blobs with smoother animation */}
       <div className="absolute inset-0 w-full h-full">
-         <div className="absolute top-[-10%] left-[-10%] w-[40rem] h-[40rem] bg-brand/20 rounded-full mix-blend-multiply filter blur-[100px] opacity-70 animate-blob"></div>
-         <div className="absolute top-[-10%] right-[-10%] w-[35rem] h-[35rem] bg-purple-300/30 rounded-full mix-blend-multiply filter blur-[100px] opacity-70 animate-blob" style={{ animationDelay: '2s' }}></div>
-         <div className="absolute -bottom-32 left-1/3 w-[45rem] h-[45rem] bg-blue-300/20 rounded-full mix-blend-multiply filter blur-[100px] opacity-70 animate-blob" style={{ animationDelay: '4s' }}></div>
+         <div className="absolute top-[-10%] left-[-10%] w-[40rem] h-[40rem] bg-brand/20 rounded-full mix-blend-multiply filter blur-[100px] opacity-60 animate-blob"></div>
+         <div className="absolute top-[-10%] right-[-10%] w-[35rem] h-[35rem] bg-purple-300/30 rounded-full mix-blend-multiply filter blur-[100px] opacity-60 animate-blob" style={{ animationDelay: '2s' }}></div>
+         <div className="absolute -bottom-32 left-1/3 w-[45rem] h-[45rem] bg-blue-300/20 rounded-full mix-blend-multiply filter blur-[100px] opacity-60 animate-blob" style={{ animationDelay: '4s' }}></div>
       </div>
     </div>
   );
@@ -103,7 +103,7 @@ const AdContainer = () => {
   const { settings } = useStore();
   if (!settings.adsCode) return null;
   return (
-    <div className="w-full my-6 bg-white/70 backdrop-blur-xl rounded-2xl border border-white/50 overflow-hidden flex flex-col items-center justify-center min-h-[100px] text-center p-2 shadow-sm">
+    <div className="w-full my-6 bg-white/60 backdrop-blur-xl rounded-2xl border border-white/50 overflow-hidden flex flex-col items-center justify-center min-h-[100px] text-center p-2 shadow-sm ring-1 ring-black/5">
       <div className="text-[9px] text-gray-400 uppercase tracking-widest mb-1 font-bold">Sponsored Advertisement</div>
       <div dangerouslySetInnerHTML={{ __html: settings.adsCode }} />
     </div>
@@ -676,7 +676,9 @@ const Watch = () => {
             });
             const text = response.text;
             if (text) {
-                const data = JSON.parse(text);
+                // FIX: Clean potential markdown wrappers
+                const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+                const data = JSON.parse(cleanedText);
                 setQuizQuestions(data);
                 saveAiQuiz({ videoId: currentVideo.id, questions: data, generatedAt: new Date().toISOString() });
             }
@@ -696,11 +698,11 @@ const Watch = () => {
         setGeneratedNote(null);
         try {
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-            const textPrompt = `You are an expert CBSE school teacher. Create comprehensive, concise, point-wise study notes for the topic "${currentVideo.title}" from the chapter "${allVideos[currentVideoIdx].chapterTitle}" in the course "${course.title}". STRICTLY follow the latest CBSE 2025-26 syllabus. Exclude irrelevant information. Use bold headings and bullet points. The output must be in Markdown format.`;
+            const textPrompt = `You are an expert school teacher. Create comprehensive, concise, point-wise study notes for the topic "${currentVideo.title}" from the chapter "${allVideos[currentVideoIdx].chapterTitle}" in the course "${course.title}". Use bold headings and bullet points. The output must be in Markdown format.`;
             const textResponse = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: textPrompt });
             const markdownContent = textResponse.text || "No content generated.";
             const imagePrompt = `Draw a clear, educational diagram or flowchart explaining the concept of "${currentVideo.title}" suitable for school students. White background, black lines, simple style.`;
-            const note: SavedNote = { id: Date.now().toString(), videoId: currentVideo.id, videoTitle: currentVideo.title, courseTitle: course.title, content: markdownContent, generatedAt: new Date().toISOString(), syllabusVersion: 'CBSE 2025-26', imageUrl: undefined };
+            const note: SavedNote = { id: Date.now().toString(), videoId: currentVideo.id, videoTitle: currentVideo.title, courseTitle: course.title, content: markdownContent, generatedAt: new Date().toISOString(), syllabusVersion: 'Standard', imageUrl: undefined };
             try {
                  const imageResponse = await ai.models.generateContent({ model: 'gemini-2.5-flash-image', contents: imagePrompt });
                  for (const part of imageResponse.candidates?.[0]?.content?.parts || []) {
@@ -1634,7 +1636,7 @@ const AdminPanel = () => {
             const separator = baseUrl.includes('?') ? '&' : '?';
             const fetchUrl = `${baseUrl}${separator}api=${settings.linkShortenerApiKey}&url=${encodedDest}`;
             
-            // DIRECT FETCH ONLY - Removed unsafe proxy
+            // DIRECT FETCH ONLY - Removing proxy to prevent errors
             const response = await fetch(fetchUrl);
             const data = await response.json();
             

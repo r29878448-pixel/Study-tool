@@ -12,6 +12,7 @@ interface VideoPlayerProps {
   initialTime?: number;
   onBack?: () => void;
   onDownload?: () => void;
+  onEnded?: () => void;
   className?: string;
   title?: string;
 }
@@ -53,7 +54,7 @@ const getEmbedUrl = (input: string) => {
   return input;
 };
 
-const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProgress, initialTime, onBack, onDownload, className, title }) => {
+const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProgress, initialTime, onBack, onDownload, onEnded, className, title }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -294,6 +295,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
         onPause={() => setIsPlaying(false)}
         onWaiting={() => setIsLoading(true)}
         onCanPlay={() => setIsLoading(false)}
+        onEnded={() => { setIsPlaying(false); if (onEnded) onEnded(); }}
         onClick={togglePlay}
         controlsList="nodownload"
         playsInline

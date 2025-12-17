@@ -5,7 +5,7 @@ import { StoreProvider, useStore } from './store';
 import { 
   Home, BookOpen, User, HelpCircle, Menu, LogOut, 
   Search, PlayCircle, Lock, LayoutDashboard, Settings, Plus, Trash2, Edit, Save, X, ChevronDown, 
-  MessageCircle, CheckCircle, FileText, Download, ClipboardList, Timer, Clock, Key, ExternalLink, Play, Bot, Brain, Loader2, ArrowLeft, Video as VideoIcon, Upload, Wand2, Maximize, Minimize, Bookmark, Sparkles
+  MessageCircle, CheckCircle, FileText, Download, ClipboardList, Timer, Clock, Key, ExternalLink, Play, Bot, Brain, Loader2, ArrowLeft, Video as VideoIcon, Upload, Wand2, Maximize, Minimize, Bookmark, Sparkles, RotateCcw
 } from './components/Icons';
 import VideoPlayer from './components/VideoPlayer';
 import ChatBot from './components/ChatBot';
@@ -31,6 +31,31 @@ const parseDuration = (duration: string) => {
   }
   str += seconds.toString().padStart(2, '0');
   return str;
+};
+
+// Robust JSON Cleaner for AI responses
+const cleanJson = (text: string) => {
+  try {
+    // 1. Remove markdown code blocks if present
+    let cleaned = text.replace(/```json\s*|\s*```/g, '').trim();
+    // 2. Locate the first '[' or '{'
+    const firstBracket = cleaned.search(/\[|\{/);
+    // 3. Locate the last ']' or '}'
+    const lastBracket = Math.max(cleaned.lastIndexOf(']'), cleaned.lastIndexOf('}'));
+    
+    if (firstBracket !== -1 && lastBracket !== -1) {
+       cleaned = cleaned.substring(firstBracket, lastBracket + 1);
+    }
+    return JSON.parse(cleaned);
+  } catch (e) {
+    console.error("JSON Parse Error", e);
+    // Attempt direct parse as fallback
+    try {
+        return JSON.parse(text);
+    } catch (e2) {
+        return [];
+    }
+  }
 };
 
 // --- Theme Handler ---
@@ -71,16 +96,17 @@ const ThemeHandler = () => {
 
 const FuturisticBackground = () => {
   return (
-    <div className="fixed inset-0 z-[-1] overflow-hidden bg-[#F8FAFC] pointer-events-none">
-      {/* Grid Pattern Background */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:24px_24px]"></div>
+    <div className="fixed inset-0 z-[-1] overflow-hidden bg-slate-50">
+      {/* Animated Cyber Grid */}
+      <div className="absolute inset-0 futuristic-grid opacity-30 animate-move-grid"></div>
       
-      {/* Abstract Moving Blobs with smoother animation */}
-      <div className="absolute inset-0 w-full h-full">
-         <div className="absolute top-[-10%] left-[-10%] w-[40rem] h-[40rem] bg-brand/20 rounded-full mix-blend-multiply filter blur-[100px] opacity-60 animate-blob"></div>
-         <div className="absolute top-[-10%] right-[-10%] w-[35rem] h-[35rem] bg-purple-300/30 rounded-full mix-blend-multiply filter blur-[100px] opacity-60 animate-blob" style={{ animationDelay: '2s' }}></div>
-         <div className="absolute -bottom-32 left-1/3 w-[45rem] h-[45rem] bg-blue-300/20 rounded-full mix-blend-multiply filter blur-[100px] opacity-60 animate-blob" style={{ animationDelay: '4s' }}></div>
-      </div>
+      {/* Abstract Floating Orbs with distinct colors for futuristic feel */}
+      <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] rounded-full bg-brand/20 blur-[100px] animate-blob"></div>
+      <div className="absolute top-[20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-purple-400/20 blur-[100px] animate-blob" style={{ animationDelay: '2s' }}></div>
+      <div className="absolute bottom-[-10%] left-[20%] w-[600px] h-[600px] rounded-full bg-blue-300/20 blur-[100px] animate-blob" style={{ animationDelay: '4s' }}></div>
+      
+      {/* Subtle overlay for better text contrast */}
+      <div className="absolute inset-0 bg-white/30 backdrop-blur-[1px]"></div>
     </div>
   );
 };
@@ -575,6 +601,7 @@ const Watch = () => {
     const [generatedNote, setGeneratedNote] = useState<SavedNote | null>(null);
     const [showNoteModal, setShowNoteModal] = useState(false);
     const [theaterMode, setTheaterMode] = useState(false);
+    const [videoCompleted, setVideoCompleted] = useState(false);
     const navigate = useNavigate();
     const course = courses.find(c => c.id === courseId);
     const allVideos: { video: Video, chapterId: string, chapterTitle: string }[] = [];
@@ -593,11 +620,16 @@ const Watch = () => {
         if(allVideos.length > 0) {
             setCurrentVideo(allVideos[currentVideoIdx].video);
             setCurrentVideoUrl(allVideos[currentVideoIdx].video.filename);
+            setVideoCompleted(false);
         }
     }, [currentVideoIdx, courses]);
 
     const handleVideoProgress = (currentTime: number, duration: number) => {
         if (currentVideo) saveVideoProgress(currentVideo.id, currentTime, duration);
+    };
+
+    const handleVideoEnd = () => {
+        setVideoCompleted(true);
     };
 
     const handleDownload = () => {
@@ -676,9 +708,7 @@ const Watch = () => {
             });
             const text = response.text;
             if (text) {
-                // FIX: Clean potential markdown wrappers
-                const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
-                const data = JSON.parse(cleanedText);
+                const data = cleanJson(text); // Use robust cleaner
                 setQuizQuestions(data);
                 saveAiQuiz({ videoId: currentVideo.id, questions: data, generatedAt: new Date().toISOString() });
             }
@@ -698,11 +728,11 @@ const Watch = () => {
         setGeneratedNote(null);
         try {
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-            const textPrompt = `You are an expert school teacher. Create comprehensive, concise, point-wise study notes for the topic "${currentVideo.title}" from the chapter "${allVideos[currentVideoIdx].chapterTitle}" in the course "${course.title}". Use bold headings and bullet points. The output must be in Markdown format.`;
+            const textPrompt = `You are an expert CBSE school teacher. Create comprehensive, concise, point-wise study notes for the topic "${currentVideo.title}" from the chapter "${allVideos[currentVideoIdx].chapterTitle}" in the course "${course.title}". STRICTLY follow the latest CBSE 2025-26 syllabus. Exclude irrelevant information. Use bold headings and bullet points. The output must be in Markdown format.`;
             const textResponse = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: textPrompt });
             const markdownContent = textResponse.text || "No content generated.";
             const imagePrompt = `Draw a clear, educational diagram or flowchart explaining the concept of "${currentVideo.title}" suitable for school students. White background, black lines, simple style.`;
-            const note: SavedNote = { id: Date.now().toString(), videoId: currentVideo.id, videoTitle: currentVideo.title, courseTitle: course.title, content: markdownContent, generatedAt: new Date().toISOString(), syllabusVersion: 'Standard', imageUrl: undefined };
+            const note: SavedNote = { id: Date.now().toString(), videoId: currentVideo.id, videoTitle: currentVideo.title, courseTitle: course.title, content: markdownContent, generatedAt: new Date().toISOString(), syllabusVersion: 'CBSE 2025-26', imageUrl: undefined };
             try {
                  const imageResponse = await ai.models.generateContent({ model: 'gemini-2.5-flash-image', contents: imagePrompt });
                  for (const part of imageResponse.candidates?.[0]?.content?.parts || []) {
@@ -758,11 +788,38 @@ const Watch = () => {
                             onProgress={handleVideoProgress}
                             onBack={() => navigate(`/course/${courseId}`)}
                             onDownload={handleDownload}
+                            onEnded={handleVideoEnd}
                             initialTime={currentUser.videoProgress?.[currentVideo.id]?.timestamp || 0}
                             className={theaterMode ? 'h-full w-full' : 'aspect-video'}
                             title={currentVideo.title}
                         />
                     ) : <div className="text-gray-500">Select a video</div>}
+                    
+                    {/* Auto-Recall Overlay */}
+                    {videoCompleted && !showQuiz && (
+                        <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center z-40 animate-fade-in p-6 text-center">
+                            <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mb-4 ring-2 ring-green-500/50">
+                                <CheckCircle className="w-8 h-8 text-green-500" />
+                            </div>
+                            <h2 className="text-2xl font-bold font-display mb-2">Topic Completed!</h2>
+                            <p className="text-gray-400 mb-8 max-w-sm">Great job finishing the lecture. Test your memory recall now to solidify your learning.</p>
+                            
+                            <div className="flex flex-col sm:flex-row gap-3 w-full max-w-sm">
+                                <button 
+                                    onClick={generateAiQuiz} 
+                                    className="flex-1 py-3 bg-brand text-white rounded-xl font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition-all flex items-center justify-center gap-2"
+                                >
+                                    <Brain className="w-5 h-5" /> Take AI Quiz
+                                </button>
+                                <button 
+                                    onClick={() => setVideoCompleted(false)} 
+                                    className="flex-1 py-3 bg-gray-800 text-white rounded-xl font-bold hover:bg-gray-700 transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <RotateCcw className="w-5 h-5" /> Replay
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
                 <div className="p-4 bg-gray-900/90 backdrop-blur-md border-t border-gray-800 flex justify-between items-center">
                     <div>
@@ -787,7 +844,7 @@ const Watch = () => {
                         <div className="max-w-2xl w-full bg-gray-800 rounded-3xl p-6 border border-gray-700 shadow-2xl">
                             <div className="flex justify-between items-center mb-6">
                                 <h2 className="text-xl font-bold flex items-center gap-2 text-white"><Brain className="text-indigo-400"/> Quiz: {currentVideo?.title}</h2>
-                                <button onClick={() => setShowQuiz(false)} className="p-2 hover:bg-gray-700 rounded-full text-white"><X className="w-5 h-5"/></button>
+                                <button onClick={() => { setShowQuiz(false); setVideoCompleted(false); }} className="p-2 hover:bg-gray-700 rounded-full text-white"><X className="w-5 h-5"/></button>
                             </div>
                             {quizLoading ? (
                                 <div className="py-20 flex flex-col items-center justify-center text-center"><Loader2 className="w-12 h-12 text-indigo-500 animate-spin mb-4"/><p className="text-gray-400">Generating questions with AI...</p></div>
@@ -815,7 +872,7 @@ const Watch = () => {
                                     {quizScore === null ? (
                                         <button onClick={submitQuiz} disabled={userAnswers.filter(a => a !== undefined).length !== quizQuestions.length} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-600/30">Submit Quiz</button>
                                     ) : (
-                                        <div className="text-center p-6 bg-gray-800 rounded-xl border border-gray-700"><p className="text-gray-400 text-sm uppercase font-bold mb-1">Your Score</p><p className="text-4xl font-bold text-white mb-4">{quizScore} / {quizQuestions.length}</p><button onClick={() => setShowQuiz(false)} className="px-6 py-2 bg-gray-700 rounded-lg font-bold hover:bg-gray-600 text-white">Close</button></div>
+                                        <div className="text-center p-6 bg-gray-800 rounded-xl border border-gray-700"><p className="text-gray-400 text-sm uppercase font-bold mb-1">Your Score</p><p className="text-4xl font-bold text-white mb-4">{quizScore} / {quizQuestions.length}</p><button onClick={() => { setShowQuiz(false); setVideoCompleted(false); }} className="px-6 py-2 bg-gray-700 rounded-lg font-bold hover:bg-gray-600 text-white">Close</button></div>
                                     )}
                                 </div>
                             )}

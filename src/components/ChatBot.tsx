@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageCircle, X, Send, Bot, Sparkles } from 'lucide-react';
+import { MessageCircle, X, Send, Bot, Sparkles } from './Icons';
 import { GoogleGenAI } from "@google/genai";
 
 declare var process: { env: { API_KEY: string } };

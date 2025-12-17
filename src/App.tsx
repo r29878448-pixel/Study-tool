@@ -1780,7 +1780,7 @@ const MainContent = () => {
   );
 };
 
-export const App = () => {
+const App = () => {
   return (
     <Router>
       <StoreProvider>
@@ -1790,3 +1790,5 @@ export const App = () => {
     </Router>
   );
 };
+
+export default App;

@@ -31,6 +31,7 @@ const getEmbedUrl = (input: string) => {
   const ytMatch = input.match(/^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/);
   if (ytMatch && ytMatch[7]?.length === 11) {
     const videoId = ytMatch[7];
+    // Uses modest branding and stricter policies to look cleaner
     return `https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&playsinline=1&controls=1&showinfo=0&iv_load_policy=3&fs=1`;
   }
 

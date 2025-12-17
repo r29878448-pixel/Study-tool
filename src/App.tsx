@@ -10,7 +10,7 @@ import {
 import VideoPlayer from './components/VideoPlayer';
 import ChatBot from './components/ChatBot';
 import ExamMode from './components/ExamMode';
-import { Course, Chapter, Video, UserRole, Banner, AppSettings, Exam, Question, SavedNote, Note } from './types';
+import { Course, Chapter, Video, UserRole, Banner, AppSettings, Exam, Question, SavedNote, Note, VideoBookmark } from './types';
 import { GoogleGenAI } from "@google/genai";
 
 declare var process: { env: { API_KEY: string } };
@@ -589,7 +589,8 @@ const CourseListing = () => {
 
 const Watch = () => {
     const { courseId } = useParams();
-    const { courses, currentUser, saveVideoProgress, saveAiQuiz, saveNote, saveOfflineContent } = useStore();
+    const location = useLocation();
+    const { courses, currentUser, saveVideoProgress, saveAiQuiz, saveNote, saveOfflineContent, saveBookmark } = useStore();
     const [currentVideoUrl, setCurrentVideoUrl] = useState<string>('');
     const [currentVideo, setCurrentVideo] = useState<Video | null>(null);
     const [quizQuestions, setQuizQuestions] = useState<Question[]>([]);
@@ -611,6 +612,7 @@ const Watch = () => {
         });
     });
     const [currentVideoIdx, setCurrentVideoIdx] = useState(0);
+    const [startAt, setStartAt] = useState(0);
 
     // Get notes for current chapter
     const currentChapter = course?.chapters.find(c => c.id === allVideos[currentVideoIdx]?.chapterId);
@@ -618,11 +620,42 @@ const Watch = () => {
 
     useEffect(() => {
         if(allVideos.length > 0) {
-            setCurrentVideo(allVideos[currentVideoIdx].video);
-            setCurrentVideoUrl(allVideos[currentVideoIdx].video.filename);
+            // Handle Jump from Navigation state
+            let jumpIdx = currentVideoIdx;
+            let jumpTime = 0;
+
+            if (location.state?.videoId) {
+                const idx = allVideos.findIndex(v => v.video.id === location.state.videoId);
+                if (idx !== -1) {
+                    jumpIdx = idx;
+                    jumpTime = location.state.timestamp || 0;
+                    // Clean up state so refreshes don't re-jump continuously if we were using history.replace
+                    // But here we just use it once.
+                }
+            } else {
+                // If no jump, fallback to saved progress
+                const savedTime = currentUser?.videoProgress?.[allVideos[jumpIdx].video.id]?.timestamp || 0;
+                jumpTime = savedTime;
+            }
+
+            setCurrentVideoIdx(jumpIdx); // This might be redundant if already set, but safe
+            setCurrentVideo(allVideos[jumpIdx].video);
+            setCurrentVideoUrl(allVideos[jumpIdx].video.filename);
+            setStartAt(jumpTime);
             setVideoCompleted(false);
         }
-    }, [currentVideoIdx, courses]);
+    }, [courseId, location.state, courses]); // Re-run if courseId or location state changes
+
+    // Update current video when index changes manually
+    useEffect(() => {
+        if (allVideos.length > 0 && currentVideo?.id !== allVideos[currentVideoIdx].video.id) {
+             setCurrentVideo(allVideos[currentVideoIdx].video);
+             setCurrentVideoUrl(allVideos[currentVideoIdx].video.filename);
+             const savedTime = currentUser?.videoProgress?.[allVideos[currentVideoIdx].video.id]?.timestamp || 0;
+             setStartAt(savedTime);
+             setVideoCompleted(false);
+        }
+    }, [currentVideoIdx]);
 
     const handleVideoProgress = (currentTime: number, duration: number) => {
         if (currentVideo) saveVideoProgress(currentVideo.id, currentTime, duration);
@@ -630,6 +663,20 @@ const Watch = () => {
 
     const handleVideoEnd = () => {
         setVideoCompleted(true);
+    };
+
+    const handleBookmark = (currentTime: number) => {
+        if (!currentVideo || !course) return;
+        const bookmark: VideoBookmark = {
+            id: Date.now().toString(),
+            courseId: course.id,
+            videoId: currentVideo.id,
+            videoTitle: currentVideo.title,
+            timestamp: currentTime,
+            createdAt: new Date().toISOString()
+        };
+        saveBookmark(bookmark);
+        alert(`Bookmark saved at ${Math.floor(currentTime/60)}:${Math.floor(currentTime%60).toString().padStart(2, '0')}`);
     };
 
     const handleDownload = () => {
@@ -789,7 +836,8 @@ const Watch = () => {
                             onBack={() => navigate(`/course/${courseId}`)}
                             onDownload={handleDownload}
                             onEnded={handleVideoEnd}
-                            initialTime={currentUser.videoProgress?.[currentVideo.id]?.timestamp || 0}
+                            onBookmark={handleBookmark}
+                            initialTime={startAt}
                             className={theaterMode ? 'h-full w-full' : 'aspect-video'}
                             title={currentVideo.title}
                         />
@@ -955,11 +1003,12 @@ const Watch = () => {
 };
 
 const Profile = () => {
-   const { currentUser, updateUser, logout, deleteNote, removeOfflineContent } = useStore();
+   const { currentUser, updateUser, logout, deleteNote, removeOfflineContent, deleteBookmark } = useStore();
    const [isEditing, setIsEditing] = useState(false);
    const [data, setData] = useState({ name: currentUser?.name || '', email: currentUser?.email || '', phone: currentUser?.phone || '' });
    const [expandedNote, setExpandedNote] = useState<string | null>(null);
-   const [activeTab, setActiveTab] = useState<'stats' | 'notes' | 'downloads'>('stats');
+   const [activeTab, setActiveTab] = useState<'stats' | 'notes' | 'downloads' | 'bookmarks'>('stats');
+   const navigate = useNavigate();
 
    if (!currentUser) return <Navigate to="/login" />;
    
@@ -1003,13 +1052,13 @@ const Profile = () => {
 
              {/* Tab Navigation */}
              <div className="flex gap-2 mb-6 overflow-x-auto no-scrollbar">
-                {['stats', 'notes', 'downloads'].map(tab => (
+                {['stats', 'notes', 'downloads', 'bookmarks'].map(tab => (
                     <button 
                         key={tab} 
                         onClick={() => setActiveTab(tab as any)}
                         className={`px-5 py-2.5 rounded-xl font-bold capitalize whitespace-nowrap transition-all ${activeTab === tab ? 'bg-brand text-white shadow-lg shadow-brand/30' : 'bg-white/80 text-gray-600 shadow-sm hover:bg-white'}`}
                     >
-                        {tab === 'stats' ? 'Exam Results' : tab === 'notes' ? 'Saved Notes' : 'Offline Library'}
+                        {tab === 'stats' ? 'Exam Results' : tab === 'notes' ? 'Saved Notes' : tab === 'downloads' ? 'Offline Library' : 'Bookmarks'}
                     </button>
                 ))}
              </div>
@@ -1131,6 +1180,42 @@ const Profile = () => {
                                <Download className="w-8 h-8 mx-auto mb-2 opacity-50" />
                                <p>No downloads yet.</p>
                                <p className="text-xs mt-1">Download videos or notes from a batch to see them here.</p>
+                           </div>
+                        )}
+                     </div>
+                 )}
+
+                 {/* Bookmarks */}
+                 {activeTab === 'bookmarks' && (
+                     <div className="space-y-4">
+                        {currentUser.bookmarks && currentUser.bookmarks.length > 0 ? currentUser.bookmarks.map((mark) => (
+                           <div key={mark.id} className="bg-white/80 backdrop-blur-xl p-4 rounded-2xl shadow-sm border border-white/50 flex justify-between items-center animate-slide-up hover:border-brand transition-colors">
+                              <div 
+                                className="flex items-center gap-3 overflow-hidden cursor-pointer flex-1"
+                                onClick={() => navigate(`/watch/${mark.courseId}`, { state: { videoId: mark.videoId, timestamp: mark.timestamp } })}
+                              >
+                                 <div className="w-10 h-10 rounded-full flex items-center justify-center flex-none bg-purple-100 text-purple-600">
+                                     <Bookmark className="w-5 h-5"/>
+                                 </div>
+                                 <div className="flex-1 min-w-0">
+                                    <p className="font-bold text-gray-900 text-sm truncate">{mark.videoTitle}</p>
+                                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                                        <span className="bg-gray-100 px-1.5 py-0.5 rounded font-mono font-bold text-gray-700">
+                                            {Math.floor(mark.timestamp / 60)}:{Math.floor(mark.timestamp % 60).toString().padStart(2, '0')}
+                                        </span>
+                                        <span className="truncate">• {new Date(mark.createdAt).toLocaleDateString()}</span>
+                                    </div>
+                                 </div>
+                              </div>
+                              <button onClick={() => deleteBookmark(mark.id)} className="p-2 bg-red-50 rounded-lg text-red-600 hover:bg-red-100 ml-2">
+                                  <Trash2 className="w-4 h-4" />
+                              </button>
+                           </div>
+                        )) : (
+                           <div className="text-center py-10 text-gray-400 bg-white/50 rounded-3xl border border-dashed border-gray-300">
+                               <Bookmark className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                               <p>No bookmarks yet.</p>
+                               <p className="text-xs mt-1">Bookmark important moments in videos to review them later.</p>
                            </div>
                         )}
                      </div>
@@ -1372,10 +1457,16 @@ const RevealKey = () => {
 };
 
 const ContentManager = ({ course, onClose }: { course: Course, onClose: () => void }) => {
-    const { updateCourse } = useStore();
+    const { updateCourse, settings } = useStore();
     const [chapters, setChapters] = useState<Chapter[]>(course.chapters);
     const [newChapterTitle, setNewChapterTitle] = useState('');
+    
+    // Video Modal State
+    const [showVideoModal, setShowVideoModal] = useState(false);
     const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
+    const [editingVideo, setEditingVideo] = useState<Video | null>(null);
+    const [videoForm, setVideoForm] = useState({ title: '', url: '', duration: '00:00' });
+    const [isFetching, setIsFetching] = useState(false);
 
     const handleSave = () => {
         updateCourse({ ...course, chapters });
@@ -1391,18 +1482,44 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
         if(confirm('Delete chapter?')) setChapters(chapters.filter(c => c.id !== id));
     };
 
-    const addVideo = (chapterId: string) => {
-        const title = prompt('Video Title:');
-        const url = prompt('Video URL (YouTube/MP4/Drive):');
-        const duration = prompt('Duration (e.g. 10:00):', '00:00');
-        if (title && url) {
-            setChapters(chapters.map(c => {
-                if (c.id === chapterId) {
-                    return { ...c, videos: [...c.videos, { id: Date.now().toString(), title, filename: url, duration: duration || '00:00' }] };
-                }
-                return c;
-            }));
-        }
+    // Open Modal for New Video
+    const handleAddVideoClick = (chapterId: string) => {
+        setEditingChapterId(chapterId);
+        setEditingVideo(null);
+        setVideoForm({ title: '', url: '', duration: '00:00' });
+        setShowVideoModal(true);
+    };
+
+    // Open Modal for Edit Video
+    const handleEditVideoClick = (chapterId: string, video: Video) => {
+        setEditingChapterId(chapterId);
+        setEditingVideo(video);
+        setVideoForm({ title: video.title, url: video.filename, duration: video.duration });
+        setShowVideoModal(true);
+    };
+
+    const handleSaveVideo = () => {
+        if (!editingChapterId) return;
+        
+        setChapters(chapters.map(c => {
+            if (c.id === editingChapterId) {
+                const newVideo: Video = {
+                    id: editingVideo ? editingVideo.id : Date.now().toString(),
+                    title: videoForm.title,
+                    filename: videoForm.url,
+                    duration: videoForm.duration
+                };
+                
+                const updatedVideos = editingVideo 
+                    ? c.videos.map(v => v.id === editingVideo.id ? newVideo : v)
+                    : [...c.videos, newVideo];
+                    
+                return { ...c, videos: updatedVideos };
+            }
+            return c;
+        }));
+        
+        setShowVideoModal(false);
     };
     
     const deleteVideo = (chapterId: string, videoId: string) => {
@@ -1416,9 +1533,43 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
         }
     };
 
+    const fetchDuration = async () => {
+        if (!videoForm.url) return;
+        // Simple YouTube ID extraction
+        const match = videoForm.url.match(/^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/);
+        const videoId = (match && match[7]?.length === 11) ? match[7] : null;
+
+        if (!videoId) {
+            alert("Invalid YouTube URL or ID not found.");
+            return;
+        }
+
+        if (!settings.videoApiKey) {
+            alert("Video API Key is missing in Settings.");
+            return;
+        }
+
+        setIsFetching(true);
+        try {
+            const res = await fetch(`https://www.googleapis.com/youtube/v3/videos?id=${videoId}&part=contentDetails&key=${settings.videoApiKey}`);
+            const data = await res.json();
+            if (data.items && data.items.length > 0) {
+                const durationIso = data.items[0].contentDetails.duration;
+                setVideoForm(prev => ({ ...prev, duration: parseDuration(durationIso) }));
+            } else {
+                alert("Could not fetch details. Check API Key or Video Privacy.");
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Error fetching duration.");
+        } finally {
+            setIsFetching(false);
+        }
+    };
+
     return (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-2xl rounded-3xl p-6 max-h-[85vh] flex flex-col">
+            <div className="bg-white w-full max-w-2xl rounded-3xl p-6 max-h-[85vh] flex flex-col relative">
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-bold text-gray-900">Manage Content: {course.title}</h2>
                     <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full"><X className="w-5 h-5"/></button>
@@ -1441,7 +1592,7 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
                                 <div className="bg-gray-50 p-4 flex justify-between items-center border-b border-gray-200">
                                     <span className="font-bold text-gray-800">{idx + 1}. {chapter.title}</span>
                                     <div className="flex gap-2">
-                                        <button onClick={() => addVideo(chapter.id)} className="text-xs bg-white border border-gray-300 px-2 py-1 rounded hover:bg-gray-100 font-bold">+ Video</button>
+                                        <button onClick={() => handleAddVideoClick(chapter.id)} className="text-xs bg-white border border-gray-300 px-2 py-1 rounded hover:bg-gray-100 font-bold">+ Video</button>
                                         <button onClick={() => deleteChapter(chapter.id)} className="text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 className="w-4 h-4"/></button>
                                     </div>
                                 </div>
@@ -1449,11 +1600,15 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
                                     {chapter.videos.length === 0 && <p className="text-center text-gray-400 text-xs py-2">No videos</p>}
                                     {chapter.videos.map(video => (
                                         <div key={video.id} className="flex justify-between items-center p-2 hover:bg-gray-50 rounded-lg group">
-                                            <div className="flex items-center gap-2 overflow-hidden">
-                                                <PlayCircle className="w-4 h-4 text-gray-400" />
-                                                <span className="text-sm text-gray-700 truncate">{video.title}</span>
+                                            <div className="flex items-center gap-2 overflow-hidden flex-1">
+                                                <PlayCircle className="w-4 h-4 text-gray-400 flex-none" />
+                                                <span className="text-sm text-gray-700 truncate font-medium">{video.title}</span>
+                                                <span className="text-xs text-gray-400">({video.duration})</span>
                                             </div>
-                                            <button onClick={() => deleteVideo(chapter.id, video.id)} className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><X className="w-4 h-4"/></button>
+                                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button onClick={() => handleEditVideoClick(chapter.id, video)} className="text-blue-500 hover:bg-blue-50 p-1.5 rounded"><Edit className="w-3 h-3"/></button>
+                                                <button onClick={() => deleteVideo(chapter.id, video.id)} className="text-gray-400 hover:text-red-500 p-1.5 rounded hover:bg-red-50"><Trash2 className="w-3 h-3"/></button>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
@@ -1466,6 +1621,60 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
                     <button onClick={onClose} className="px-6 py-2 text-gray-500 font-bold hover:bg-gray-100 rounded-xl">Cancel</button>
                     <button onClick={() => { handleSave(); onClose(); }} className="px-6 py-2 bg-brand text-white font-bold rounded-xl shadow-lg shadow-brand/20">Save Changes</button>
                 </div>
+
+                {/* Video Modal Overlay */}
+                {showVideoModal && (
+                    <div className="absolute inset-0 z-[60] bg-white/50 backdrop-blur-sm rounded-3xl flex items-center justify-center">
+                        <div className="bg-white w-[90%] max-w-md shadow-2xl rounded-2xl border border-gray-200 p-6 animate-fade-in ring-1 ring-black/5">
+                            <h3 className="font-bold text-lg mb-4 text-gray-900">{editingVideo ? 'Edit Video' : 'Add New Video'}</h3>
+                            <div className="space-y-3">
+                                <div>
+                                    <label className="text-xs font-bold text-gray-500 uppercase">Video Title</label>
+                                    <input 
+                                        value={videoForm.title} 
+                                        onChange={e => setVideoForm({...videoForm, title: e.target.value})}
+                                        className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 mt-1"
+                                        placeholder="e.g. Introduction to Physics"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold text-gray-500 uppercase">Video Link (YouTube/MP4)</label>
+                                    <div className="flex gap-2 mt-1">
+                                        <input 
+                                            value={videoForm.url} 
+                                            onChange={e => setVideoForm({...videoForm, url: e.target.value})}
+                                            className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200"
+                                            placeholder="https://youtube.com/..."
+                                        />
+                                        <button 
+                                            onClick={fetchDuration} 
+                                            disabled={isFetching}
+                                            className="px-3 bg-gray-100 text-gray-600 rounded-xl font-bold text-xs hover:bg-gray-200 disabled:opacity-50 flex items-center gap-1"
+                                            title="Auto-fetch Duration from YouTube"
+                                        >
+                                            {isFetching ? <Loader2 className="w-4 h-4 animate-spin"/> : <Clock className="w-4 h-4"/>}
+                                        </button>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold text-gray-500 uppercase">Duration (MM:SS)</label>
+                                    <input 
+                                        value={videoForm.duration} 
+                                        onChange={e => setVideoForm({...videoForm, duration: e.target.value})}
+                                        className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 mt-1"
+                                        placeholder="00:00"
+                                    />
+                                </div>
+                            </div>
+                            <div className="flex gap-3 mt-6">
+                                <button onClick={() => setShowVideoModal(false)} className="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-50 rounded-xl border border-transparent hover:border-gray-200">Cancel</button>
+                                <button onClick={handleSaveVideo} className="flex-1 py-3 bg-brand text-white font-bold rounded-xl shadow-lg shadow-brand/20">
+                                    {editingVideo ? 'Update Video' : 'Add Video'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

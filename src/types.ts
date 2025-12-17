@@ -55,6 +55,15 @@ export interface OfflineContent {
   isExternal: boolean; // True if it's a YouTube link (Bookmark), False if it's a file
 }
 
+export interface VideoBookmark {
+  id: string;
+  courseId: string;
+  videoId: string;
+  videoTitle: string;
+  timestamp: number;
+  createdAt: string;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -71,6 +80,7 @@ export interface User {
   generatedQuizzes?: AiGeneratedQuiz[]; // Cache for AI quizzes per video
   savedNotes?: SavedNote[]; // User's library of AI notes
   offlineLibrary?: OfflineContent[]; // Downloaded/Saved content
+  bookmarks?: VideoBookmark[]; // Saved video timestamps
 }
 
 export interface Banner {

@@ -13,6 +13,7 @@ interface VideoPlayerProps {
   onBack?: () => void;
   onDownload?: () => void;
   onEnded?: () => void;
+  onBookmark?: (currentTime: number) => void;
   className?: string;
   title?: string;
 }
@@ -55,7 +56,7 @@ const getEmbedUrl = (input: string) => {
   return input;
 };
 
-const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProgress, initialTime, onBack, onDownload, onEnded, className, title }) => {
+const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProgress, initialTime, onBack, onDownload, onEnded, onBookmark, className, title }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -399,6 +400,17 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
             <div className="text-white/70 text-[10px] border border-white/20 px-1.5 py-0.5 rounded font-medium cursor-help hidden sm:block" title="Auto Quality">
                HD
             </div>
+
+            {/* Bookmark */}
+            {onBookmark && (
+                <button 
+                  onClick={() => onBookmark(currentTime)}
+                  className="text-white hover:text-brand transition-colors"
+                  title="Add Bookmark"
+                >
+                   <Bookmark className="w-5 h-5" />
+                </button>
+            )}
 
             {/* Download */}
             {onDownload && (

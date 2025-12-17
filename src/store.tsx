@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, Course, Banner, Order, AppSettings, UserRole, ExamResult, ExamProgress, VideoProgress, AiGeneratedQuiz, SavedNote, OfflineContent } from './types';
+import { User, Course, Banner, Order, AppSettings, UserRole, ExamResult, ExamProgress, VideoProgress, AiGeneratedQuiz, SavedNote, OfflineContent, VideoBookmark } from './types';
 
 interface StoreContextType {
   currentUser: User | null;
@@ -35,6 +35,8 @@ interface StoreContextType {
   deleteNote: (noteId: string) => void;
   saveOfflineContent: (content: OfflineContent) => void;
   removeOfflineContent: (contentId: string) => void;
+  saveBookmark: (bookmark: VideoBookmark) => void;
+  deleteBookmark: (bookmarkId: string) => void;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -484,6 +486,24 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
     setUsers(prevUsers => prevUsers.map(u => u.id === currentUser.id ? updatedUser : u));
   };
 
+  const saveBookmark = (bookmark: VideoBookmark) => {
+    if (!currentUser) return;
+    const currentBookmarks = currentUser.bookmarks || [];
+    const updatedUser = { ...currentUser, bookmarks: [bookmark, ...currentBookmarks] };
+    setCurrentUser(updatedUser);
+    setUsers(prevUsers => prevUsers.map(u => u.id === currentUser.id ? updatedUser : u));
+  };
+
+  const deleteBookmark = (bookmarkId: string) => {
+    if (!currentUser) return;
+    const updatedUser = { 
+        ...currentUser, 
+        bookmarks: (currentUser.bookmarks || []).filter(b => b.id !== bookmarkId) 
+    };
+    setCurrentUser(updatedUser);
+    setUsers(prevUsers => prevUsers.map(u => u.id === currentUser.id ? updatedUser : u));
+  };
+
   return (
     <StoreContext.Provider value={{
       currentUser, users, courses, banners, orders, settings,
@@ -503,7 +523,9 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
       saveNote,
       deleteNote,
       saveOfflineContent,
-      removeOfflineContent
+      removeOfflineContent,
+      saveBookmark,
+      deleteBookmark
     }}>
       {children}
     </StoreContext.Provider>

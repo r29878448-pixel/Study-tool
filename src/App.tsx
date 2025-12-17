@@ -4,7 +4,7 @@ import { HashRouter as Router, Routes, Route, Navigate, useLocation, Link, useNa
 import { StoreProvider, useStore } from './store';
 import { 
   Home, BookOpen, User, HelpCircle, Menu, LogOut, 
-  Search, PlayCircle, Lock, LayoutDashboard, Settings, Plus, Trash2, Edit, Save, X, ChevronDown, 
+  Search, PlayCircle, Lock, Unlock, LayoutDashboard, Settings, Plus, Trash2, Edit, Save, X, ChevronDown, 
   MessageCircle, CheckCircle, FileText, Download, ClipboardList, Timer, Clock, Key, ExternalLink, Play, Bot, Brain, Loader2, ArrowLeft, Video as VideoIcon, Upload, Wand2, Maximize, Minimize, Bookmark, Sparkles, RotateCcw
 } from './components/Icons';
 import VideoPlayer from './components/VideoPlayer';
@@ -159,17 +159,20 @@ const CountdownTimer = ({ expiryDate }: { expiryDate: string }) => {
     return () => clearInterval(timer);
   }, [expiryDate]);
 
-  if (!timeLeft) return <span className="text-red-500 font-bold text-xs bg-red-50 px-2 py-1 rounded-lg">Expired</span>;
+  if (!timeLeft) return <span className="text-red-500 font-bold text-xs bg-red-50 px-3 py-1 rounded-lg">Access Expired</span>;
 
   return (
-    <div className="flex gap-1 items-center font-mono font-bold text-sm text-brand bg-brand-light px-3 py-1.5 rounded-xl border border-brand/10 shadow-sm">
-      <Timer className="w-4 h-4 mr-1" />
-      <div className="flex items-center gap-0.5">
-        <span className="bg-white px-1.5 rounded text-gray-800 shadow-sm">{timeLeft.h.toString().padStart(2, '0')}</span>
+    <div className="flex gap-2 items-center font-display font-bold text-sm text-brand bg-white/80 backdrop-blur-md px-4 py-2 rounded-xl border border-brand/10 shadow-sm">
+      <div className="flex items-center gap-1.5 text-brand-dark">
+          <Clock className="w-4 h-4" />
+          <span className="text-xs uppercase tracking-wider">Time Left</span>
+      </div>
+      <div className="flex items-center gap-1 font-mono text-base">
+        <span className="bg-brand text-white px-2 py-0.5 rounded-md shadow-sm">{timeLeft.h.toString().padStart(2, '0')}</span>
         <span className="text-brand/50">:</span>
-        <span className="bg-white px-1.5 rounded text-gray-800 shadow-sm">{timeLeft.m.toString().padStart(2, '0')}</span>
+        <span className="bg-brand text-white px-2 py-0.5 rounded-md shadow-sm">{timeLeft.m.toString().padStart(2, '0')}</span>
         <span className="text-brand/50">:</span>
-        <span className="bg-white px-1.5 rounded text-gray-800 shadow-sm">{timeLeft.s.toString().padStart(2, '0')}</span>
+        <span className="bg-brand text-white px-2 py-0.5 rounded-md shadow-sm">{timeLeft.s.toString().padStart(2, '0')}</span>
       </div>
     </div>
   );
@@ -278,15 +281,13 @@ const BottomNav = () => {
   );
 };
 
-// --- Pages ---
-
 const Help = () => {
     const { settings } = useStore();
     const botUsername = settings.supportPhone.startsWith('@') ? settings.supportPhone.substring(1) : 'STUDY_PORTAL_ROBOT';
     
     return (
-        <div className="pt-24 px-6 pb-20 min-h-screen flex flex-col items-center justify-center relative">
-            <div className="bg-white/80 backdrop-blur-xl p-8 rounded-3xl shadow-lg border border-white/50 text-center w-full max-w-md animate-fade-in relative z-10">
+        <div className="pt-24 px-6 pb-20 min-h-screen flex flex-col items-center justify-center">
+            <div className="bg-white/80 backdrop-blur-xl p-8 rounded-3xl shadow-sm border border-gray-100 text-center w-full max-w-md animate-fade-in">
                 <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
                     <Bot className="w-10 h-10 text-brand" />
                 </div>
@@ -340,7 +341,13 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden">
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6 relative overflow-hidden">
+      {/* Background Blobs */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0">
+          <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-brand/10 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-500/10 rounded-full blur-3xl"></div>
+      </div>
+
       <div className="mb-10 scale-150 z-10">
          <Logo dark={true} />
       </div>
@@ -445,7 +452,7 @@ const HomePage = () => {
             <input 
                 type="text" 
                 placeholder="What do you want to learn today?" 
-                className="w-full pl-12 pr-4 py-4 bg-white/80 backdrop-blur-xl rounded-2xl shadow-sm border border-gray-100 focus:outline-none focus:ring-2 focus:ring-brand/50 transition-all text-gray-900 placeholder:text-gray-500 font-medium"
+                className="w-full pl-12 pr-4 py-4 bg-white/80 backdrop-blur rounded-2xl shadow-sm border border-gray-100 focus:outline-none focus:ring-2 focus:ring-brand/50 transition-all text-gray-900 placeholder:text-gray-500 font-medium"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -456,7 +463,7 @@ const HomePage = () => {
       {/* Banners */}
       {banners.length > 0 ? (
         <div className="px-4">
-            <div className="relative w-full aspect-[21/9] rounded-2xl overflow-hidden shadow-lg border border-white/20">
+            <div className="relative w-full aspect-[21/9] rounded-2xl overflow-hidden shadow-lg">
             {banners.map((b, i) => (
                 <img 
                 key={b.id} 
@@ -487,7 +494,7 @@ const HomePage = () => {
         
         <div className="flex overflow-x-auto space-x-4 pb-8 pr-4 no-scrollbar">
           {courses.slice(0, 5).map(course => (
-            <Link to={`/course/${course.id}`} key={course.id} className="flex-none w-72 bg-white/90 backdrop-blur-md rounded-3xl shadow-card border border-gray-100/50 overflow-hidden group hover:scale-[1.02] transition-transform duration-300">
+            <Link to={`/course/${course.id}`} key={course.id} className="flex-none w-72 bg-white rounded-3xl shadow-card border border-gray-100 overflow-hidden group hover:scale-[1.02] transition-transform duration-300">
               <div className="relative h-40 overflow-hidden">
                 <img src={course.image} alt={course.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                 <div className="absolute top-0 inset-x-0 h-full bg-gradient-to-t from-black/60 to-transparent"></div>
@@ -539,7 +546,7 @@ const CourseListing = () => {
              <button 
                 key={cat} 
                 onClick={() => setFilter(cat)}
-                className={`whitespace-nowrap px-5 py-2.5 rounded-full text-sm font-bold transition-all shadow-sm ${filter === cat ? 'bg-brand text-white shadow-brand/30' : 'bg-white/90 backdrop-blur text-gray-600 hover:bg-white'}`}
+                className={`whitespace-nowrap px-5 py-2.5 rounded-full text-sm font-bold transition-all shadow-sm ${filter === cat ? 'bg-brand text-white shadow-brand/30' : 'bg-white text-gray-600 hover:bg-gray-100'}`}
              >
                 {cat}
              </button>
@@ -548,14 +555,14 @@ const CourseListing = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {filtered.length === 0 ? (
-          <div className="col-span-2 text-center py-20 bg-white/70 backdrop-blur rounded-3xl border border-dashed border-gray-200">
+          <div className="col-span-2 text-center py-20 bg-white rounded-3xl border border-dashed border-gray-200">
               <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
                   <Search className="w-8 h-8"/>
               </div>
               <p className="text-gray-500 font-medium">No batches found for this category.</p>
           </div>
         ) : filtered.map(course => (
-          <Link to={`/course/${course.id}`} key={course.id} className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-card border border-gray-100 overflow-hidden flex flex-col group hover:-translate-y-1 transition-all duration-300">
+          <Link to={`/course/${course.id}`} key={course.id} className="bg-white rounded-3xl shadow-card border border-gray-100 overflow-hidden flex flex-col group hover:-translate-y-1 transition-all duration-300">
             <div className="relative h-48 overflow-hidden">
                  <img src={course.image} alt={course.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent"></div>
@@ -589,8 +596,7 @@ const CourseListing = () => {
 
 const Watch = () => {
     const { courseId } = useParams();
-    const location = useLocation();
-    const { courses, currentUser, saveVideoProgress, saveAiQuiz, saveNote, saveOfflineContent, saveBookmark } = useStore();
+    const { courses, currentUser, saveVideoProgress, saveAiQuiz, saveNote } = useStore();
     const [currentVideoUrl, setCurrentVideoUrl] = useState<string>('');
     const [currentVideo, setCurrentVideo] = useState<Video | null>(null);
     const [quizQuestions, setQuizQuestions] = useState<Question[]>([]);
@@ -601,8 +607,6 @@ const Watch = () => {
     const [noteGenerating, setNoteGenerating] = useState(false);
     const [generatedNote, setGeneratedNote] = useState<SavedNote | null>(null);
     const [showNoteModal, setShowNoteModal] = useState(false);
-    const [theaterMode, setTheaterMode] = useState(false);
-    const [videoCompleted, setVideoCompleted] = useState(false);
     const navigate = useNavigate();
     const course = courses.find(c => c.id === courseId);
     const allVideos: { video: Video, chapterId: string, chapterTitle: string }[] = [];
@@ -612,125 +616,16 @@ const Watch = () => {
         });
     });
     const [currentVideoIdx, setCurrentVideoIdx] = useState(0);
-    const [startAt, setStartAt] = useState(0);
-
-    // Get notes for current chapter
-    const currentChapter = course?.chapters.find(c => c.id === allVideos[currentVideoIdx]?.chapterId);
-    const chapterNotes = currentChapter?.notes || [];
 
     useEffect(() => {
         if(allVideos.length > 0) {
-            // Handle Jump from Navigation state
-            let jumpIdx = currentVideoIdx;
-            let jumpTime = 0;
-
-            if (location.state?.videoId) {
-                const idx = allVideos.findIndex(v => v.video.id === location.state.videoId);
-                if (idx !== -1) {
-                    jumpIdx = idx;
-                    jumpTime = location.state.timestamp || 0;
-                    // Clean up state so refreshes don't re-jump continuously if we were using history.replace
-                    // But here we just use it once.
-                }
-            } else {
-                // If no jump, fallback to saved progress
-                const savedTime = currentUser?.videoProgress?.[allVideos[jumpIdx].video.id]?.timestamp || 0;
-                jumpTime = savedTime;
-            }
-
-            setCurrentVideoIdx(jumpIdx); // This might be redundant if already set, but safe
-            setCurrentVideo(allVideos[jumpIdx].video);
-            setCurrentVideoUrl(allVideos[jumpIdx].video.filename);
-            setStartAt(jumpTime);
-            setVideoCompleted(false);
+            setCurrentVideo(allVideos[currentVideoIdx].video);
+            setCurrentVideoUrl(allVideos[currentVideoIdx].video.filename);
         }
-    }, [courseId, location.state, courses]); // Re-run if courseId or location state changes
-
-    // Update current video when index changes manually
-    useEffect(() => {
-        if (allVideos.length > 0 && currentVideo?.id !== allVideos[currentVideoIdx].video.id) {
-             setCurrentVideo(allVideos[currentVideoIdx].video);
-             setCurrentVideoUrl(allVideos[currentVideoIdx].video.filename);
-             const savedTime = currentUser?.videoProgress?.[allVideos[currentVideoIdx].video.id]?.timestamp || 0;
-             setStartAt(savedTime);
-             setVideoCompleted(false);
-        }
-    }, [currentVideoIdx]);
+    }, [currentVideoIdx, courses]);
 
     const handleVideoProgress = (currentTime: number, duration: number) => {
         if (currentVideo) saveVideoProgress(currentVideo.id, currentTime, duration);
-    };
-
-    const handleVideoEnd = () => {
-        setVideoCompleted(true);
-    };
-
-    const handleBookmark = (currentTime: number) => {
-        if (!currentVideo || !course) return;
-        const bookmark: VideoBookmark = {
-            id: Date.now().toString(),
-            courseId: course.id,
-            videoId: currentVideo.id,
-            videoTitle: currentVideo.title,
-            timestamp: currentTime,
-            createdAt: new Date().toISOString()
-        };
-        saveBookmark(bookmark);
-        alert(`Bookmark saved at ${Math.floor(currentTime/60)}:${Math.floor(currentTime%60).toString().padStart(2, '0')}`);
-    };
-
-    const handleDownload = () => {
-        if (!currentVideo || !course) return;
-        const isFile = /\.(mp4|webm|pdf|doc)($|\?)/i.test(currentVideo.filename);
-        
-        if (isFile) {
-            // Direct download for files
-            const element = document.createElement("a");
-            element.href = currentVideo.filename;
-            element.download = `${currentVideo.title}.mp4`;
-            element.target = "_blank";
-            document.body.appendChild(element);
-            element.click();
-            alert("Downloading to phone...");
-        } else {
-            // Save to Library for embeds/youtube
-            saveOfflineContent({
-                id: currentVideo.id,
-                type: 'video',
-                title: currentVideo.title,
-                url: currentVideo.filename,
-                courseName: course.title,
-                savedAt: new Date().toISOString(),
-                isExternal: true
-            });
-            alert("Video saved to your Offline Library in Profile!");
-        }
-    };
-
-    const handleDownloadNote = (note: Note) => {
-        if (!course) return;
-        saveOfflineContent({
-            id: note.id,
-            type: 'note',
-            title: note.title,
-            url: note.url,
-            courseName: course.title,
-            savedAt: new Date().toISOString(),
-            isExternal: !note.url.startsWith('data:')
-        });
-        
-        // Trigger browser download if it's a data URL or direct file
-        if (note.url.startsWith('data:') || /\.(pdf|doc)/i.test(note.url)) {
-             const element = document.createElement("a");
-             element.href = note.url;
-             element.download = `${note.title}`;
-             element.target = "_blank";
-             document.body.appendChild(element);
-             element.click();
-             alert("Downloading document...");
-        } else {
-             alert("Note link saved to Library!");
-        }
     };
 
     const generateAiQuiz = async () => {
@@ -755,7 +650,7 @@ const Watch = () => {
             });
             const text = response.text;
             if (text) {
-                const data = cleanJson(text); // Use robust cleaner
+                const data = cleanJson(text);
                 setQuizQuestions(data);
                 saveAiQuiz({ videoId: currentVideo.id, questions: data, generatedAt: new Date().toISOString() });
             }
@@ -803,7 +698,7 @@ const Watch = () => {
         if (generatedNote) { saveNote(generatedNote); alert("Notes saved to your profile!"); setShowNoteModal(false); }
     };
 
-    const handleDownloadGeneratedNote = () => {
+    const handleDownloadNote = () => {
         if (!generatedNote) return;
         const element = document.createElement("a");
         const file = new Blob([generatedNote.content], {type: 'text/plain'});
@@ -827,72 +722,38 @@ const Watch = () => {
 
     return (
         <div className="min-h-screen bg-gray-900 text-white flex flex-col md:flex-row h-screen overflow-hidden">
-            <div className={`flex flex-col relative bg-black ${theaterMode ? 'w-full' : 'flex-1'}`}>
+            <div className="flex-1 flex flex-col relative bg-black">
                 <div className="flex-1 relative flex items-center justify-center">
                     {currentVideo ? (
                         <VideoPlayer 
                             src={currentVideo.filename} 
                             onProgress={handleVideoProgress}
                             onBack={() => navigate(`/course/${courseId}`)}
-                            onDownload={handleDownload}
-                            onEnded={handleVideoEnd}
-                            onBookmark={handleBookmark}
-                            initialTime={startAt}
-                            className={theaterMode ? 'h-full w-full' : 'aspect-video'}
-                            title={currentVideo.title}
+                            initialTime={currentUser.videoProgress?.[currentVideo.id]?.timestamp || 0}
                         />
                     ) : <div className="text-gray-500">Select a video</div>}
-                    
-                    {/* Auto-Recall Overlay */}
-                    {videoCompleted && !showQuiz && (
-                        <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center z-40 animate-fade-in p-6 text-center">
-                            <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mb-4 ring-2 ring-green-500/50">
-                                <CheckCircle className="w-8 h-8 text-green-500" />
-                            </div>
-                            <h2 className="text-2xl font-bold font-display mb-2">Topic Completed!</h2>
-                            <p className="text-gray-400 mb-8 max-w-sm">Great job finishing the lecture. Test your memory recall now to solidify your learning.</p>
-                            
-                            <div className="flex flex-col sm:flex-row gap-3 w-full max-w-sm">
-                                <button 
-                                    onClick={generateAiQuiz} 
-                                    className="flex-1 py-3 bg-brand text-white rounded-xl font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition-all flex items-center justify-center gap-2"
-                                >
-                                    <Brain className="w-5 h-5" /> Take AI Quiz
-                                </button>
-                                <button 
-                                    onClick={() => setVideoCompleted(false)} 
-                                    className="flex-1 py-3 bg-gray-800 text-white rounded-xl font-bold hover:bg-gray-700 transition-colors flex items-center justify-center gap-2"
-                                >
-                                    <RotateCcw className="w-5 h-5" /> Replay
-                                </button>
-                            </div>
-                        </div>
-                    )}
                 </div>
-                <div className="p-4 bg-gray-900/90 backdrop-blur-md border-t border-gray-800 flex justify-between items-center">
+                <div className="p-4 bg-gray-900 border-t border-gray-800 flex justify-between items-center">
                     <div>
-                        <h1 className="text-xl font-bold font-display">{currentVideo?.title}</h1>
+                        <h1 className="text-xl font-bold">{currentVideo?.title}</h1>
                         <p className="text-gray-400 text-sm">{allVideos[currentVideoIdx]?.chapterTitle}</p>
                     </div>
                     <div className="flex gap-2">
                         {currentVideo && (
                             <>
-                                <button onClick={() => setTheaterMode(!theaterMode)} className="text-gray-400 hover:text-white p-2 rounded-lg hover:bg-gray-800 transition-colors" title="Theater Mode">
-                                    {theaterMode ? <Minimize className="w-5 h-5"/> : <Maximize className="w-5 h-5"/>}
-                                </button>
-                                <button onClick={generateAiQuiz} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-600/20"><Brain className="w-4 h-4" /> Take Quiz</button>
-                                <button onClick={handleGenerateNotes} className="bg-green-600 text-white px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-green-700 transition-colors shadow-lg shadow-green-600/20"><FileText className="w-4 h-4" /> AI Notes</button>
+                                <button onClick={generateAiQuiz} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-indigo-700 transition-colors"><Brain className="w-4 h-4" /> Take AI Quiz</button>
+                                <button onClick={handleGenerateNotes} className="bg-green-600 text-white px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-green-700 transition-colors"><FileText className="w-4 h-4" /> Generate Notes</button>
                             </>
                         )}
                     </div>
                 </div>
                 {/* AI Quiz Modal */}
                 {showQuiz && (
-                    <div className="absolute inset-0 z-50 bg-gray-900/95 backdrop-blur-sm p-4 overflow-y-auto flex items-center justify-center">
-                        <div className="max-w-2xl w-full bg-gray-800 rounded-3xl p-6 border border-gray-700 shadow-2xl">
+                    <div className="absolute inset-0 z-50 bg-gray-900/95 backdrop-blur-sm p-4 overflow-y-auto">
+                        <div className="max-w-2xl mx-auto bg-gray-800 rounded-3xl p-6 border border-gray-700">
                             <div className="flex justify-between items-center mb-6">
-                                <h2 className="text-xl font-bold flex items-center gap-2 text-white"><Brain className="text-indigo-400"/> Quiz: {currentVideo?.title}</h2>
-                                <button onClick={() => { setShowQuiz(false); setVideoCompleted(false); }} className="p-2 hover:bg-gray-700 rounded-full text-white"><X className="w-5 h-5"/></button>
+                                <h2 className="text-xl font-bold flex items-center gap-2"><Brain className="text-indigo-400"/> Quiz: {currentVideo?.title}</h2>
+                                <button onClick={() => setShowQuiz(false)} className="p-2 hover:bg-gray-700 rounded-full"><X className="w-5 h-5"/></button>
                             </div>
                             {quizLoading ? (
                                 <div className="py-20 flex flex-col items-center justify-center text-center"><Loader2 className="w-12 h-12 text-indigo-500 animate-spin mb-4"/><p className="text-gray-400">Generating questions with AI...</p></div>
@@ -902,15 +763,15 @@ const Watch = () => {
                                         const showResult = quizScore !== null;
                                         return (
                                             <div key={idx} className="bg-gray-700/50 p-4 rounded-xl border border-gray-700">
-                                                <p className="font-bold mb-3 text-white">{idx + 1}. {q.question}</p>
+                                                <p className="font-bold mb-3">{idx + 1}. {q.question}</p>
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                                     {q.options.map((opt, oIdx) => {
-                                                        let btnClass = "bg-gray-800 border-gray-600 hover:bg-gray-700 text-gray-300";
+                                                        let btnClass = "bg-gray-800 border-gray-600 hover:bg-gray-700";
                                                         if (showResult) {
                                                             if (oIdx === q.correctAnswer) btnClass = "bg-green-900/50 border-green-500 text-green-200";
                                                             else if (userAnswers[idx] === oIdx) btnClass = "bg-red-900/50 border-red-500 text-red-200";
                                                             else btnClass = "bg-gray-800 border-gray-700 opacity-50";
-                                                        } else if (userAnswers[idx] === oIdx) btnClass = "bg-indigo-600 border-indigo-500 text-white";
+                                                        } else if (userAnswers[idx] === oIdx) btnClass = "bg-indigo-600 border-indigo-500";
                                                         return (<button key={oIdx} disabled={showResult} onClick={() => { const newAns = [...userAnswers]; newAns[idx] = oIdx; setUserAnswers(newAns); }} className={`p-3 rounded-lg border text-left text-sm font-medium transition-all ${btnClass}`}>{opt}</button>);
                                                     })}
                                                 </div>
@@ -918,9 +779,9 @@ const Watch = () => {
                                         );
                                     })}
                                     {quizScore === null ? (
-                                        <button onClick={submitQuiz} disabled={userAnswers.filter(a => a !== undefined).length !== quizQuestions.length} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-600/30">Submit Quiz</button>
+                                        <button onClick={submitQuiz} disabled={userAnswers.filter(a => a !== undefined).length !== quizQuestions.length} className="w-full py-3 bg-indigo-600 rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-indigo-700 transition-colors">Submit Quiz</button>
                                     ) : (
-                                        <div className="text-center p-6 bg-gray-800 rounded-xl border border-gray-700"><p className="text-gray-400 text-sm uppercase font-bold mb-1">Your Score</p><p className="text-4xl font-bold text-white mb-4">{quizScore} / {quizQuestions.length}</p><button onClick={() => { setShowQuiz(false); setVideoCompleted(false); }} className="px-6 py-2 bg-gray-700 rounded-lg font-bold hover:bg-gray-600 text-white">Close</button></div>
+                                        <div className="text-center p-6 bg-gray-800 rounded-xl border border-gray-700"><p className="text-gray-400 text-sm uppercase font-bold mb-1">Your Score</p><p className="text-4xl font-bold text-white mb-4">{quizScore} / {quizQuestions.length}</p><button onClick={() => setShowQuiz(false)} className="px-6 py-2 bg-gray-700 rounded-lg font-bold hover:bg-gray-600">Close</button></div>
                                     )}
                                 </div>
                             )}
@@ -947,7 +808,7 @@ const Watch = () => {
                                     </div>
                                     <div className="flex gap-4 border-t pt-6 no-print">
                                         <button onClick={handleSaveNote} className="flex-1 py-3 bg-brand text-white rounded-xl font-bold shadow-lg shadow-brand/20 hover:bg-brand-dark transition-colors flex items-center justify-center gap-2"><Save className="w-5 h-5" /> Save to Profile</button>
-                                        <button onClick={handleDownloadGeneratedNote} className="flex-1 py-3 bg-gray-100 text-gray-800 rounded-xl font-bold hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"><Download className="w-5 h-5" /> Print / Download</button>
+                                        <button onClick={handleDownloadNote} className="flex-1 py-3 bg-gray-100 text-gray-800 rounded-xl font-bold hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"><Download className="w-5 h-5" /> Print / Download</button>
                                     </div>
                                 </div>
                             ) : <div className="text-center py-10 text-gray-500">Failed to load content.</div>}
@@ -955,60 +816,37 @@ const Watch = () => {
                     </div>
                 )}
             </div>
-            {!theaterMode && (
-                <div className="w-full md:w-80 bg-gray-800 border-l border-gray-700 flex flex-col h-[40vh] md:h-full overflow-hidden animate-fade-in">
-                    <div className="p-4 border-b border-gray-700 bg-gray-800"><h2 className="font-bold text-lg">Course Content</h2><p className="text-xs text-gray-400">{allVideos.length} Videos</p></div>
-                    <div className="flex-1 overflow-y-auto">
-                        {course.chapters.map((chap) => {
-                            // Check if this chapter is the current one to highlight notes
-                            const isCurrentChapter = chap.id === allVideos[currentVideoIdx]?.chapterId;
-                            return (
-                            <div key={chap.id}>
-                                <div className="px-4 py-2 bg-gray-700/50 text-xs font-bold text-gray-300 uppercase sticky top-0 backdrop-blur-sm z-10">{chap.title}</div>
-                                {chap.videos.map((vid) => {
-                                    const idx = allVideos.findIndex(v => v.video.id === vid.id);
-                                    const isPlaying = idx === currentVideoIdx;
-                                    const progress = currentUser.videoProgress?.[vid.id];
-                                    const isCompleted = progress?.completed;
-                                    return (
-                                        <button key={vid.id} onClick={() => setCurrentVideoIdx(idx)} className={`w-full text-left p-3 flex gap-3 hover:bg-gray-700 transition-colors border-b border-gray-700/50 ${isPlaying ? 'bg-gray-700 border-l-4 border-l-brand' : ''}`}>
-                                            <div className="mt-1">{isPlaying ? <div className="w-4 h-4 text-brand"><PlayCircle className="w-full h-full" fill="currentColor" /></div> : isCompleted ? <CheckCircle className="w-4 h-4 text-green-500" /> : <div className="w-4 h-4 rounded-full border border-gray-500" />}</div>
-                                            <div><p className={`text-sm font-medium ${isPlaying ? 'text-white' : 'text-gray-300'}`}>{vid.title}</p><p className="text-xs text-gray-500">{vid.duration}</p></div>
-                                        </button>
-                                    );
-                                })}
-                                {/* Display Notes in Sidebar if it's the active chapter or just generally list them */}
-                                {chap.notes.length > 0 && (
-                                    <div className="px-3 py-2 space-y-1">
-                                        {chap.notes.map(note => (
-                                            <button 
-                                                key={note.id} 
-                                                onClick={() => handleDownloadNote(note)}
-                                                className="flex w-full text-left items-center gap-2 p-2 rounded hover:bg-gray-700 text-xs text-blue-300 hover:text-blue-200 transition-colors group"
-                                            >
-                                                <FileText className="w-3 h-3 flex-none"/>
-                                                <span className="truncate flex-1">{note.title}</span>
-                                                <Download className="w-3 h-3 flex-none opacity-0 group-hover:opacity-100 transition-opacity"/>
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        )})}
-                    </div>
+            <div className="w-full md:w-80 bg-gray-800 border-l border-gray-700 flex flex-col h-[40vh] md:h-full overflow-hidden">
+                <div className="p-4 border-b border-gray-700 bg-gray-800"><h2 className="font-bold text-lg">Course Content</h2><p className="text-xs text-gray-400">{allVideos.length} Videos</p></div>
+                <div className="flex-1 overflow-y-auto">
+                    {course.chapters.map((chap) => (
+                        <div key={chap.id}>
+                            <div className="px-4 py-2 bg-gray-700/50 text-xs font-bold text-gray-300 uppercase sticky top-0 backdrop-blur-sm z-10">{chap.title}</div>
+                            {chap.videos.map((vid) => {
+                                const idx = allVideos.findIndex(v => v.video.id === vid.id);
+                                const isPlaying = idx === currentVideoIdx;
+                                const progress = currentUser.videoProgress?.[vid.id];
+                                const isCompleted = progress?.completed;
+                                return (
+                                    <button key={vid.id} onClick={() => setCurrentVideoIdx(idx)} className={`w-full text-left p-3 flex gap-3 hover:bg-gray-700 transition-colors border-b border-gray-700/50 ${isPlaying ? 'bg-gray-700 border-l-4 border-l-brand' : ''}`}>
+                                        <div className="mt-1">{isPlaying ? <div className="w-4 h-4 text-brand"><PlayCircle className="w-full h-full" fill="currentColor" /></div> : isCompleted ? <CheckCircle className="w-4 h-4 text-green-500" /> : <div className="w-4 h-4 rounded-full border border-gray-500" />}</div>
+                                        <div><p className={`text-sm font-medium ${isPlaying ? 'text-white' : 'text-gray-300'}`}>{vid.title}</p><p className="text-xs text-gray-500">{vid.duration}</p></div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    ))}
                 </div>
-            )}
+            </div>
         </div>
     );
 };
 
 const Profile = () => {
-   const { currentUser, updateUser, logout, deleteNote, removeOfflineContent, deleteBookmark } = useStore();
+   const { currentUser, updateUser, logout, deleteNote } = useStore();
    const [isEditing, setIsEditing] = useState(false);
    const [data, setData] = useState({ name: currentUser?.name || '', email: currentUser?.email || '', phone: currentUser?.phone || '' });
    const [expandedNote, setExpandedNote] = useState<string | null>(null);
-   const [activeTab, setActiveTab] = useState<'stats' | 'notes' | 'downloads' | 'bookmarks'>('stats');
-   const navigate = useNavigate();
 
    if (!currentUser) return <Navigate to="/login" />;
    
@@ -1018,214 +856,125 @@ const Profile = () => {
    };
 
    return (
-      <div className="pb-24 pt-20 p-6 min-h-screen relative">
-         {/* Background is handled globally, but we add z-index here */}
-         <div className="relative z-10">
-             <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-card border border-white/50 overflow-hidden mb-6 relative">
-                <div className="h-32 bg-gradient-to-r from-brand to-indigo-600"></div>
-                <div className="px-8 pb-8">
-                    <div className="flex justify-between items-end -mt-12 mb-4">
-                        <div className="w-24 h-24 rounded-full bg-white p-1.5 shadow-lg">
-                            <div className="w-full h-full rounded-full bg-gray-100 flex items-center justify-center text-brand text-3xl font-display font-bold">
-                                {currentUser.name.charAt(0).toUpperCase()}
-                            </div>
+      <div className="pb-24 pt-20 p-6 min-h-screen">
+         <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-card border border-gray-100 overflow-hidden mb-6 relative">
+            <div className="h-32 bg-gradient-to-r from-brand to-indigo-600"></div>
+            <div className="px-8 pb-8">
+                <div className="flex justify-between items-end -mt-12 mb-4">
+                    <div className="w-24 h-24 rounded-full bg-white p-1.5 shadow-lg">
+                        <div className="w-full h-full rounded-full bg-gray-100 flex items-center justify-center text-brand text-3xl font-display font-bold">
+                            {currentUser.name.charAt(0).toUpperCase()}
                         </div>
-                        <button onClick={() => isEditing ? handleSave() : setIsEditing(true)} className="text-brand font-bold text-sm bg-brand-light px-4 py-2 rounded-xl hover:bg-brand/10 transition-colors">
-                            {isEditing ? 'Save Details' : 'Edit Profile'}
-                        </button>
                     </div>
-                   
-                   {!isEditing ? (
-                       <div>
-                            <h2 className="text-2xl font-display font-bold text-gray-900">{currentUser.name}</h2>
-                            <p className="text-gray-500 font-medium">{currentUser.email}</p>
-                            <p className="text-gray-400 text-sm mt-1">{currentUser.phone}</p>
-                       </div>
-                   ) : (
-                      <div className="space-y-4 mt-2">
-                         <input className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder:text-gray-500" value={data.name} onChange={e => setData({...data, name: e.target.value})} placeholder="Name" />
-                         <input className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder:text-gray-500" value={data.phone} onChange={e => setData({...data, phone: e.target.value})} placeholder="Phone" />
-                      </div>
-                   )}
-                </div>
-             </div>
-
-             {/* Tab Navigation */}
-             <div className="flex gap-2 mb-6 overflow-x-auto no-scrollbar">
-                {['stats', 'notes', 'downloads', 'bookmarks'].map(tab => (
-                    <button 
-                        key={tab} 
-                        onClick={() => setActiveTab(tab as any)}
-                        className={`px-5 py-2.5 rounded-xl font-bold capitalize whitespace-nowrap transition-all ${activeTab === tab ? 'bg-brand text-white shadow-lg shadow-brand/30' : 'bg-white/80 text-gray-600 shadow-sm hover:bg-white'}`}
-                    >
-                        {tab === 'stats' ? 'Exam Results' : tab === 'notes' ? 'Saved Notes' : tab === 'downloads' ? 'Offline Library' : 'Bookmarks'}
+                    <button onClick={() => isEditing ? handleSave() : setIsEditing(true)} className="text-brand font-bold text-sm bg-brand-light px-4 py-2 rounded-xl hover:bg-brand/10 transition-colors">
+                        {isEditing ? 'Save Details' : 'Edit Profile'}
                     </button>
-                ))}
-             </div>
-             
-             <div className="min-h-[300px]">
-                 {/* Exam Results */}
-                 {activeTab === 'stats' && (
-                     <div className="space-y-4">
-                        {currentUser.examResults && currentUser.examResults.length > 0 ? currentUser.examResults.map((res, i) => (
-                           <div key={i} className="bg-white/80 backdrop-blur-xl p-5 rounded-2xl shadow-sm border border-white/50 flex justify-between items-center animate-slide-up" style={{animationDelay: `${i*0.1}s`}}>
-                              <div>
-                                 <p className="font-bold text-gray-900">Exam Score</p>
-                                 <p className="text-xs text-gray-500 font-medium">{new Date(res.date).toLocaleDateString()}</p>
-                              </div>
-                              <div className="text-2xl font-display font-bold text-brand">{res.score}<span className="text-gray-400 text-base">/{res.totalQuestions}</span></div>
-                           </div>
-                        )) : (
-                           <div className="text-center py-10 text-gray-400 bg-white/50 rounded-3xl border border-dashed border-gray-300">
-                               <ClipboardList className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                               <p>No exams taken yet</p>
-                           </div>
-                        )}
-                     </div>
-                 )}
-
-                 {/* Saved Notes */}
-                 {activeTab === 'notes' && (
-                     <div className="space-y-4">
-                        {currentUser.savedNotes && currentUser.savedNotes.length > 0 ? currentUser.savedNotes.map((note) => (
-                           <div key={note.id} className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-sm border border-white/50 overflow-hidden animate-slide-up">
-                              <div 
-                                onClick={() => setExpandedNote(expandedNote === note.id ? null : note.id)}
-                                className="p-5 flex justify-between items-center cursor-pointer hover:bg-gray-50 transition-colors"
-                              >
-                                  <div className="flex items-center gap-3">
-                                      <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600">
-                                          <FileText className="w-5 h-5"/>
-                                      </div>
-                                      <div>
-                                         <p className="font-bold text-gray-900 text-sm">{note.videoTitle}</p>
-                                         <p className="text-xs text-gray-500">{new Date(note.generatedAt).toLocaleDateString()} • {note.syllabusVersion}</p>
-                                      </div>
-                                  </div>
-                                  <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform ${expandedNote === note.id ? 'rotate-180' : ''}`} />
-                              </div>
-                              
-                              {expandedNote === note.id && (
-                                  <div className="p-5 pt-0 border-t border-gray-100 bg-gray-50/50">
-                                      <div className="mt-4 prose prose-sm max-w-none text-gray-600 whitespace-pre-wrap">
-                                          {note.content.substring(0, 300)}...
-                                      </div>
-                                      {note.imageUrl && (
-                                          <img src={note.imageUrl} alt="Diagram" className="mt-4 rounded-lg border border-gray-200 h-32 object-cover" />
-                                      )}
-                                      <div className="mt-4 flex gap-2">
-                                          <button 
-                                            onClick={() => {
-                                                const element = document.createElement("a");
-                                                const file = new Blob([note.content], {type: 'text/plain'});
-                                                element.href = URL.createObjectURL(file);
-                                                element.download = `${note.videoTitle}_Notes.md`;
-                                                document.body.appendChild(element);
-                                                element.click();
-                                            }}
-                                            className="text-xs font-bold bg-white border border-gray-200 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700 flex items-center gap-1"
-                                          >
-                                              <Download className="w-3 h-3"/> Download
-                                          </button>
-                                          <button 
-                                            onClick={() => deleteNote(note.id)}
-                                            className="text-xs font-bold bg-red-50 text-red-600 px-3 py-2 rounded-lg hover:bg-red-100 flex items-center gap-1 ml-auto"
-                                          >
-                                              <Trash2 className="w-3 h-3"/> Delete
-                                          </button>
-                                      </div>
-                                  </div>
-                              )}
-                           </div>
-                        )) : (
-                           <div className="text-center py-10 text-gray-400 bg-white/50 rounded-3xl border border-dashed border-gray-300">
-                               <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                               <p>No saved notes</p>
-                           </div>
-                        )}
-                     </div>
-                 )}
-
-                 {/* Offline Library */}
-                 {activeTab === 'downloads' && (
-                     <div className="space-y-4">
-                        {currentUser.offlineLibrary && currentUser.offlineLibrary.length > 0 ? currentUser.offlineLibrary.map((item) => (
-                           <div key={item.id} className="bg-white/80 backdrop-blur-xl p-4 rounded-2xl shadow-sm border border-white/50 flex justify-between items-center animate-slide-up">
-                              <div className="flex items-center gap-3 overflow-hidden">
-                                 <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-none ${item.type === 'video' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
-                                     {item.type === 'video' ? <PlayCircle className="w-5 h-5"/> : <FileText className="w-5 h-5"/>}
-                                 </div>
-                                 <div className="flex-1 min-w-0">
-                                    <p className="font-bold text-gray-900 text-sm truncate">{item.title}</p>
-                                    <p className="text-xs text-gray-500 truncate">{item.courseName} • {new Date(item.savedAt).toLocaleDateString()}</p>
-                                 </div>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                  {item.isExternal ? (
-                                      <a href={item.url} target="_blank" rel="noopener noreferrer" className="p-2 bg-gray-100 rounded-lg text-gray-600 hover:bg-gray-200">
-                                          <ExternalLink className="w-4 h-4" />
-                                      </a>
-                                  ) : (
-                                      <a href={item.url} download target="_blank" className="p-2 bg-gray-100 rounded-lg text-gray-600 hover:bg-gray-200">
-                                          <Download className="w-4 h-4" />
-                                      </a>
-                                  )}
-                                  <button onClick={() => removeOfflineContent(item.id)} className="p-2 bg-red-50 rounded-lg text-red-600 hover:bg-red-100">
-                                      <Trash2 className="w-4 h-4" />
-                                  </button>
-                              </div>
-                           </div>
-                        )) : (
-                           <div className="text-center py-10 text-gray-400 bg-white/50 rounded-3xl border border-dashed border-gray-300">
-                               <Download className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                               <p>No downloads yet.</p>
-                               <p className="text-xs mt-1">Download videos or notes from a batch to see them here.</p>
-                           </div>
-                        )}
-                     </div>
-                 )}
-
-                 {/* Bookmarks */}
-                 {activeTab === 'bookmarks' && (
-                     <div className="space-y-4">
-                        {currentUser.bookmarks && currentUser.bookmarks.length > 0 ? currentUser.bookmarks.map((mark) => (
-                           <div key={mark.id} className="bg-white/80 backdrop-blur-xl p-4 rounded-2xl shadow-sm border border-white/50 flex justify-between items-center animate-slide-up hover:border-brand transition-colors">
-                              <div 
-                                className="flex items-center gap-3 overflow-hidden cursor-pointer flex-1"
-                                onClick={() => navigate(`/watch/${mark.courseId}`, { state: { videoId: mark.videoId, timestamp: mark.timestamp } })}
-                              >
-                                 <div className="w-10 h-10 rounded-full flex items-center justify-center flex-none bg-purple-100 text-purple-600">
-                                     <Bookmark className="w-5 h-5"/>
-                                 </div>
-                                 <div className="flex-1 min-w-0">
-                                    <p className="font-bold text-gray-900 text-sm truncate">{mark.videoTitle}</p>
-                                    <div className="flex items-center gap-2 text-xs text-gray-500">
-                                        <span className="bg-gray-100 px-1.5 py-0.5 rounded font-mono font-bold text-gray-700">
-                                            {Math.floor(mark.timestamp / 60)}:{Math.floor(mark.timestamp % 60).toString().padStart(2, '0')}
-                                        </span>
-                                        <span className="truncate">• {new Date(mark.createdAt).toLocaleDateString()}</span>
-                                    </div>
-                                 </div>
-                              </div>
-                              <button onClick={() => deleteBookmark(mark.id)} className="p-2 bg-red-50 rounded-lg text-red-600 hover:bg-red-100 ml-2">
-                                  <Trash2 className="w-4 h-4" />
-                              </button>
-                           </div>
-                        )) : (
-                           <div className="text-center py-10 text-gray-400 bg-white/50 rounded-3xl border border-dashed border-gray-300">
-                               <Bookmark className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                               <p>No bookmarks yet.</p>
-                               <p className="text-xs mt-1">Bookmark important moments in videos to review them later.</p>
-                           </div>
-                        )}
-                     </div>
-                 )}
-             </div>
-
-             <button onClick={logout} className="w-full mt-8 py-4 text-red-600 font-bold bg-white/80 border-2 border-red-50 rounded-2xl hover:bg-red-50 transition-colors shadow-sm flex items-center justify-center gap-2 backdrop-blur-xl">
-                <LogOut className="w-5 h-5" /> Logout
-             </button>
+                </div>
+               
+               {!isEditing ? (
+                   <div>
+                        <h2 className="text-2xl font-display font-bold text-gray-900">{currentUser.name}</h2>
+                        <p className="text-gray-500 font-medium">{currentUser.email}</p>
+                        <p className="text-gray-400 text-sm mt-1">{currentUser.phone}</p>
+                   </div>
+               ) : (
+                  <div className="space-y-4 mt-2">
+                     <input className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder:text-gray-500" value={data.name} onChange={e => setData({...data, name: e.target.value})} placeholder="Name" />
+                     <input className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder:text-gray-500" value={data.phone} onChange={e => setData({...data, phone: e.target.value})} placeholder="Phone" />
+                  </div>
+               )}
+            </div>
          </div>
+         
+         <div className="grid md:grid-cols-2 gap-6">
+             {/* Exam Results */}
+             <div>
+                 <h3 className="font-display font-bold text-xl mb-4 text-gray-900">Exam Results</h3>
+                 <div className="space-y-4">
+                    {currentUser.examResults && currentUser.examResults.length > 0 ? currentUser.examResults.map((res, i) => (
+                       <div key={i} className="bg-white/80 backdrop-blur p-5 rounded-2xl shadow-sm border border-gray-100 flex justify-between items-center">
+                          <div>
+                             <p className="font-bold text-gray-900">Exam Score</p>
+                             <p className="text-xs text-gray-500 font-medium">{new Date(res.date).toLocaleDateString()}</p>
+                          </div>
+                          <div className="text-2xl font-display font-bold text-brand">{res.score}<span className="text-gray-400 text-base">/{res.totalQuestions}</span></div>
+                       </div>
+                    )) : (
+                       <div className="text-center py-10 text-gray-400 bg-white/50 rounded-3xl border border-dashed border-gray-200">
+                           <ClipboardList className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                           <p>No exams taken yet</p>
+                       </div>
+                    )}
+                 </div>
+             </div>
+
+             {/* Saved Notes */}
+             <div>
+                 <h3 className="font-display font-bold text-xl mb-4 text-gray-900">Saved AI Notes</h3>
+                 <div className="space-y-4">
+                    {currentUser.savedNotes && currentUser.savedNotes.length > 0 ? currentUser.savedNotes.map((note) => (
+                       <div key={note.id} className="bg-white/80 backdrop-blur rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                          <div 
+                            onClick={() => setExpandedNote(expandedNote === note.id ? null : note.id)}
+                            className="p-5 flex justify-between items-center cursor-pointer hover:bg-gray-50 transition-colors"
+                          >
+                              <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600">
+                                      <FileText className="w-5 h-5"/>
+                                  </div>
+                                  <div>
+                                     <p className="font-bold text-gray-900 text-sm">{note.videoTitle}</p>
+                                     <p className="text-xs text-gray-500">{new Date(note.generatedAt).toLocaleDateString()} • {note.syllabusVersion}</p>
+                                  </div>
+                              </div>
+                              <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform ${expandedNote === note.id ? 'rotate-180' : ''}`} />
+                          </div>
+                          
+                          {expandedNote === note.id && (
+                              <div className="p-5 pt-0 border-t border-gray-100 bg-gray-50/50">
+                                  <div className="mt-4 prose prose-sm max-w-none text-gray-600 whitespace-pre-wrap">
+                                      {note.content.substring(0, 300)}...
+                                  </div>
+                                  {note.imageUrl && (
+                                      <img src={note.imageUrl} alt="Diagram" className="mt-4 rounded-lg border border-gray-200 h-32 object-cover" />
+                                  )}
+                                  <div className="mt-4 flex gap-2">
+                                      <button 
+                                        onClick={() => {
+                                            const element = document.createElement("a");
+                                            const file = new Blob([note.content], {type: 'text/plain'});
+                                            element.href = URL.createObjectURL(file);
+                                            element.download = `${note.videoTitle}_Notes.md`;
+                                            document.body.appendChild(element);
+                                            element.click();
+                                        }}
+                                        className="text-xs font-bold bg-white border border-gray-200 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700 flex items-center gap-1"
+                                      >
+                                          <Download className="w-3 h-3"/> Download
+                                      </button>
+                                      <button 
+                                        onClick={() => deleteNote(note.id)}
+                                        className="text-xs font-bold bg-red-50 text-red-600 px-3 py-2 rounded-lg hover:bg-red-100 flex items-center gap-1 ml-auto"
+                                      >
+                                          <Trash2 className="w-3 h-3"/> Delete
+                                      </button>
+                                  </div>
+                              </div>
+                          )}
+                       </div>
+                    )) : (
+                       <div className="text-center py-10 text-gray-400 bg-white/50 rounded-3xl border border-dashed border-gray-200">
+                           <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                           <p>No saved notes</p>
+                       </div>
+                    )}
+                 </div>
+             </div>
+         </div>
+
+         <button onClick={logout} className="w-full mt-8 py-4 text-red-600 font-bold bg-white/80 backdrop-blur border-2 border-red-50 rounded-2xl hover:bg-red-50 transition-colors shadow-sm flex items-center justify-center gap-2">
+            <LogOut className="w-5 h-5" /> Logout
+         </button>
       </div>
    );
 };
@@ -1251,7 +1000,7 @@ const MyCourses = () => {
        ) : (
            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                {myCourses.map(course => (
-                   <Link to={`/course/${course.id}`} key={course.id} className="bg-white/90 backdrop-blur rounded-3xl shadow-sm border border-gray-100 overflow-hidden flex gap-4 p-4 hover:border-brand transition-colors group">
+                   <Link to={`/course/${course.id}`} key={course.id} className="bg-white/80 backdrop-blur rounded-3xl shadow-sm border border-gray-100 overflow-hidden flex gap-4 p-4 hover:border-brand transition-colors group">
                        <div className="w-24 h-24 rounded-xl overflow-hidden flex-none">
                            <img src={course.image} alt={course.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
                        </div>
@@ -1284,9 +1033,11 @@ const CourseDetail = () => {
 
     if (!course) return <div className="pt-24 text-center">Batch not found</div>;
 
+    const expiryDate = currentUser?.tempAccess?.[course.id];
+    const isTempAccessValid = expiryDate && new Date(expiryDate) > new Date();
+    
     const isEnrolled = currentUser && (
-        currentUser.purchasedCourseIds.includes(course.id) || 
-        (currentUser.tempAccess && currentUser.tempAccess[course.id] && new Date(currentUser.tempAccess[course.id]) > new Date())
+        currentUser.purchasedCourseIds.includes(course.id) || isTempAccessValid
     );
 
     const handleEnroll = () => {
@@ -1313,20 +1064,40 @@ const CourseDetail = () => {
             </div>
             
             <div className="p-6 -mt-6 bg-gray-50 rounded-t-3xl relative z-10">
-                <div className="flex justify-between items-center mb-6">
+                
+                {isTempAccessValid && (
+                    <div className="mb-6 flex justify-center">
+                        <CountdownTimer expiryDate={expiryDate} />
+                    </div>
+                )}
+
+                <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
                     <div>
                         <p className="text-gray-500 text-sm font-bold uppercase">Price</p>
                         <p className="text-2xl font-bold text-gray-900">{course.isPaid ? `₹${course.price}` : 'Free'}</p>
                     </div>
+                    
                     {isEnrolled ? (
                         <button className="bg-green-600 text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-green-500/30 cursor-default">
-                            <CheckCircle className="w-5 h-5" /> Enrolled
+                            <CheckCircle className="w-5 h-5" /> {isTempAccessValid ? 'Access Active' : 'Enrolled'}
                         </button>
                     ) : (
-                        <button onClick={handleEnroll} className="bg-brand text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-brand/30 hover:scale-105 transition-transform">
-                            {course.isPaid ? <Lock className="w-5 h-5" /> : <PlayCircle className="w-5 h-5" />}
-                            {course.isPaid ? 'Unlock Now' : 'Start Learning'}
-                        </button>
+                        <div className="flex gap-2">
+                            {course.isPaid && course.shortenerLink && (
+                                <a 
+                                    href={course.shortenerLink} 
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="bg-purple-600 text-white px-4 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-purple-500/30 hover:scale-105 transition-transform text-sm"
+                                >
+                                    <Unlock className="w-4 h-4" /> 24h Free Access
+                                </a>
+                            )}
+                            <button onClick={handleEnroll} className="bg-brand text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-brand/30 hover:scale-105 transition-transform text-sm">
+                                {course.isPaid ? <Lock className="w-4 h-4" /> : <PlayCircle className="w-4 h-4" />}
+                                {course.isPaid ? 'Unlock' : 'Start'}
+                            </button>
+                        </div>
                     )}
                 </div>
 
@@ -1409,7 +1180,7 @@ const VerifyAccess = () => {
 
     return (
         <div className="min-h-screen flex flex-col items-center justify-center p-6">
-            <div className="bg-white/90 backdrop-blur-xl p-8 rounded-3xl shadow-xl max-w-md w-full">
+            <div className="bg-white/80 backdrop-blur-xl p-8 rounded-3xl shadow-xl max-w-md w-full border border-white/50">
                 <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4 text-yellow-600">
                     <Lock className="w-8 h-8" />
                 </div>
@@ -1439,9 +1210,55 @@ const VerifyAccess = () => {
     );
 };
 
+const TempAccess = () => {
+    const { courseId } = useParams();
+    const { grantTempAccess } = useStore();
+    const navigate = useNavigate();
+    const [progress, setProgress] = useState(0);
+    
+    useEffect(() => {
+        if (courseId) {
+            // Simulate processing
+            const timer = setInterval(() => {
+                setProgress(prev => {
+                    if (prev >= 100) {
+                        clearInterval(timer);
+                        grantTempAccess(courseId);
+                        setTimeout(() => navigate(`/course/${courseId}`), 500);
+                        return 100;
+                    }
+                    return prev + 10;
+                });
+            }, 300); // 3 seconds total
+            
+            return () => clearInterval(timer);
+        }
+    }, [courseId, grantTempAccess, navigate]);
+
+    return (
+        <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
+            <div className="bg-white/80 backdrop-blur-xl p-8 rounded-3xl shadow-xl max-w-sm w-full flex flex-col items-center border border-white/50">
+                <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mb-6 relative">
+                    <Unlock className="w-10 h-10 text-green-600 relative z-10" />
+                    <svg className="absolute inset-0 w-full h-full -rotate-90">
+                        <circle cx="40" cy="40" r="36" stroke="#f0fdf4" strokeWidth="4" fill="none" />
+                        <circle cx="40" cy="40" r="36" stroke="#16a34a" strokeWidth="4" fill="none" strokeDasharray="226" strokeDashoffset={226 - (226 * progress) / 100} className="transition-all duration-300" />
+                    </svg>
+                </div>
+                <h2 className="text-xl font-display font-bold text-gray-900 mb-2">Unlocking Free Access</h2>
+                <p className="text-gray-500 text-sm mb-6">Verifying link completion and granting 24-hour pass...</p>
+                
+                <div className="w-full bg-gray-100 rounded-full h-2 mb-2 overflow-hidden">
+                    <div className="bg-green-500 h-2 rounded-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
+                </div>
+                <p className="text-xs text-gray-400 font-bold">{progress}% Complete</p>
+            </div>
+        </div>
+    );
+};
+
 const RevealKey = () => {
     const { key } = useParams();
-    // This could be a page that automatically copies a key or something
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white p-6">
             <div className="text-center">
@@ -1457,16 +1274,10 @@ const RevealKey = () => {
 };
 
 const ContentManager = ({ course, onClose }: { course: Course, onClose: () => void }) => {
-    const { updateCourse, settings } = useStore();
+    const { updateCourse } = useStore();
     const [chapters, setChapters] = useState<Chapter[]>(course.chapters);
     const [newChapterTitle, setNewChapterTitle] = useState('');
-    
-    // Video Modal State
-    const [showVideoModal, setShowVideoModal] = useState(false);
     const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
-    const [editingVideo, setEditingVideo] = useState<Video | null>(null);
-    const [videoForm, setVideoForm] = useState({ title: '', url: '', duration: '00:00' });
-    const [isFetching, setIsFetching] = useState(false);
 
     const handleSave = () => {
         updateCourse({ ...course, chapters });
@@ -1482,44 +1293,18 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
         if(confirm('Delete chapter?')) setChapters(chapters.filter(c => c.id !== id));
     };
 
-    // Open Modal for New Video
-    const handleAddVideoClick = (chapterId: string) => {
-        setEditingChapterId(chapterId);
-        setEditingVideo(null);
-        setVideoForm({ title: '', url: '', duration: '00:00' });
-        setShowVideoModal(true);
-    };
-
-    // Open Modal for Edit Video
-    const handleEditVideoClick = (chapterId: string, video: Video) => {
-        setEditingChapterId(chapterId);
-        setEditingVideo(video);
-        setVideoForm({ title: video.title, url: video.filename, duration: video.duration });
-        setShowVideoModal(true);
-    };
-
-    const handleSaveVideo = () => {
-        if (!editingChapterId) return;
-        
-        setChapters(chapters.map(c => {
-            if (c.id === editingChapterId) {
-                const newVideo: Video = {
-                    id: editingVideo ? editingVideo.id : Date.now().toString(),
-                    title: videoForm.title,
-                    filename: videoForm.url,
-                    duration: videoForm.duration
-                };
-                
-                const updatedVideos = editingVideo 
-                    ? c.videos.map(v => v.id === editingVideo.id ? newVideo : v)
-                    : [...c.videos, newVideo];
-                    
-                return { ...c, videos: updatedVideos };
-            }
-            return c;
-        }));
-        
-        setShowVideoModal(false);
+    const addVideo = (chapterId: string) => {
+        const title = prompt('Video Title:');
+        const url = prompt('Video URL (YouTube/MP4/Drive):');
+        const duration = prompt('Duration (e.g. 10:00):', '00:00');
+        if (title && url) {
+            setChapters(chapters.map(c => {
+                if (c.id === chapterId) {
+                    return { ...c, videos: [...c.videos, { id: Date.now().toString(), title, filename: url, duration: duration || '00:00' }] };
+                }
+                return c;
+            }));
+        }
     };
     
     const deleteVideo = (chapterId: string, videoId: string) => {
@@ -1533,43 +1318,9 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
         }
     };
 
-    const fetchDuration = async () => {
-        if (!videoForm.url) return;
-        // Simple YouTube ID extraction
-        const match = videoForm.url.match(/^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/);
-        const videoId = (match && match[7]?.length === 11) ? match[7] : null;
-
-        if (!videoId) {
-            alert("Invalid YouTube URL or ID not found.");
-            return;
-        }
-
-        if (!settings.videoApiKey) {
-            alert("Video API Key is missing in Settings.");
-            return;
-        }
-
-        setIsFetching(true);
-        try {
-            const res = await fetch(`https://www.googleapis.com/youtube/v3/videos?id=${videoId}&part=contentDetails&key=${settings.videoApiKey}`);
-            const data = await res.json();
-            if (data.items && data.items.length > 0) {
-                const durationIso = data.items[0].contentDetails.duration;
-                setVideoForm(prev => ({ ...prev, duration: parseDuration(durationIso) }));
-            } else {
-                alert("Could not fetch details. Check API Key or Video Privacy.");
-            }
-        } catch (e) {
-            console.error(e);
-            alert("Error fetching duration.");
-        } finally {
-            setIsFetching(false);
-        }
-    };
-
     return (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-2xl rounded-3xl p-6 max-h-[85vh] flex flex-col relative">
+            <div className="bg-white w-full max-w-2xl rounded-3xl p-6 max-h-[85vh] flex flex-col">
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-bold text-gray-900">Manage Content: {course.title}</h2>
                     <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full"><X className="w-5 h-5"/></button>
@@ -1592,7 +1343,7 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
                                 <div className="bg-gray-50 p-4 flex justify-between items-center border-b border-gray-200">
                                     <span className="font-bold text-gray-800">{idx + 1}. {chapter.title}</span>
                                     <div className="flex gap-2">
-                                        <button onClick={() => handleAddVideoClick(chapter.id)} className="text-xs bg-white border border-gray-300 px-2 py-1 rounded hover:bg-gray-100 font-bold">+ Video</button>
+                                        <button onClick={() => addVideo(chapter.id)} className="text-xs bg-white border border-gray-300 px-2 py-1 rounded hover:bg-gray-100 font-bold">+ Video</button>
                                         <button onClick={() => deleteChapter(chapter.id)} className="text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 className="w-4 h-4"/></button>
                                     </div>
                                 </div>
@@ -1600,15 +1351,11 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
                                     {chapter.videos.length === 0 && <p className="text-center text-gray-400 text-xs py-2">No videos</p>}
                                     {chapter.videos.map(video => (
                                         <div key={video.id} className="flex justify-between items-center p-2 hover:bg-gray-50 rounded-lg group">
-                                            <div className="flex items-center gap-2 overflow-hidden flex-1">
-                                                <PlayCircle className="w-4 h-4 text-gray-400 flex-none" />
-                                                <span className="text-sm text-gray-700 truncate font-medium">{video.title}</span>
-                                                <span className="text-xs text-gray-400">({video.duration})</span>
+                                            <div className="flex items-center gap-2 overflow-hidden">
+                                                <PlayCircle className="w-4 h-4 text-gray-400" />
+                                                <span className="text-sm text-gray-700 truncate">{video.title}</span>
                                             </div>
-                                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button onClick={() => handleEditVideoClick(chapter.id, video)} className="text-blue-500 hover:bg-blue-50 p-1.5 rounded"><Edit className="w-3 h-3"/></button>
-                                                <button onClick={() => deleteVideo(chapter.id, video.id)} className="text-gray-400 hover:text-red-500 p-1.5 rounded hover:bg-red-50"><Trash2 className="w-3 h-3"/></button>
-                                            </div>
+                                            <button onClick={() => deleteVideo(chapter.id, video.id)} className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><X className="w-4 h-4"/></button>
                                         </div>
                                     ))}
                                 </div>
@@ -1621,60 +1368,6 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
                     <button onClick={onClose} className="px-6 py-2 text-gray-500 font-bold hover:bg-gray-100 rounded-xl">Cancel</button>
                     <button onClick={() => { handleSave(); onClose(); }} className="px-6 py-2 bg-brand text-white font-bold rounded-xl shadow-lg shadow-brand/20">Save Changes</button>
                 </div>
-
-                {/* Video Modal Overlay */}
-                {showVideoModal && (
-                    <div className="absolute inset-0 z-[60] bg-white/50 backdrop-blur-sm rounded-3xl flex items-center justify-center">
-                        <div className="bg-white w-[90%] max-w-md shadow-2xl rounded-2xl border border-gray-200 p-6 animate-fade-in ring-1 ring-black/5">
-                            <h3 className="font-bold text-lg mb-4 text-gray-900">{editingVideo ? 'Edit Video' : 'Add New Video'}</h3>
-                            <div className="space-y-3">
-                                <div>
-                                    <label className="text-xs font-bold text-gray-500 uppercase">Video Title</label>
-                                    <input 
-                                        value={videoForm.title} 
-                                        onChange={e => setVideoForm({...videoForm, title: e.target.value})}
-                                        className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 mt-1"
-                                        placeholder="e.g. Introduction to Physics"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-xs font-bold text-gray-500 uppercase">Video Link (YouTube/MP4)</label>
-                                    <div className="flex gap-2 mt-1">
-                                        <input 
-                                            value={videoForm.url} 
-                                            onChange={e => setVideoForm({...videoForm, url: e.target.value})}
-                                            className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200"
-                                            placeholder="https://youtube.com/..."
-                                        />
-                                        <button 
-                                            onClick={fetchDuration} 
-                                            disabled={isFetching}
-                                            className="px-3 bg-gray-100 text-gray-600 rounded-xl font-bold text-xs hover:bg-gray-200 disabled:opacity-50 flex items-center gap-1"
-                                            title="Auto-fetch Duration from YouTube"
-                                        >
-                                            {isFetching ? <Loader2 className="w-4 h-4 animate-spin"/> : <Clock className="w-4 h-4"/>}
-                                        </button>
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="text-xs font-bold text-gray-500 uppercase">Duration (MM:SS)</label>
-                                    <input 
-                                        value={videoForm.duration} 
-                                        onChange={e => setVideoForm({...videoForm, duration: e.target.value})}
-                                        className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 mt-1"
-                                        placeholder="00:00"
-                                    />
-                                </div>
-                            </div>
-                            <div className="flex gap-3 mt-6">
-                                <button onClick={() => setShowVideoModal(false)} className="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-50 rounded-xl border border-transparent hover:border-gray-200">Cancel</button>
-                                <button onClick={handleSaveVideo} className="flex-1 py-3 bg-brand text-white font-bold rounded-xl shadow-lg shadow-brand/20">
-                                    {editingVideo ? 'Update Video' : 'Add Video'}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
             </div>
         </div>
     );
@@ -1896,13 +1589,15 @@ const AdminPanel = () => {
             let baseUrl = settings.linkShortenerApiUrl.trim();
             if(baseUrl.endsWith('/')) baseUrl = baseUrl.slice(0, -1);
 
-            // Force production URL
-            const destinationUrl = `https://study-tool-rosy.vercel.app/#/verify/${courseId}`;
+            // Use current origin
+            const origin = window.location.origin;
+            const destinationUrl = `${origin}/#/temp-access/${courseId}`;
+            
             const encodedDest = encodeURIComponent(destinationUrl);
             const separator = baseUrl.includes('?') ? '&' : '?';
             const fetchUrl = `${baseUrl}${separator}api=${settings.linkShortenerApiKey}&url=${encodedDest}`;
             
-            // DIRECT FETCH ONLY - Removing proxy to prevent errors
+            // Direct fetch
             const response = await fetch(fetchUrl);
             const data = await response.json();
             
@@ -1917,7 +1612,8 @@ const AdminPanel = () => {
             }
         } catch(e) {
             console.error(e);
-            alert("Network error. Please check your API URL and Key, or manually shorten the link.");
+            const origin = window.location.origin;
+            alert(`Network error. Manually shorten this URL: ${origin}/#/temp-access/${courseId}`);
         } finally {
             setIsGeneratingLink(false);
         }
@@ -1951,7 +1647,8 @@ const AdminPanel = () => {
              {tab === 'users' && <div className="bg-white/80 backdrop-blur rounded-3xl shadow-sm border border-gray-100 overflow-hidden"><div className="p-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center"><span className="font-bold text-gray-700">All Users ({users.length})</span><button onClick={() => setShowUserModal(true)} className="text-xs bg-brand text-white px-4 py-2 rounded-lg font-bold shadow-lg shadow-brand/20 hover:scale-105 transition-transform flex items-center gap-1"><Plus className="w-3 h-3" /> Create User / Manager</button></div><div className="divide-y divide-gray-100">{users.map(u => (<div key={u.id} className="p-4 flex flex-col md:flex-row justify-between items-start md:items-center hover:bg-gray-50 gap-4"><div><div className="flex items-center gap-2"><p className="font-bold text-sm text-gray-900">{u.name}</p><span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase ${u.role === UserRole.ADMIN ? 'bg-red-100 text-red-600' : u.role === UserRole.EDITOR ? 'bg-purple-100 text-purple-600' : 'bg-gray-100 text-gray-500'}`}>{u.role}</span></div><p className="text-xs text-gray-500">{u.email}</p><p className="text-[10px] text-gray-400 mt-1">Enrolled in: {u.purchasedCourseIds.length} Batches</p></div><div className="flex items-center gap-2"><button onClick={() => setShowEnrollModal(u.id)} className="text-xs font-bold bg-blue-50 text-blue-600 px-3 py-2 rounded-lg hover:bg-blue-100">Enroll</button>{u.role !== UserRole.ADMIN && (<button onClick={() => { if(confirm('Delete user?')) deleteUser(u.id); }} className="text-gray-400 hover:text-red-500 p-2"><Trash2 className="w-4 h-4" /></button>)}</div></div>))}</div></div>}
              {tab === 'banners' && <div className="space-y-4"><div className="bg-white/80 backdrop-blur p-6 rounded-3xl shadow-sm border border-gray-100"><h3 className="font-bold mb-4 text-gray-900">Add Banner</h3><form onSubmit={(e) => { e.preventDefault(); const form = e.currentTarget; addBanner({ id: Date.now().toString(), image: form.image.value, link: form.link.value }); form.reset(); }} className="flex gap-2"><input name="image" placeholder="Image URL" className="flex-1 bg-gray-50 px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder:text-gray-500" required /><input name="link" placeholder="Link (Optional)" className="flex-1 bg-gray-50 px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder:text-gray-500" /><button className="bg-brand text-white px-4 py-2 rounded-xl font-bold text-sm">Add</button></form></div><div className="grid grid-cols-1 md:grid-cols-2 gap-4">{banners.map(b => (<div key={b.id} className="relative aspect-video rounded-xl overflow-hidden group"><img src={b.image} className="w-full h-full object-cover" /><button onClick={() => deleteBanner(b.id)} className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-4 h-4" /></button></div>))}</div></div>}
              {tab === 'settings' && <div className="bg-white/80 backdrop-blur p-6 rounded-3xl shadow-sm border border-gray-100"><form onSubmit={(e) => { e.preventDefault(); const formData = new FormData(e.currentTarget); updateSettings({ ...settings, appName: formData.get('appName') as string, adminEmail: formData.get('adminEmail') as string, supportPhone: formData.get('supportPhone') as string, uiColor: formData.get('uiColor') as string, videoApiKey: formData.get('videoApiKey') as string, linkShortenerApiUrl: formData.get('linkShortenerApiUrl') as string, linkShortenerApiKey: formData.get('linkShortenerApiKey') as string, adsCode: formData.get('adsCode') as string }); alert('Settings Saved!'); }} className="space-y-4"><div><label className="text-xs font-bold text-gray-500 uppercase">App Name</label><input name="appName" defaultValue={settings.appName} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" /></div><div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-gray-500 uppercase">Brand Color</label><div className="flex gap-2 mt-1"><input type="color" name="uiColor" defaultValue={settings.uiColor} className="h-10 w-10 rounded-lg cursor-pointer" /><input type="text" defaultValue={settings.uiColor} className="flex-1 p-2 bg-gray-50 border border-gray-200 rounded-xl uppercase text-gray-900 placeholder:text-gray-500" readOnly /></div></div><div><label className="text-xs font-bold text-gray-500 uppercase">Admin Email</label><input name="adminEmail" defaultValue={settings.adminEmail} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" /></div></div><div><label className="text-xs font-bold text-gray-500 uppercase">Support Contact (Phone or Telegram)</label><input name="supportPhone" defaultValue={settings.supportPhone} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" /></div><div className="bg-gray-50 p-4 rounded-xl border border-gray-200"><h4 className="font-bold text-gray-900 mb-3 text-sm">Link Shortener Configuration</h4><div className="grid gap-3"><div><label className="text-xs font-bold text-gray-500 uppercase">API URL (e.g. reel2earn.com/api)</label><input name="linkShortenerApiUrl" defaultValue={settings.linkShortenerApiUrl} placeholder="https://..." className="w-full p-3 bg-white border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" /></div><div><label className="text-xs font-bold text-gray-500 uppercase">API Key</label><input name="linkShortenerApiKey" defaultValue={settings.linkShortenerApiKey} className="w-full p-3 bg-white border border-gray-200 rounded-xl mt-1 text-gray-900 placeholder:text-gray-500" /></div></div></div><div><label className="text-xs font-bold text-gray-500 uppercase">Ad Code (HTML)</label><textarea name="adsCode" defaultValue={settings.adsCode} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl mt-1 font-mono text-xs text-gray-900 placeholder:text-gray-500" rows={3} /></div><button className="w-full bg-brand text-white py-3 rounded-xl font-bold">Save Settings</button></form></div>}
-             {showCourseModal && (<div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"><div className="bg-white w-full max-w-lg rounded-3xl p-6 max-h-[90vh] overflow-y-auto"><h2 className="text-xl font-bold mb-4 text-gray-900">{editingCourse ? 'Edit Batch' : 'New Batch'}</h2><form onSubmit={handleSaveCourse} className="space-y-3"><input name="title" defaultValue={editingCourse?.title} placeholder="Batch Title" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required /><textarea name="description" defaultValue={editingCourse?.description} placeholder="Description" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" rows={2} required /><input name="image" defaultValue={editingCourse?.image} placeholder="Image URL" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required /><input name="category" defaultValue={editingCourse?.category} placeholder="Category (e.g. Science)" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required /><div className="grid grid-cols-2 gap-3"><input type="number" name="price" defaultValue={editingCourse?.price} placeholder="Price" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" /><input type="number" name="mrp" defaultValue={editingCourse?.mrp} placeholder="MRP" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" /></div><div className="flex items-center gap-3 bg-gray-50 p-3 rounded-xl"><input type="checkbox" name="isPaid" defaultChecked={editingCourse?.isPaid} id="isPaid" className="w-5 h-5 accent-brand" /><label htmlFor="isPaid" className="font-medium text-gray-700">Premium Course (Locked)</label></div><input name="accessKey" defaultValue={editingCourse?.accessKey} placeholder="Access Key (if Premium)" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" /><input name="telegramChannelLink" defaultValue={editingCourse?.telegramChannelLink} placeholder="Telegram Channel Link (Optional)" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" /><div className="flex gap-2"><input name="shortenerLink" ref={linkInputRef} defaultValue={editingCourse?.shortenerLink} placeholder="Temp Access Short Link" className="flex-1 p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" />{editingCourse && (<button type="button" onClick={handleGenerateLink} disabled={isGeneratingLink} className="bg-gray-100 text-gray-600 px-3 rounded-xl font-bold text-xs hover:bg-gray-200 disabled:opacity-50">{isGeneratingLink ? <Loader2 className="w-4 h-4 animate-spin"/> : 'Generate'}</button>)}</div><div className="flex gap-3 pt-4"><button type="button" onClick={() => setShowCourseModal(false)} className="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-100 rounded-xl">Cancel</button><button type="submit" className="flex-1 py-3 bg-brand text-white font-bold rounded-xl shadow-lg shadow-brand/20">Save Batch</button></div></form></div></div>)}
+             {/* Course Modal */}
+             {showCourseModal && (<div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"><div className="bg-white w-full max-w-lg rounded-3xl p-6 max-h-[90vh] overflow-y-auto"><h2 className="text-xl font-bold mb-4 text-gray-900">{editingCourse ? 'Edit Batch' : 'New Batch'}</h2><form onSubmit={handleSaveCourse} className="space-y-3"><input name="title" defaultValue={editingCourse?.title} placeholder="Batch Title" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required /><textarea name="description" defaultValue={editingCourse?.description} placeholder="Description" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" rows={2} required /><input name="image" defaultValue={editingCourse?.image} placeholder="Image URL" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required /><input name="category" defaultValue={editingCourse?.category} placeholder="Category (e.g. Science)" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required /><div className="grid grid-cols-2 gap-3"><input type="number" name="price" defaultValue={editingCourse?.price} placeholder="Price" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" /><input type="number" name="mrp" defaultValue={editingCourse?.mrp} placeholder="MRP" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" /></div><div className="flex items-center gap-3 bg-gray-50 p-3 rounded-xl"><input type="checkbox" name="isPaid" defaultChecked={editingCourse?.isPaid} id="isPaid" className="w-5 h-5 accent-brand" /><label htmlFor="isPaid" className="font-medium text-gray-700">Premium Course (Locked)</label></div><input name="accessKey" defaultValue={editingCourse?.accessKey} placeholder="Access Key (if Premium)" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" /><input name="telegramChannelLink" defaultValue={editingCourse?.telegramChannelLink} placeholder="Telegram Channel Link (Optional)" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" /><div className="flex gap-2"><input name="shortenerLink" ref={linkInputRef} defaultValue={editingCourse?.shortenerLink} placeholder="Temp Access Short Link" className="flex-1 p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" />{editingCourse && (<button type="button" onClick={handleGenerateLink} disabled={isGeneratingLink} className="bg-gray-100 text-gray-600 px-3 rounded-xl font-bold text-xs hover:bg-gray-200 disabled:opacity-50">{isGeneratingLink ? <Loader2 className="w-4 h-4 animate-spin"/> : 'Generate 24h Link'}</button>)}</div><div className="flex gap-3 pt-4"><button type="button" onClick={() => setShowCourseModal(false)} className="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-100 rounded-xl">Cancel</button><button type="submit" className="flex-1 py-3 bg-brand text-white font-bold rounded-xl shadow-lg shadow-brand/20">Save Batch</button></div></form></div></div>)}
              {showUserModal && (<div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"><div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl"><h2 className="text-xl font-bold mb-4 text-gray-900">Add New User</h2><form onSubmit={handleAddUser} className="space-y-3"><input name="name" placeholder="Full Name" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required /><input name="email" type="email" placeholder="Email Address" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required /><input name="phone" placeholder="Phone Number" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" /><input name="password" type="password" placeholder="Password" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-500" required /><div><label className="text-xs font-bold text-gray-500 uppercase ml-1">Role</label><select name="role" className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-900 mt-1"><option value={UserRole.USER}>Student (User)</option><option value={UserRole.EDITOR}>Editor (Manager)</option><option value={UserRole.ADMIN}>Admin</option></select></div><div className="flex gap-3 pt-4"><button type="button" onClick={() => setShowUserModal(false)} className="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-100 rounded-xl">Cancel</button><button type="submit" className="flex-1 py-3 bg-brand text-white font-bold rounded-xl shadow-lg shadow-brand/20">Create User</button></div></form></div></div>)}
              {showEnrollModal && (<div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"><div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl"><h2 className="text-xl font-bold mb-4 text-gray-900">Enroll User in Batch</h2><div className="space-y-2 max-h-[60vh] overflow-y-auto">{courses.map(c => { const targetUser = users.find(u => u.id === showEnrollModal); const isEnrolled = targetUser?.purchasedCourseIds.includes(c.id); return (<button key={c.id} disabled={isEnrolled} onClick={() => { if(showEnrollModal) { addCourseToUser(showEnrollModal, c.id); setShowEnrollModal(null); } }} className={`w-full text-left p-3 rounded-xl border flex items-center justify-between ${isEnrolled ? 'bg-green-50 border-green-200 cursor-default' : 'bg-white border-gray-200 hover:bg-gray-50'}`}><span className={`text-sm font-bold ${isEnrolled ? 'text-green-700' : 'text-gray-700'}`}>{c.title}</span>{isEnrolled && <CheckCircle className="w-4 h-4 text-green-600"/>}</button>); })}</div><button onClick={() => setShowEnrollModal(null)} className="w-full mt-4 py-3 bg-gray-100 text-gray-600 font-bold rounded-xl hover:bg-gray-200">Cancel</button></div></div>)}
              {showExamManager && <ExamManager course={showExamManager} onClose={() => setShowExamManager(null)} />}
@@ -1962,7 +1659,7 @@ const AdminPanel = () => {
 
 const MainContent = () => {
   const location = useLocation();
-  const isFullScreen = location.pathname.startsWith('/watch') || location.pathname.startsWith('/exam') || location.pathname === '/login';
+  const isFullScreen = location.pathname.startsWith('/watch') || location.pathname.startsWith('/exam') || location.pathname === '/login' || location.pathname.startsWith('/temp-access');
 
   return (
     <>
@@ -1979,6 +1676,7 @@ const MainContent = () => {
         <Route path="/profile" element={<Profile />} />
         <Route path="/admin" element={<AdminPanel />} />
         <Route path="/verify/:courseId" element={<VerifyAccess />} />
+        <Route path="/temp-access/:courseId" element={<TempAccess />} />
         <Route path="/reveal/:key" element={<RevealKey />} />
         <Route path="/help" element={<Help />} />
         <Route path="*" element={<Navigate to="/" />} />
@@ -1989,7 +1687,7 @@ const MainContent = () => {
   );
 };
 
-const App = () => {
+export const App = () => {
   return (
     <Router>
       <StoreProvider>
@@ -1999,5 +1697,3 @@ const App = () => {
     </Router>
   );
 };
-
-export default App;

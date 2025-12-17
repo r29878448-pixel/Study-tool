@@ -29,11 +29,11 @@ const getEmbedUrl = (input: string) => {
   }
 
   // 2. YouTube (Handles Shorts, Watch, Embed, youtu.be)
+  // Added modestbranding, rel=0, showinfo=0 (deprecated but good to have), iv_load_policy=3 (no annotations)
   const ytMatch = input.match(/^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/);
   if (ytMatch && ytMatch[7]?.length === 11) {
     const videoId = ytMatch[7];
-    // Uses modest branding and stricter policies to look cleaner
-    return `https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&playsinline=1&controls=1&showinfo=0&iv_load_policy=3&fs=1`;
+    return `https://www.youtube.com/embed/${videoId}?autoplay=0&controls=1&disablekb=1&playsinline=1&cc_load_policy=0&modestbranding=1&rel=0&showinfo=0&iv_load_policy=3&fs=1`;
   }
 
   // 3. Vimeo

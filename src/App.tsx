@@ -1,694 +1,916 @@
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate, useLocation, Link, useNavigate, useParams } from 'react-router-dom';
 import { StoreProvider, useStore } from './store';
 import { 
-  Home, BookOpen, User, HelpCircle, Menu, LogOut, 
-  Search, PlayCircle, Lock, Unlock, LayoutDashboard, Settings, Plus, Trash2, Edit, Save, X, ChevronDown, 
-  MessageCircle, CheckCircle, FileText, Download, ClipboardList, Timer, Clock, Key, ExternalLink, Play, Bot, Brain, Loader2, ArrowLeft, Video as VideoIcon, Upload, Wand2, Maximize, Minimize, Bookmark, Sparkles, RotateCcw
+  Home, BookOpen, User, Search, PlayCircle, Lock, 
+  LayoutDashboard, Settings, Plus, Trash2, Edit, X, 
+  CheckCircle, ExternalLink, Play, Bot, Brain, Loader2, ArrowLeft, 
+  Video as VideoIcon, Sparkles, Send, Smartphone, List, Globe, Bell, 
+  ChevronRight, MoreVertical, MessageCircle, FileText, Calendar, MessageSquare, Eye,
+  RotateCcw, Image as ImageIcon
 } from './components/Icons';
 import VideoPlayer from './components/VideoPlayer';
 import ChatBot from './components/ChatBot';
 import ExamMode from './components/ExamMode';
-import { Course, Chapter, Video, UserRole, Banner, AppSettings, Exam, Question, SavedNote, Note, VideoBookmark } from './types';
 import { GoogleGenAI } from "@google/genai";
+import { Course, Chapter, Video, UserRole, Subject } from './types';
 
 declare var process: { env: { API_KEY: string } };
 
-// --- Helper Functions ---
-const parseDuration = (duration: string) => {
-  const match = duration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
-  if (!match) return '00:00';
-  const hours = (parseInt(match[1] || '0'));
-  const minutes = (parseInt(match[2] || '0'));
-  const seconds = (parseInt(match[3] || '0'));
-  
-  let str = '';
-  if (hours > 0) {
-    str += hours + ':' + minutes.toString().padStart(2, '0') + ':';
-  } else {
-    str += minutes + ':';
-  }
-  str += seconds.toString().padStart(2, '0');
-  return str;
-};
+// --- SHARED UI COMPONENTS ---
 
-const cleanJson = (text: string) => {
-  try {
-    let cleaned = text.replace(/```json\s*|\s*```/g, '').trim();
-    const firstBracket = cleaned.search(/\[|\{/);
-    const lastBracket = Math.max(cleaned.lastIndexOf(']'), cleaned.lastIndexOf('}'));
-    if (firstBracket !== -1 && lastBracket !== -1) {
-       cleaned = cleaned.substring(firstBracket, lastBracket + 1);
-    }
-    return JSON.parse(cleaned);
-  } catch (e) {
-    console.error("JSON Parse Error", e);
-    try { return JSON.parse(text); } catch (e2) { return []; }
-  }
-};
-
-// --- Theme Handler ---
-const ThemeHandler = () => {
-  const { settings } = useStore();
-  useEffect(() => {
-    const root = document.documentElement;
-    const hex = settings.uiColor || '#4F46E5';
-    if (!hex.startsWith('#') || hex.length < 7) return;
-    let r = parseInt(hex.substring(1, 3), 16);
-    let g = parseInt(hex.substring(3, 5), 16);
-    let b = parseInt(hex.substring(5, 7), 16);
-    const rDark = Math.floor(r * 0.9);
-    const gDark = Math.floor(g * 0.9);
-    const bDark = Math.floor(b * 0.9);
-    const hexDark = '#' + [rDark, gDark, bDark].map(c => c.toString(16).padStart(2, '0')).join('');
-    root.style.setProperty('--color-brand', hex);
-    root.style.setProperty('--color-brand-dark', hexDark);
-  }, [settings.uiColor]);
-  return null;
-};
-
-const FuturisticBackground = () => (
-  <div className="fixed inset-0 z-[-1] overflow-hidden bg-slate-50">
-    <div className="absolute inset-0 futuristic-grid opacity-30 animate-move-grid"></div>
-    <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] rounded-full bg-brand/20 blur-[100px] animate-blob"></div>
-    <div className="absolute top-[20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-purple-400/20 blur-[100px] animate-blob" style={{ animationDelay: '2s' }}></div>
-    <div className="absolute bottom-[-10%] left-[20%] w-[600px] h-[600px] rounded-full bg-blue-300/20 blur-[100px] animate-blob" style={{ animationDelay: '4s' }}></div>
-    <div className="absolute inset-0 bg-white/30 backdrop-blur-[1px]"></div>
+const Banner = () => (
+  <div className="bg-[#fff9e6] px-5 py-3.5 flex items-center justify-between text-[11px] font-semibold text-gray-700 border-b border-yellow-100">
+    <span>Completion % depends on lecture and DPP progress!</span>
+    <X className="w-3.5 h-3.5 text-gray-400" />
   </div>
 );
 
-// --- Components ---
+const XPBadge = ({ xp = 0 }) => (
+  <div className="flex items-center gap-1.5 bg-gray-100/80 px-3 py-1.5 rounded-full border border-gray-200">
+    <div className="w-5 h-5 bg-[#c5d8f1] rounded-md flex items-center justify-center text-[9px] font-black text-[#4a6da7]">XP</div>
+    <span className="text-xs font-extrabold text-gray-700">{xp}</span>
+  </div>
+);
 
-const Logo = ({ dark = false }: { dark?: boolean }) => {
-  const { settings } = useStore();
-  return (
-    <div className={`flex items-center gap-2.5 font-display font-bold text-xl tracking-tight ${dark ? 'text-gray-900' : 'text-white'}`}>
-      <div className={`p-2 rounded-xl shadow-lg shadow-brand/20 ${dark ? 'bg-brand text-white' : 'bg-white text-brand'}`}>
-        <BookOpen className="w-5 h-5" />
-      </div>
-      <span>{settings.appName || 'Study Portal'}</span>
-    </div>
-  );
-};
-
-const AdContainer = () => {
-  const { settings } = useStore();
-  if (!settings.adsCode) return null;
-  return (
-    <div className="w-full my-6 bg-white/60 backdrop-blur-xl rounded-2xl border border-white/50 overflow-hidden flex flex-col items-center justify-center min-h-[100px] text-center p-2 shadow-sm ring-1 ring-black/5">
-      <div className="text-[9px] text-gray-400 uppercase tracking-widest mb-1 font-bold">Sponsored Advertisement</div>
-      <div dangerouslySetInnerHTML={{ __html: settings.adsCode }} />
-    </div>
-  );
-};
-
-const CountdownTimer = ({ expiryDate }: { expiryDate: string }) => {
-  const [timeLeft, setTimeLeft] = useState<{h: number, m: number, s: number} | null>(null);
-  useEffect(() => {
-    const calculateTimeLeft = () => {
-      const difference = +new Date(expiryDate) - +new Date();
-      if (difference > 0) {
-        return {
-          h: Math.floor((difference / (1000 * 60 * 60))),
-          m: Math.floor((difference / 1000 / 60) % 60),
-          s: Math.floor((difference / 1000) % 60),
-        };
-      }
-      return null;
-    };
-    const timer = setInterval(() => setTimeLeft(calculateTimeLeft()), 1000);
-    return () => clearInterval(timer);
-  }, [expiryDate]);
-
-  if (!timeLeft) return <span className="text-red-500 font-bold text-xs bg-red-50 px-3 py-1 rounded-lg">Access Expired</span>;
-
-  return (
-    <div className="flex gap-2 items-center font-display font-bold text-sm text-brand bg-white/80 backdrop-blur-md px-4 py-2 rounded-xl border border-brand/10 shadow-sm">
-      <div className="flex items-center gap-1.5 text-brand-dark">
-          <Clock className="w-4 h-4" />
-          <span className="text-xs uppercase tracking-wider">Time Left</span>
-      </div>
-      <div className="flex items-center gap-1 font-mono text-base">
-        <span className="bg-brand text-white px-2 py-0.5 rounded-md shadow-sm">{timeLeft.h.toString().padStart(2, '0')}</span>
-        <span className="text-brand/50">:</span>
-        <span className="bg-brand text-white px-2 py-0.5 rounded-md shadow-sm">{timeLeft.m.toString().padStart(2, '0')}</span>
-        <span className="text-brand/50">:</span>
-        <span className="bg-brand text-white px-2 py-0.5 rounded-md shadow-sm">{timeLeft.s.toString().padStart(2, '0')}</span>
-      </div>
-    </div>
-  );
-};
-
-const Header = () => {
-  const { settings, currentUser, logout } = useStore();
-  const [showMenu, setShowMenu] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
+const STHeader = () => {
+  const { currentUser, settings } = useStore();
   const location = useLocation();
-  useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 10);
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  const isNoNav = ['/login', '/watch', '/exam', '/temp-access'].some(p => location.pathname.includes(p));
+  const isTabbedView = location.pathname.startsWith('/course/') || location.pathname.startsWith('/subject/');
+
+  if (isNoNav || isTabbedView) return null;
+
   return (
-    <>
-      <header className={`fixed top-0 left-0 right-0 h-16 flex items-center justify-between px-4 z-50 transition-all duration-300 ${scrolled ? 'bg-white/80 backdrop-blur-md shadow-sm border-b border-gray-100/50 text-gray-900' : 'bg-transparent text-gray-900'}`}>
-        <div className="flex items-center gap-3">
-          <button onClick={() => setShowMenu(true)} className={`p-2 rounded-xl transition-colors ${scrolled ? 'hover:bg-gray-100' : 'bg-white/60 hover:bg-white backdrop-blur-sm'}`}>
-            <Menu className="w-6 h-6" />
-          </button>
-          <div className={!scrolled && location.pathname === '/' ? 'opacity-0' : 'opacity-100 transition-opacity'}>
-             <Logo dark={true} />
-          </div>
-        </div>
-        <Link to="/profile">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand to-purple-600 p-[2px] shadow-lg shadow-brand/20">
-            <div className="w-full h-full rounded-full bg-white flex items-center justify-center text-brand font-bold overflow-hidden text-sm">
-                {currentUser ? currentUser.name.charAt(0).toUpperCase() : <User className="w-5 h-5" />}
-            </div>
-          </div>
+    <header className="fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-100 flex items-center justify-between px-5 z-50">
+      <div className="flex items-center gap-3">
+        <Link to="/" className="flex items-center gap-2">
+            <div className="w-9 h-9 bg-[#0056d2] rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-blue-200">S</div>
+            <span className="font-display font-extrabold text-[#0056d2] tracking-tight text-xl">{settings.appName}</span>
         </Link>
-      </header>
-      {showMenu && (
-        <div className="fixed inset-0 z-[60] flex">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowMenu(false)} />
-          <div className="relative w-72 bg-white/95 backdrop-blur-xl h-full shadow-2xl flex flex-col animate-slide-in border-r border-white/50">
-            <div className="h-48 bg-gradient-to-br from-brand to-purple-700 flex flex-col justify-end p-6 text-white relative overflow-hidden">
-               <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full blur-2xl translate-x-10 -translate-y-10"></div>
-               <div className="w-16 h-16 rounded-full bg-white text-brand flex items-center justify-center mb-4 text-2xl font-bold shadow-lg shadow-black/10">
-                {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : <User />}
-               </div>
-               <p className="font-bold truncate text-lg font-display">{currentUser?.name || 'Guest'}</p>
-               <p className="text-sm opacity-80 truncate">{currentUser?.email || 'Please login'}</p>
+      </div>
+      <div className="flex items-center gap-4">
+        <button className="p-2 text-gray-400 relative transition-colors"><Bell className="w-6 h-6" /></button>
+        <Link to="/profile" className="w-9 h-9 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center transition-transform active:scale-90">
+            {currentUser ? <span className="font-bold text-[#0056d2]">{currentUser.name.charAt(0)}</span> : <User className="w-5 h-5 text-gray-400" />}
+        </Link>
+      </div>
+    </header>
+  );
+};
+
+const STBottomNav = () => {
+  const location = useLocation();
+  const isNoNav = ['/login', '/watch', '/exam', '/temp-access'].some(p => location.pathname.includes(p));
+  if (isNoNav) return null;
+
+  const tabs = [
+    { label: 'Home', path: '/', icon: Home },
+    { label: 'Batches', path: '/courses', icon: LayoutDashboard },
+    { label: 'My Study', path: '/my-courses', icon: BookOpen },
+    { label: 'Profile', path: '/profile', icon: User }
+  ];
+
+  return (
+    <nav className="fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-gray-100 flex items-center justify-around px-2 z-50 pb-safe shadow-[0_-4px_20px_rgba(0,0,0,0.03)]">
+      {tabs.map(tab => {
+        const isActive = location.pathname === tab.path;
+        return (
+          <Link key={tab.path} to={tab.path} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${isActive ? 'text-[#0056d2]' : 'text-gray-400'}`}>
+            <tab.icon className={`w-6 h-6 transition-transform ${isActive ? 'scale-110' : ''}`} />
+            <span className={`text-[10px] font-bold ${isActive ? 'opacity-100' : 'opacity-60'}`}>{tab.label}</span>
+          </Link>
+        );
+      })}
+    </nav>
+  );
+};
+
+// --- CONTENT MANAGER (NEW Subject -> Chapter -> Video Hierarchy) ---
+
+const ContentManager = ({ course, onClose }: { course: Course, onClose: () => void }) => {
+    const { updateCourse } = useStore();
+    const [subjects, setSubjects] = useState<Subject[]>(course.subjects || []);
+    const [activeSubjectId, setActiveSubjectId] = useState<string | null>(null);
+    const [activeChapterId, setActiveChapterId] = useState<string | null>(null);
+    const [editingVideo, setEditingVideo] = useState<{chapId: string, vid: Video} | null>(null);
+
+    const handleSave = () => {
+        updateCourse({ ...course, subjects });
+        onClose();
+    };
+
+    const addSubject = () => {
+        const title = prompt('Subject Title (e.g. Chemistry):');
+        const iconText = prompt('Icon Text (2 chars, e.g. Ch):') || 'Su';
+        if (title) {
+            setSubjects([...subjects, { id: Date.now().toString(), title, iconText, chapters: [] }]);
+        }
+    };
+
+    const addChapter = (sId: string) => {
+        const title = prompt('Chapter Title:');
+        if (title) {
+            setSubjects(subjects.map(s => s.id === sId ? { ...s, chapters: [...s.chapters, { id: Date.now().toString(), title, videos: [] }] } : s));
+        }
+    };
+
+    const addVideo = (sId: string, cId: string) => {
+        const title = prompt('Sequence Title:');
+        const url = prompt('Stream Link (URL):');
+        const dur = prompt('Duration (HH:MM):') || '10:00';
+        const typeInput = prompt('Type (lecture, dpp, note):') as any;
+        const type = ['lecture', 'dpp', 'note'].includes(typeInput) ? typeInput : 'lecture';
+
+        if (title && url) {
+            setSubjects(subjects.map(s => s.id === sId ? { 
+                ...s, 
+                chapters: s.chapters.map(c => c.id === cId ? { 
+                    ...c, 
+                    videos: [...c.videos, { id: Date.now().toString(), title, filename: url, duration: dur, type, date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }).toUpperCase() }] 
+                } : c)
+            } : s));
+        }
+    };
+
+    const updateVideo = () => {
+        if (!editingVideo || !activeSubjectId) return;
+        const { chapId, vid } = editingVideo;
+        setSubjects(subjects.map(s => s.id === activeSubjectId ? {
+            ...s,
+            chapters: s.chapters.map(c => c.id === chapId ? { ...c, videos: c.videos.map(v => v.id === vid.id ? vid : v) } : c)
+        } : s));
+        setEditingVideo(null);
+    };
+
+    const activeSubject = subjects.find(s => s.id === activeSubjectId);
+    const activeChapter = activeSubject?.chapters.find(c => c.id === activeChapterId);
+
+    return (
+        <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-2xl rounded-[32px] p-6 md:p-8 max-h-[85vh] flex flex-col shadow-2xl animate-slide-up overflow-hidden">
+                <div className="flex justify-between items-center mb-6 border-b pb-4">
+                    <h2 className="text-xl font-bold flex items-center gap-2 text-gray-800">
+                        <VideoIcon className="text-blue-600" /> 
+                        {activeChapter ? 'Manage Videos' : activeSubject ? 'Manage Chapters' : 'Manage Subjects'}
+                    </h2>
+                    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X /></button>
+                </div>
+
+                {/* Breadcrumbs */}
+                <div className="flex items-center gap-2 mb-4 text-xs font-bold text-gray-400 overflow-x-auto no-scrollbar pb-2">
+                    <button onClick={() => { setActiveSubjectId(null); setActiveChapterId(null); }} className={`${!activeSubjectId ? 'text-blue-600' : ''}`}>ROOT</button>
+                    {activeSubject && (
+                        <>
+                            <ChevronRight className="w-3 h-3" />
+                            <button onClick={() => setActiveChapterId(null)} className={`${activeSubjectId && !activeChapterId ? 'text-blue-600' : ''}`}>{activeSubject.title.toUpperCase()}</button>
+                        </>
+                    )}
+                    {activeChapter && (
+                        <>
+                            <ChevronRight className="w-3 h-3" />
+                            <span className="text-blue-600">{activeChapter.title.toUpperCase()}</span>
+                        </>
+                    )}
+                </div>
+                
+                <div className="flex-1 overflow-y-auto space-y-4 no-scrollbar">
+                    {editingVideo ? (
+                        <div className="space-y-4 bg-gray-50 p-6 rounded-2xl animate-fade-in">
+                            <h3 className="font-bold text-gray-700">Edit Node Data</h3>
+                            <input value={editingVideo.vid.title} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, title: e.target.value}})} className="w-full p-3 border rounded-xl" placeholder="Title" />
+                            <input value={editingVideo.vid.filename} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, filename: e.target.value}})} className="w-full p-3 border rounded-xl" placeholder="URL" />
+                            <input value={editingVideo.vid.duration} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, duration: e.target.value}})} className="w-full p-3 border rounded-xl" placeholder="Duration" />
+                            <div className="flex gap-2">
+                                <button onClick={() => setEditingVideo(null)} className="flex-1 py-2 text-gray-500 font-bold bg-white border rounded-xl">Cancel</button>
+                                <button onClick={updateVideo} className="flex-1 py-2 bg-[#0056d2] text-white font-bold rounded-xl">Save Node</button>
+                            </div>
+                        </div>
+                    ) : activeChapterId && activeSubjectId ? (
+                        // Videos List
+                        <div className="space-y-3">
+                            <button onClick={() => addVideo(activeSubjectId, activeChapterId)} className="w-full py-4 border-2 border-dashed rounded-2xl text-blue-600 font-bold hover:bg-blue-50">+ Add Video/Note</button>
+                            {activeChapter?.videos.map(vid => (
+                                <div key={vid.id} className="p-4 bg-white border rounded-2xl flex items-center justify-between shadow-sm">
+                                    <div>
+                                        <p className="text-sm font-bold text-gray-800">{vid.title}</p>
+                                        <p className="text-[10px] text-gray-400 font-bold uppercase">{vid.type} • {vid.duration || 'N/A'}</p>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => setEditingVideo({chapId: activeChapterId, vid})} className="p-2 text-gray-400 hover:text-blue-600"><Edit className="w-4 h-4" /></button>
+                                        <button onClick={() => setSubjects(subjects.map(s => s.id === activeSubjectId ? {
+                                            ...s,
+                                            chapters: s.chapters.map(c => c.id === activeChapterId ? { ...c, videos: c.videos.filter(v => v.id !== vid.id) } : c)
+                                        } : s))} className="p-2 text-gray-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                                    </div>
+                                </div>
+                            ))}
+                            {activeChapter?.videos.length === 0 && <p className="text-center py-10 text-gray-400 italic">No content in this chapter.</p>}
+                        </div>
+                    ) : activeSubjectId ? (
+                        // Chapters List
+                        <div className="space-y-3">
+                            <button onClick={() => addChapter(activeSubjectId)} className="w-full py-4 border-2 border-dashed rounded-2xl text-blue-600 font-bold hover:bg-blue-50">+ Add Chapter</button>
+                            {activeSubject?.chapters.map(chap => (
+                                <div key={chap.id} className="p-4 bg-white border rounded-2xl flex items-center justify-between shadow-sm group">
+                                    <button onClick={() => setActiveChapterId(chap.id)} className="flex-1 text-left">
+                                        <p className="text-sm font-bold text-gray-800">{chap.title}</p>
+                                        <p className="text-[10px] text-gray-400 font-bold uppercase">{chap.videos.length} Units</p>
+                                    </button>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => setSubjects(subjects.map(s => s.id === activeSubjectId ? { ...s, chapters: s.chapters.filter(c => c.id !== chap.id) } : s))} className="p-2 text-gray-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                                    </div>
+                                </div>
+                            ))}
+                            {activeSubject?.chapters.length === 0 && <p className="text-center py-10 text-gray-400 italic">No chapters in this subject.</p>}
+                        </div>
+                    ) : (
+                        // Subjects List
+                        <div className="space-y-3">
+                            <button onClick={addSubject} className="w-full py-4 border-2 border-dashed rounded-2xl text-blue-600 font-bold hover:bg-blue-50">+ Add Subject (e.g. Maths)</button>
+                            {subjects.map(sub => (
+                                <div key={sub.id} className="p-4 bg-white border rounded-2xl flex items-center justify-between shadow-sm">
+                                    <button onClick={() => setActiveSubjectId(sub.id)} className="flex-1 text-left flex items-center gap-4">
+                                        <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600 font-bold text-xs">{sub.iconText}</div>
+                                        <div>
+                                            <p className="text-sm font-bold text-gray-800">{sub.title}</p>
+                                            <p className="text-[10px] text-gray-400 font-bold uppercase">{sub.chapters.length} Chapters</p>
+                                        </div>
+                                    </button>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => setSubjects(subjects.filter(s => s.id !== sub.id))} className="p-2 text-gray-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                                    </div>
+                                </div>
+                            ))}
+                            {subjects.length === 0 && <p className="text-center py-10 text-gray-400 italic">No subjects added yet.</p>}
+                        </div>
+                    )}
+                </div>
+                
+                <div className="mt-6 pt-6 border-t flex gap-3">
+                    <button onClick={onClose} className="flex-1 py-3.5 text-gray-500 font-bold hover:bg-gray-50 rounded-2xl transition-colors">Discard</button>
+                    <button onClick={handleSave} className="flex-1 py-3.5 bg-[#0056d2] text-white font-bold rounded-2xl shadow-lg shadow-blue-100 active:scale-95 transition-all">Commit Batch Grid</button>
+                </div>
             </div>
-            <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
-              <Link to="/" onClick={() => setShowMenu(false)} className="flex items-center px-4 py-3.5 text-gray-700 hover:bg-gray-50 rounded-xl transition-all font-medium">
-                <Home className="w-5 h-5 mr-3 text-brand" /> Home
-              </Link>
-              <Link to="/my-courses" onClick={() => setShowMenu(false)} className="flex items-center px-4 py-3.5 text-gray-700 hover:bg-gray-50 rounded-xl transition-all font-medium">
-                <BookOpen className="w-5 h-5 mr-3 text-brand" /> My Batches
-              </Link>
-              <Link to="/profile" onClick={() => setShowMenu(false)} className="flex items-center px-4 py-3.5 text-gray-700 hover:bg-gray-50 rounded-xl transition-all font-medium">
-                <User className="w-5 h-5 mr-3 text-brand" /> Profile
-              </Link>
-              <Link to="/help" onClick={() => setShowMenu(false)} className="flex items-center px-4 py-3.5 text-gray-700 hover:bg-gray-50 rounded-xl transition-all font-medium">
-                <HelpCircle className="w-5 h-5 mr-3 text-brand" /> Help & Support
-              </Link>
-              {(currentUser?.role === UserRole.ADMIN || currentUser?.role === UserRole.EDITOR) && (
-                <Link to="/admin" onClick={() => setShowMenu(false)} className="flex items-center px-4 py-3.5 text-red-600 bg-red-50 hover:bg-red-100 rounded-xl font-bold mt-4 transition-all">
-                  <LayoutDashboard className="w-5 h-5 mr-3" /> {currentUser.role === UserRole.EDITOR ? 'Editor Panel' : 'Admin Panel'}
-                </Link>
-              )}
-            </nav>
-            <div className="p-4 border-t border-gray-100">
-              <button onClick={() => { logout(); setShowMenu(false); }} className="flex items-center justify-center text-red-600 w-full px-4 py-3 hover:bg-red-50 rounded-xl transition-colors font-bold text-sm">
-                <LogOut className="w-4 h-4 mr-2" /> Logout
-              </button>
+        </div>
+    );
+};
+
+// --- ADMIN PANEL ---
+
+const AdminPanel = () => {
+    const { currentUser, courses, settings, addCourse, updateCourse, deleteCourse, updateSettings, users, updateUser } = useStore();
+    const [tab, setTab] = useState<'batches' | 'users' | 'settings'>('batches');
+    const [showModal, setShowModal] = useState(false);
+    const [editing, setEditing] = useState<Course | null>(null);
+    const [contentTarget, setContentTarget] = useState<Course | null>(null);
+    const [isGenerating, setIsGenerating] = useState(false);
+    
+    const [form, setForm] = useState({ title: '', description: '', image: '', category: '', price: 0, mrp: 0, isPaid: false, accessKey: '', shortenerLink: '', telegramLink: '', startDate: '', endDate: '', isNew: true });
+
+    useEffect(() => {
+        if (editing) setForm({ ...editing, isPaid: !!editing.isPaid });
+        else setForm({ title: '', description: '', image: '', category: '', price: 0, mrp: 0, isPaid: false, accessKey: '', shortenerLink: '', telegramLink: '', startDate: '', endDate: '', isNew: true });
+    }, [editing, showModal]);
+
+    if (!currentUser || currentUser.role !== UserRole.ADMIN) return <Navigate to="/" />;
+
+    const handleSaveCourse = (e: React.FormEvent) => {
+        e.preventDefault();
+        const data = { ...(editing || { id: Date.now().toString(), chapters: [], subjects: [], createdAt: new Date().toISOString() }), ...form };
+        if (editing) updateCourse(data); else addCourse(data);
+        setShowModal(false);
+    };
+
+    const handleGenerateLink = async () => {
+        setIsGenerating(true);
+        const courseId = editing?.id || 'temp';
+        const dest = `${window.location.origin}/#/temp-access/${courseId}`;
+        
+        try {
+            if (!settings.linkShortenerApiKey || !settings.linkShortenerApiUrl) {
+                const res = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(dest)}`);
+                if (res.ok) {
+                    const text = await res.text();
+                    setForm({ ...form, shortenerLink: text });
+                    return;
+                } else {
+                    throw new Error("TinyURL Failed");
+                }
+            }
+
+            const api = `${settings.linkShortenerApiUrl}?api=${settings.linkShortenerApiKey}&url=${encodeURIComponent(dest)}`;
+            const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(api)}`);
+            const json = await res.json();
+            const data = JSON.parse(json.contents);
+            if (data.shortenedUrl || data.shortlink) {
+                setForm({ ...form, shortenerLink: data.shortenedUrl || data.shortlink });
+            } else throw new Error();
+        } catch {
+            setForm({ ...form, shortenerLink: dest });
+            alert("Auto-shortener failed. Using direct link.");
+        } finally { setIsGenerating(false); }
+    };
+
+    const toggleRole = (u: any) => {
+        if (u.id === 'admin') return; 
+        alert("Role update requires backend implementation in this demo.");
+    };
+
+    return (
+        <div className="pb-24 pt-20 px-4 min-h-screen bg-[#f8fafc]">
+             <div className="max-w-4xl mx-auto">
+                 <div className="flex bg-white p-1.5 rounded-[24px] shadow-sm border border-gray-100 mb-8 overflow-hidden">
+                    {['batches', 'users', 'settings'].map(t => (
+                        <button key={t} onClick={() => setTab(t as any)} className={`flex-1 py-3 font-bold capitalize transition-all rounded-[18px] text-sm ${tab === t ? 'bg-[#0056d2] text-white shadow-md' : 'text-gray-400 hover:bg-gray-50'}`}>
+                            {t}
+                        </button>
+                    ))}
+                 </div>
+
+                 {tab === 'batches' && (
+                     <div className="space-y-4">
+                         <button onClick={() => { setEditing(null); setShowModal(true); }} className="w-full py-12 bg-white border-2 border-dashed border-blue-200 rounded-[32px] text-[#0056d2] font-bold flex flex-col items-center justify-center gap-2 hover:bg-blue-50 transition-all group">
+                            <Plus className="w-8 h-8 group-hover:scale-110 transition-transform" />
+                            <span>INITIALIZE NEW BATCH</span>
+                         </button>
+                         <div className="grid gap-3">
+                             {courses.map(c => (
+                                 <div key={c.id} className="bg-white p-4 rounded-[28px] flex items-center gap-4 border border-gray-100 shadow-sm transition-all hover:shadow-md group">
+                                     <img src={c.image} className="w-16 h-16 rounded-2xl object-cover" />
+                                     <div className="flex-1 min-w-0">
+                                        <h3 className="font-bold text-gray-800 truncate">{c.title}</h3>
+                                        <p className="text-[10px] text-blue-600 font-bold uppercase tracking-widest">{c.category} • {c.isPaid ? 'Premium' : 'Public'}</p>
+                                     </div>
+                                     <div className="flex flex-col gap-2">
+                                         <button onClick={() => setContentTarget(c)} className="px-4 py-2 bg-[#0056d2] text-white rounded-xl font-bold text-[10px] active:scale-95 transition-transform uppercase tracking-widest">CONTENT</button>
+                                         <div className="flex gap-2 justify-end">
+                                            <button onClick={() => { setEditing(c); setShowModal(true); }} className="p-2 bg-gray-50 text-gray-400 hover:text-blue-600 rounded-xl transition-colors"><Edit className="w-4 h-4" /></button>
+                                            <button onClick={() => { if(confirm('Erase sequence?')) deleteCourse(c.id); }} className="p-2 bg-red-50 text-red-400 hover:bg-red-500 hover:text-white rounded-xl transition-all"><Trash2 className="w-4 h-4" /></button>
+                                         </div>
+                                     </div>
+                                 </div>
+                             ))}
+                         </div>
+                     </div>
+                 )}
+
+                 {tab === 'users' && (
+                     <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 overflow-hidden">
+                        <div className="p-4 bg-gray-50 border-b border-gray-100 font-bold text-gray-500 uppercase text-[10px] tracking-widest">Neural Identity Registry</div>
+                        <div className="divide-y divide-gray-50">
+                        {users.map(u => (
+                            <div key={u.id} className="p-5 flex justify-between items-center hover:bg-gray-50 transition-colors">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-11 h-11 rounded-2xl bg-blue-100 text-[#0056d2] flex items-center justify-center font-bold text-lg">{u.name.charAt(0)}</div>
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <p className="font-bold text-gray-800">{u.name}</p>
+                                            <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${u.role === UserRole.ADMIN ? 'bg-blue-600 text-white border-blue-600' : 'bg-gray-100 text-gray-500 border-gray-200'}`}>{u.role}</span>
+                                        </div>
+                                        <p className="text-[11px] text-gray-400 font-medium">{u.email}</p>
+                                    </div>
+                                </div>
+                                <button onClick={() => toggleRole(u)} className="text-[10px] font-bold text-blue-600 bg-blue-50 px-4 py-2 rounded-xl transition-colors hover:bg-blue-100">
+                                    {u.role === UserRole.ADMIN ? 'DEMOTE' : 'MAKE ADMIN'}
+                                </button>
+                            </div>
+                        ))}
+                        </div>
+                     </div>
+                 )}
+
+                 {tab === 'settings' && (
+                    <div className="bg-white p-8 rounded-[32px] shadow-sm border border-gray-100">
+                        <h2 className="text-xl font-bold text-gray-800 mb-8 tracking-tight">Portal Configuration</h2>
+                        <div className="space-y-6">
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">App Identifier</label>
+                                <input value={settings.appName} onChange={e => updateSettings({ ...settings, appName: e.target.value })} className="w-full p-4 bg-gray-50 rounded-2xl outline-none border border-gray-100 focus:border-blue-500 font-medium" />
+                            </div>
+                            <button onClick={() => alert("Memory Synced.")} className="w-full py-4 bg-[#0056d2] text-white font-bold rounded-2xl shadow-lg shadow-blue-100 hover:scale-[1.01] transition-transform mt-4 uppercase tracking-[0.2em] text-xs">SYNC NEURAL GLOBALS</button>
+                        </div>
+                    </div>
+                 )}
+             </div>
+
+             {/* Add/Edit Modal */}
+             {showModal && (
+                 <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <div className="bg-white w-full max-w-lg rounded-[40px] p-8 shadow-2xl max-h-[90vh] overflow-y-auto no-scrollbar border border-gray-100 animate-slide-up">
+                        <div className="flex justify-between items-center mb-8">
+                            <h2 className="text-2xl font-bold text-gray-800 tracking-tight">{editing ? 'Edit Batch' : 'Add New Batch'}</h2>
+                            <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X /></button>
+                        </div>
+                        <form onSubmit={handleSaveCourse} className="space-y-5">
+                            {/* Thumbnail Section */}
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">Thumbnail Configuration</label>
+                                <div className="relative aspect-video rounded-2xl overflow-hidden bg-gray-100 border-2 border-dashed border-gray-200 group flex items-center justify-center">
+                                    {form.image ? (
+                                        <>
+                                            <img src={form.image} className="w-full h-full object-cover" alt="Preview" />
+                                            <button type="button" onClick={() => setForm({...form, image: ''})} className="absolute top-2 right-2 bg-black/50 text-white p-1.5 rounded-full hover:bg-black transition-colors"><X className="w-4 h-4" /></button>
+                                        </>
+                                    ) : (
+                                        <div className="text-center p-4">
+                                            <ImageIcon className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                                            <p className="text-[10px] font-bold text-gray-400">Enter Image URL Below</p>
+                                        </div>
+                                    )}
+                                </div>
+                                <input value={form.image} onChange={e => setForm({ ...form, image: e.target.value })} className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-blue-500 font-mono text-xs" placeholder="https://image-link.com/photo.jpg" required />
+                            </div>
+
+                            <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-blue-500 font-bold" placeholder="Batch Name (e.g. Hope Backlog)" required />
+                            
+                            <div className="grid grid-cols-2 gap-4">
+                                <input value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className="p-4 bg-gray-50 border border-gray-100 rounded-xl text-xs uppercase font-bold" placeholder="Category (Class 10)" required />
+                                <div className="flex items-center gap-2 p-4 bg-gray-50 rounded-xl border border-gray-100">
+                                    <span className="text-xs font-bold text-gray-400 uppercase">New?</span>
+                                    <input type="checkbox" checked={form.isNew} onChange={e => setForm({...form, isNew: e.target.checked})} className="w-5 h-5 accent-blue-600" />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Starts On</label>
+                                    <input value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs" placeholder="07 Jul 2024" />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Ends On</label>
+                                    <input value={form.endDate} onChange={e => setForm({ ...form, endDate: e.target.value })} className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs" placeholder="31 Mar 2026" />
+                                </div>
+                            </div>
+
+                            <div className="p-4 bg-gray-50 rounded-xl flex items-center justify-between cursor-pointer border border-gray-100" onClick={() => setForm({ ...form, isPaid: !form.isPaid })}>
+                                <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Premium Batch</span>
+                                <div className={`w-10 h-5 rounded-full relative transition-all ${form.isPaid ? 'bg-blue-600' : 'bg-gray-300'}`}>
+                                    <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${form.isPaid ? 'left-5.5' : 'left-0.5'}`} />
+                                </div>
+                            </div>
+
+                            {form.isPaid && (
+                                <div className="space-y-3 animate-fade-in">
+                                    <input type="number" value={form.price} onChange={e => setForm({ ...form, price: Number(e.target.value) })} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-xl font-bold" placeholder="Selling Price (₹)" />
+                                    <input value={form.accessKey} onChange={e => setForm({ ...form, accessKey: e.target.value })} className="w-full p-4 bg-blue-50 border-2 border-blue-100 rounded-xl font-mono text-center tracking-widest" placeholder="KEY_2025" />
+                                </div>
+                            )}
+
+                            <div className="pt-4 flex flex-col gap-3">
+                                <button type="submit" className="w-full py-4 bg-[#0056d2] text-white font-bold rounded-xl shadow-lg active:scale-95 transition-all uppercase tracking-widest text-sm">Save Batch</button>
+                            </div>
+                        </form>
+                    </div>
+                 </div>
+             )}
+
+             {contentTarget && <ContentManager course={contentTarget} onClose={() => setContentTarget(null)} />}
+        </div>
+    );
+};
+
+// --- CORE USER VIEWS ---
+
+const CourseListing = () => {
+    const { courses } = useStore();
+    const [filter, setFilter] = useState<'Paid' | 'Free'>('Free');
+
+    const filteredCourses = courses.filter(c => filter === 'Paid' ? c.isPaid : !c.isPaid);
+
+    return (
+        <div className="pb-24 pt-20 px-5 min-h-screen bg-[#f8fafc]">
+            <div className="max-w-md mx-auto space-y-6">
+                {/* Segmented Control */}
+                <div className="bg-white p-1 rounded-2xl border border-gray-100 flex shadow-sm">
+                    {['Paid', 'Free'].map((t) => (
+                        <button
+                            key={t}
+                            onClick={() => setFilter(t as any)}
+                            className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all ${filter === t ? 'bg-blue-50 text-[#0056d2] shadow-sm' : 'text-gray-400'}`}
+                        >
+                            {t}
+                        </button>
+                    ))}
+                </div>
+
+                {/* Course List */}
+                <div className="space-y-6">
+                    {filteredCourses.map(c => (
+                        <div key={c.id} className="bg-white rounded-[32px] overflow-hidden border border-gray-100 shadow-sm flex flex-col">
+                            <div className="p-6 pb-2 flex justify-between items-center">
+                                <div className="flex items-center gap-2">
+                                    <h3 className="text-base font-black text-gray-800">{c.title}</h3>
+                                    {c.isNew && (
+                                        <span className="bg-[#fff9e6] text-[#eab308] text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-tighter border border-yellow-200">New</span>
+                                    )}
+                                </div>
+                                <button className="p-1.5 hover:bg-gray-50 rounded-full">
+                                    <Smartphone className="w-5 h-5 text-gray-400" />
+                                </button>
+                            </div>
+
+                            <div className="px-6 relative group">
+                                <img src={c.image} className="w-full aspect-[16/9] object-cover rounded-2xl" />
+                                {!c.isPaid && (
+                                    <div className="absolute top-4 left-10 bg-white/95 px-3 py-1 rounded-lg text-[10px] font-black text-gray-800 shadow-md">FREE</div>
+                                )}
+                            </div>
+
+                            <div className="p-6 pt-4 space-y-5">
+                                <div className="flex items-center gap-4 text-[11px] font-bold text-gray-400">
+                                    <div className="flex items-center gap-1.5">
+                                        <Calendar className="w-3.5 h-3.5" />
+                                        <span>Starts on <span className="text-gray-600">{c.startDate || 'TBA'}</span></span>
+                                    </div>
+                                    <div className="w-1 h-1 bg-gray-300 rounded-full"></div>
+                                    <div className="flex items-center gap-1.5">
+                                        <span>Ends on <span className="text-gray-600">{c.endDate || 'TBA'}</span></span>
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-3">
+                                    <button className="flex-1 py-3 text-sm font-bold text-[#7c5cdb] border border-[#7c5cdb]/20 rounded-xl hover:bg-[#7c5cdb]/5 transition-all">Similar Batches</button>
+                                    <Link to={`/course/${c.id}`} className="flex-1 py-3 bg-[#7c5cdb] text-white text-center text-sm font-bold rounded-xl shadow-lg shadow-[#7c5cdb]/20 active:scale-95 transition-all">Let's Study</Link>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const CourseDetail = () => {
+    const { id } = useParams();
+    const { courses, currentUser } = useStore();
+    const navigate = useNavigate();
+    const [activeTab, setActiveTab] = useState<'Description' | 'Subjects' | 'Resources' | 'Tests' | 'Community'>('Subjects');
+
+    const course = courses.find(c => c.id === id);
+    if (!course) return <Navigate to="/" />;
+
+    return (
+        <div className="pb-24 pt-0 min-h-screen bg-white">
+            <div className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
+                <div className="flex items-center justify-between p-4 px-5">
+                    <div className="flex items-center gap-4">
+                        <button onClick={() => navigate(-1)}><ArrowLeft className="w-6 h-6 text-gray-800" /></button>
+                        <h1 className="text-lg font-extrabold text-gray-800 truncate max-w-[160px]">{course.title}</h1>
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <XPBadge />
+                        <MessageCircle className="w-5.5 h-5.5 text-gray-600" />
+                        <Bell className="w-5.5 h-5.5 text-gray-600" />
+                        <MoreVertical className="w-5.5 h-5.5 text-gray-600" />
+                    </div>
+                </div>
+                
+                <div className="flex px-5 gap-8 overflow-x-auto no-scrollbar">
+                    {['Description', 'Subjects', 'Resources', 'Tests', 'Community'].map(tab => (
+                        <button 
+                            key={tab}
+                            onClick={() => setActiveTab(tab as any)}
+                            className={`pb-3 text-sm font-bold whitespace-nowrap transition-all border-b-3 ${activeTab === tab ? 'text-[#7c5cdb] border-[#7c5cdb]' : 'text-gray-400 border-transparent'}`}
+                        >
+                            {tab}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            <Banner />
+
+            <div className="p-5">
+                {activeTab === 'Subjects' && (
+                    <div className="space-y-4">
+                        {(course.subjects || []).map((sub) => (
+                            <div key={sub.id} onClick={() => navigate(`/course/${course.id}/subject/${sub.id}`)} className="bg-white border border-gray-100 rounded-3xl p-5 flex items-center gap-5 shadow-sm active:scale-[0.98] transition-all">
+                                <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-[#0056d2] font-black text-lg border border-blue-100">
+                                    {sub.iconText}
+                                </div>
+                                <div className="flex-1">
+                                    <h3 className="font-extrabold text-gray-800 text-base">{sub.title}</h3>
+                                    <div className="flex items-center gap-4 mt-2.5">
+                                        <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                                            <div className="h-full bg-[#0056d2] w-[0%]"></div>
+                                        </div>
+                                        <span className="text-[11px] font-black text-gray-400">0%</span>
+                                    </div>
+                                </div>
+                                <ChevronRight className="w-5 h-5 text-gray-300" />
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {activeTab === 'Community' && <CommunityView />}
+
+                {activeTab === 'Description' && (
+                    <div className="space-y-6 animate-fade-in">
+                        <img src={course.image} className="w-full h-52 object-cover rounded-[40px] shadow-lg" />
+                        <div>
+                            <h2 className="text-2xl font-black text-gray-800 mb-3">{course.title}</h2>
+                            <p className="text-gray-500 text-sm leading-relaxed font-medium">{course.description}</p>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+const CommunityView = () => {
+  const [tab, setTab] = useState<'All Posts' | 'My Posts'>('All Posts');
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex gap-6 border-b border-gray-100">
+        {['All Posts', 'My Posts'].map(t => (
+          <button 
+            key={t}
+            onClick={() => setTab(t as any)}
+            className={`pb-2 text-xs font-bold transition-all border-b-2 ${tab === t ? 'text-[#7c5cdb] border-[#7c5cdb]' : 'text-gray-400 border-transparent'}`}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+      
+      {/* Sample Post */}
+      <div className="bg-white rounded-2xl p-4 border border-gray-100 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+              <User className="w-6 h-6 text-gray-400" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-gray-800">Prakash</p>
+              <p className="text-[10px] text-gray-400 font-medium">4 Min Ago</p>
             </div>
           </div>
+          <MoreVertical className="w-5 h-5 text-gray-400" />
         </div>
-      )}
-    </>
-  );
-};
-
-const BottomNav = () => {
-  const location = useLocation();
-  const isActive = (path: string) => location.pathname === path ? 'text-brand' : 'text-gray-400';
-  return (
-    <div className="fixed bottom-0 left-0 right-0 h-16 bg-white/90 backdrop-blur-xl border-t border-gray-200/50 flex items-center justify-around z-40 pb-safe shadow-lg">
-      <Link to="/" className={`flex flex-col items-center transition-colors ${isActive('/')}`}>
-        <Home className="w-6 h-6" />
-        <span className="text-[10px] mt-1 font-bold">Home</span>
-      </Link>
-      <Link to="/my-courses" className={`flex flex-col items-center transition-colors ${isActive('/my-courses')}`}>
-        <BookOpen className="w-6 h-6" />
-        <span className="text-[10px] mt-1 font-bold">Batches</span>
-      </Link>
-      <Link to="/help" className={`flex flex-col items-center transition-colors ${isActive('/help')}`}>
-        <HelpCircle className="w-6 h-6" />
-        <span className="text-[10px] mt-1 font-bold">Help</span>
-      </Link>
-      <Link to="/profile" className={`flex flex-col items-center transition-colors ${isActive('/profile')}`}>
-        <User className="w-6 h-6" />
-        <span className="text-[10px] mt-1 font-bold">Profile</span>
-      </Link>
+        <p className="text-sm text-gray-600">Hlo 👋</p>
+        <div className="flex gap-6 pt-2 border-t border-gray-50">
+          <button className="flex items-center gap-1.5 text-gray-400 text-[10px] font-bold">
+            <Sparkles className="w-4 h-4" /> React
+          </button>
+          <button className="flex items-center gap-1.5 text-gray-400 text-[10px] font-bold">
+            <MessageSquare className="w-4 h-4" /> Comments(0)
+          </button>
+        </div>
+      </div>
     </div>
-  );
+  )
+}
+
+const SubjectDetail = () => {
+    const { courseId, subjectId } = useParams();
+    const { courses } = useStore();
+    const navigate = useNavigate();
+    const [tab, setTab] = useState<'Chapters' | 'Notes'>('Chapters');
+    const [filter, setFilter] = useState('All');
+    const [generatingNotes, setGeneratingNotes] = useState(false);
+    const [notes, setNotes] = useState<string | null>(null);
+    
+    const course = courses.find(c => c.id === courseId);
+    const subject = course?.subjects?.find(s => s.id === subjectId);
+    if (!subject) return <Navigate to="/" />;
+
+    const filters = ['All', 'Lectures', 'DPPs', 'Notes', 'DPP PDFs', 'DPP Videos'];
+
+    const handleGenerateNotes = async () => {
+        setGeneratingNotes(true);
+        try {
+            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            const prompt = `Generate concise, high-yield study notes for the subject "${subject.title}" based on these chapter titles: ${subject.chapters.map(c => c.title).join(', ')}. Format nicely with Markdown.`;
+            
+            const response = await ai.models.generateContent({
+                model: 'gemini-3-flash-preview',
+                contents: prompt,
+            });
+            
+            setNotes(response.text || "Could not generate notes.");
+        } catch (e) {
+            alert("Failed to generate notes. Please try again.");
+        } finally {
+            setGeneratingNotes(false);
+        }
+    };
+
+    return (
+        <div className="pb-24 pt-0 min-h-screen bg-white">
+            <div className="sticky top-0 z-50 bg-white border-b border-gray-100">
+                <div className="flex items-center justify-between p-4 px-5">
+                    <div className="flex items-center gap-4">
+                        <button onClick={() => navigate(-1)}><ArrowLeft className="w-6 h-6 text-gray-800" /></button>
+                        <h1 className="text-lg font-extrabold text-gray-800">{subject.title}</h1>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <button onClick={handleGenerateNotes} disabled={generatingNotes} className="text-blue-600 hover:bg-blue-50 p-2 rounded-full transition-colors">
+                            {generatingNotes ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
+                        </button>
+                        <XPBadge />
+                    </div>
+                </div>
+                <div className="flex px-5 gap-8">
+                    {['Chapters', 'Study Material'].map(t => (
+                        <button key={t} onClick={() => setTab(t === 'Chapters' ? 'Chapters' : 'Notes')} className={`pb-3 text-sm font-bold border-b-3 transition-all ${tab === (t === 'Chapters' ? 'Chapters' : 'Notes') ? 'text-[#7c5cdb] border-[#7c5cdb]' : 'text-gray-400 border-transparent'}`}>{t}</button>
+                    ))}
+                </div>
+            </div>
+
+            {tab === 'Chapters' && (
+                <div className="p-5 space-y-4">
+                    {subject.chapters.map((chap, idx) => (
+                        <div key={chap.id} onClick={() => setTab('Notes')} className="bg-white border border-gray-100 rounded-[32px] p-6 shadow-sm flex items-center justify-between active:scale-[0.98] transition-all">
+                            <div>
+                                <span className="inline-block bg-blue-50 text-[#0056d2] text-[10px] font-bold px-2.5 py-1 rounded-lg mb-2.5 border border-blue-100 uppercase">CH - {String(idx+1).padStart(2, '0')}</span>
+                                <h3 className="font-extrabold text-gray-800 text-base mb-1.5 leading-tight">{chap.title}</h3>
+                                <p className="text-[11px] text-gray-400 font-bold uppercase tracking-wider">Lectures : 0/{chap.videos.length}</p>
+                            </div>
+                            <ChevronRight className="w-5 h-5 text-gray-300" />
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {tab === 'Notes' && (
+                <div className="space-y-6">
+                    <div className="bg-blue-50 px-5 py-4 flex items-start gap-3">
+                        <div className="w-5 h-5 bg-[#0056d2] rounded-full flex items-center justify-center text-white text-[10px] font-bold mt-0.5">i</div>
+                        <div className="flex-1">
+                          <p className="text-[11px] font-bold text-gray-700 leading-tight">Don't worry if there's a small error, missing XP points will be added soon!</p>
+                        </div>
+                        <X className="w-4 h-4 text-gray-400" />
+                    </div>
+
+                    <div className="px-5 flex gap-3 overflow-x-auto no-scrollbar">
+                        {filters.map(f => (
+                            <button
+                                key={f}
+                                onClick={() => setFilter(f)}
+                                className={`px-5 py-2 rounded-full text-xs font-bold transition-all border ${filter === f ? 'bg-[#444] text-white border-[#444]' : 'bg-gray-100 text-gray-500 border-gray-100'}`}
+                            >
+                                {f}
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="px-5 space-y-4 pb-10">
+                        {subject.chapters.flatMap(c => c.videos).map(v => (
+                            v.type === 'lecture' ? (
+                                <div key={v.id} className="bg-white border border-gray-100 rounded-3xl p-4 shadow-sm flex gap-4">
+                                    <div className="relative w-32 aspect-[4/3] rounded-xl overflow-hidden shrink-0">
+                                        <img src="https://images.unsplash.com/photo-1532012197267-da84d127e765?auto=format&fit=crop&q=80&w=200" className="w-full h-full object-cover" />
+                                        <div className="absolute bottom-1 right-1 bg-black/80 px-1.5 py-0.5 rounded text-[8px] font-bold text-white">{v.duration}</div>
+                                    </div>
+                                    <div className="flex-1 space-y-3">
+                                        <div>
+                                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">LECTURE • {v.date}</p>
+                                            <h4 className="text-xs font-extrabold text-gray-800 line-clamp-2 leading-snug">{v.title}</h4>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button onClick={() => navigate(`/watch/${courseId}?sub=${subjectId}&chap=${subject.chapters[0].id}`)} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#f3f7ff] text-[#0056d2] rounded-lg text-[10px] font-black hover:bg-blue-100 transition-all">
+                                                <PlayCircle className="w-3.5 h-3.5 text-white" fill="currentColor" /> Watch Lecture
+                                            </button>
+                                            <button className="p-2 bg-gray-50 text-gray-400 rounded-lg"><FileText className="w-4 h-4" /></button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div key={v.id} className="bg-white border border-gray-100 rounded-3xl p-5 shadow-sm flex items-center gap-5">
+                                    <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center border border-gray-100 shrink-0">
+                                        <FileText className="w-6 h-6 text-gray-400" />
+                                    </div>
+                                    <div className="flex-1 space-y-1.5">
+                                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest leading-none">NOTES • {v.date}</p>
+                                        <h4 className="text-xs font-extrabold text-gray-800 line-clamp-2 leading-snug">{v.title}</h4>
+                                        <button className="flex items-center gap-1.5 px-3 py-1.5 bg-[#f3f7ff] text-[#0056d2] rounded-lg text-[10px] font-black w-fit">
+                                            <Eye className="w-3.5 h-3.5" /> View Note
+                                        </button>
+                                    </div>
+                                </div>
+                            )
+                        ))}
+                    </div>
+                </div>
+            )}
+            {/* AI Notes Modal */}
+            {notes && (
+                <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setNotes(null)}>
+                    <div className="bg-white w-full max-w-lg max-h-[80vh] rounded-[30px] p-8 overflow-y-auto shadow-2xl animate-slide-up" onClick={e => e.stopPropagation()}>
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-xl font-bold flex items-center gap-2"><Sparkles className="w-5 h-5 text-blue-500" /> AI Notes</h2>
+                            <button onClick={() => setNotes(null)}><X className="text-gray-400" /></button>
+                        </div>
+                        <div className="prose prose-sm text-gray-600 leading-relaxed whitespace-pre-wrap font-medium">
+                            {notes}
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
 };
 
-const Help = () => {
-    const { settings } = useStore();
-    const botUsername = settings.supportPhone.startsWith('@') ? settings.supportPhone.substring(1) : 'STUDY_PORTAL_ROBOT';
+// --- AUTH & OTHER ---
+
+const Profile = () => {
+    const { currentUser, logout } = useStore();
+    if (!currentUser) return <Navigate to="/login" />;
     return (
-        <div className="pt-24 px-6 pb-20 min-h-screen flex flex-col items-center justify-center">
-            <div className="bg-white/80 backdrop-blur-xl p-8 rounded-3xl shadow-sm border border-gray-100 text-center w-full max-w-md animate-fade-in">
-                <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <Bot className="w-10 h-10 text-brand" />
+        <div className="pb-24 pt-24 px-6 min-h-screen bg-[#f8fafc]">
+            <div className="max-w-2xl mx-auto space-y-6">
+                <div className="bg-white rounded-[50px] p-12 shadow-sm border border-gray-100 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-48 h-48 bg-blue-50 rounded-full -mr-24 -mt-24 blur-3xl opacity-50"></div>
+                    <div className="flex items-center gap-8 mb-12 relative z-10">
+                        <div className="w-24 h-24 rounded-[32px] bg-[#0056d2] flex items-center justify-center text-white text-4xl font-black shadow-2xl shadow-blue-100">
+                            {currentUser.name.charAt(0)}
+                        </div>
+                        <div>
+                            <h2 className="text-3xl font-black text-gray-800 tracking-tighter uppercase">{currentUser.name}</h2>
+                            <p className="text-[#0056d2] font-black text-[11px] uppercase tracking-[0.4em] bg-blue-50 px-4 py-1 rounded-full inline-block mt-3 shadow-inner">{currentUser.role} IDENTITY</p>
+                        </div>
+                    </div>
+                    <div className="space-y-4 relative z-10">
+                        <div className="p-6 bg-gray-50 rounded-[28px] flex items-center gap-6 border border-gray-100/50">
+                            <Send className="w-6 h-6 text-blue-600" />
+                            <span className="text-base font-bold text-gray-500">{currentUser.email}</span>
+                        </div>
+                        <div className="p-6 bg-gray-50 rounded-[28px] flex items-center gap-6 border border-gray-100/50">
+                            <Smartphone className="w-6 h-6 text-blue-600" />
+                            <span className="text-base font-bold text-gray-500">{currentUser.phone || 'Terminal Unlinked'}</span>
+                        </div>
+                    </div>
+                    <button onClick={logout} className="mt-12 w-full py-5 text-red-500 font-black bg-red-50 rounded-[24px] active:scale-95 transition-all text-xs uppercase tracking-[0.5em] shadow-lg shadow-red-50">DISCONNECT IDENTITY</button>
                 </div>
-                <h2 className="text-2xl font-display font-bold text-gray-900 mb-2">Need Help?</h2>
-                <p className="text-gray-500 mb-8 text-sm">Facing issues with access, payments, or just want to report a bug? Contact our AI Support Bot or Admin directly on Telegram.</p>
-                <a href={`https://t.me/${botUsername}`} target="_blank" rel="noopener noreferrer" className="w-full py-4 bg-[#229ED9] text-white rounded-2xl font-bold shadow-lg shadow-blue-400/30 flex items-center justify-center gap-2 hover:bg-[#1A87B9] transition-all transform hover:scale-[1.02]"><MessageCircle className="w-5 h-5" /> Chat on Telegram</a>
+                {(currentUser.role === UserRole.ADMIN) && (
+                    <Link to="/admin" className="block w-full py-7 bg-gradient-to-r from-[#0056d2] to-blue-800 text-white rounded-[40px] text-center font-black shadow-2xl shadow-blue-200 text-xl active:scale-95 transition-transform uppercase tracking-[0.2em]">ADMIN COMMAND GRID</Link>
+                )}
             </div>
         </div>
     );
 };
 
 const Login = () => {
-  const [isSignup, setIsSignup] = useState(false);
-  const [formData, setFormData] = useState({ name: '', email: '', phone: '', password: '' });
-  const { login, signup, currentUser, settings } = useStore();
-  const navigate = useNavigate();
-  useEffect(() => {
-    if (currentUser) {
-      const pendingCourse = localStorage.getItem('pendingCourseVerification');
-      if (pendingCourse) { navigate(`/verify/${pendingCourse}`); return; }
-      if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.EDITOR) navigate('/admin'); else navigate('/');
-    }
-  }, [currentUser, navigate]);
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isSignup) signup(formData.name, formData.email, formData.phone, formData.password);
-    else if (!login(formData.email, formData.password)) alert('Invalid credentials. Please try again.');
-  };
-  return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden">
-      <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0">
-          <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-brand/10 rounded-full blur-3xl"></div>
-          <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-500/10 rounded-full blur-3xl"></div>
-      </div>
-      <div className="mb-10 scale-150 z-10"><Logo dark={true} /></div>
-      <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-glow w-full max-w-sm overflow-hidden z-10 border border-white/50">
-        <div className="flex p-2 bg-gray-100/50 m-2 rounded-2xl">
-          <button className={`flex-1 py-3 text-center font-bold text-sm rounded-xl transition-all ${!isSignup ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`} onClick={() => setIsSignup(false)}>LOGIN</button>
-          <button className={`flex-1 py-3 text-center font-bold text-sm rounded-xl transition-all ${isSignup ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`} onClick={() => setIsSignup(true)}>SIGNUP</button>
-        </div>
-        <form onSubmit={handleSubmit} className="p-8 space-y-5">
-          {isSignup && (<><input type="text" placeholder="Full Name" required className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-brand transition-all text-gray-900" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} /><input type="tel" placeholder="Phone Number" required className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-brand transition-all text-gray-900" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} /></>)}
-          <input type="text" placeholder="Email Address" required className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-brand transition-all text-gray-900" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
-          <input type="password" placeholder="Password" required className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-brand transition-all text-gray-900" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
-          <button className="w-full bg-gradient-to-r from-brand to-indigo-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-brand/30 hover:shadow-brand/40 active:scale-95 transition-all">{isSignup ? 'Start Learning' : 'Login'}</button>
-          {!isSignup && (<div className="mt-6 text-center border-t pt-4 border-dashed border-gray-200"><button type="button" onClick={() => { if(confirm('RESET all data?')) { localStorage.clear(); window.location.reload(); } }} className="text-[10px] text-gray-400 hover:text-red-500 font-medium">Reset Application Data</button></div>)}
-        </form>
-      </div>
-    </div>
-  );
-};
-
-const HomePage = () => {
-  const { banners, courses, currentUser } = useStore();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [activeBanner, setActiveBanner] = useState(0);
-  useEffect(() => {
-    if (banners.length === 0) return;
-    const interval = setInterval(() => setActiveBanner(curr => (curr + 1) % banners.length), 4000);
-    return () => clearInterval(interval);
-  }, [banners.length]);
-  return (
-    <div className="pb-24 pt-20">
-      <div className="px-4 mb-6">
-        <div className="relative">
-            <h1 className="text-2xl font-display font-bold text-gray-900 mb-4">Hello, {currentUser?.name.split(' ')[0] || 'Student'} 👋</h1>
-            <input type="text" placeholder="What do you want to learn today?" className="w-full pl-12 pr-4 py-4 bg-white/80 backdrop-blur rounded-2xl shadow-sm border border-gray-100 focus:outline-none focus:ring-2 focus:ring-brand/50 transition-all text-gray-900 placeholder:text-gray-500 font-medium" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-            <Search className="w-5 h-5 text-gray-400 absolute left-4 bottom-4" />
-        </div>
-      </div>
-      {banners.length > 0 && (
-        <div className="px-4">
-            <div className="relative w-full aspect-[21/9] rounded-2xl overflow-hidden shadow-lg">
-            {banners.map((b, i) => (
-                <img key={b.id} src={b.image} alt="Banner" className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${i === activeBanner ? 'opacity-100' : 'opacity-0'}`} />
-            ))}
-            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 p-1 bg-black/20 backdrop-blur-sm rounded-full">
-                {banners.map((_, i) => (<div key={i} className={`h-1.5 rounded-full transition-all ${i === activeBanner ? 'w-4 bg-white' : 'w-1.5 bg-white/50'}`} />))}
-            </div>
-            </div>
-        </div>
-      )}
-      <div className="px-4"><AdContainer /></div>
-      <div className="mt-4 pl-4">
-        <div className="flex justify-between items-center mb-4 pr-4"><h2 className="text-lg font-display font-bold text-gray-900">Popular Batches</h2><Link to="/courses" className="text-brand text-xs font-bold bg-brand-light px-3 py-1.5 rounded-full hover:bg-brand/10 transition-colors">View All</Link></div>
-        <div className="flex overflow-x-auto space-x-4 pb-8 pr-4 no-scrollbar">
-          {courses.slice(0, 5).map(course => (
-            <Link to={`/course/${course.id}`} key={course.id} className="flex-none w-72 bg-white rounded-3xl shadow-card border border-gray-100 overflow-hidden group hover:scale-[1.02] transition-transform duration-300">
-              <div className="relative h-40 overflow-hidden"><img src={course.image} alt={course.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" /><div className="absolute top-0 inset-x-0 h-full bg-gradient-to-t from-black/60 to-transparent"></div><div className="absolute bottom-3 left-3 text-white"><span className="text-[10px] font-bold bg-white/20 backdrop-blur-md px-2 py-1 rounded-lg border border-white/20 uppercase tracking-wide">{course.category}</span></div>{course.isPaid && (<div className="absolute top-3 right-3 bg-yellow-400 text-yellow-900 text-[10px] font-bold px-2 py-1 rounded-lg shadow-sm flex items-center gap-1"><Lock className="w-3 h-3" /> PREMIUM</div>)}</div>
-              <div className="p-5"><h3 className="font-bold text-gray-900 line-clamp-1 mb-1 text-lg font-display">{course.title}</h3><p className="text-gray-500 text-xs line-clamp-1 mb-4">{course.description}</p><div className="flex items-center justify-between"><div className="flex flex-col"><span className="text-[10px] text-gray-400 font-bold uppercase">Access</span><span className={`font-bold text-base ${course.isPaid ? 'text-gray-900' : 'text-green-600'}`}>{course.isPaid ? 'Key Locked' : 'Free'}</span></div><div className="w-10 h-10 rounded-full bg-brand text-white flex items-center justify-center shadow-lg shadow-brand/30 group-hover:scale-110 transition-transform"><PlayCircle className="w-5 h-5" /></div></div></div>
-            </Link>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const CourseListing = () => {
-  const { courses } = useStore();
-  const [filter, setFilter] = useState('All');
-  const categories = ['All', ...new Set(courses.map(c => c.category))];
-  const filtered = courses.filter(c => filter === 'All' || c.category === filter).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  return (
-    <div className="pb-24 pt-24 p-4 min-h-screen">
-      <div className="flex gap-2 mb-6 overflow-x-auto no-scrollbar pb-2">{categories.map(cat => (<button key={cat} onClick={() => setFilter(cat)} className={`whitespace-nowrap px-5 py-2.5 rounded-full text-sm font-bold transition-all shadow-sm ${filter === cat ? 'bg-brand text-white shadow-brand/30' : 'bg-white/80 text-gray-600 hover:bg-gray-100'}`}>{cat}</button>))}</div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">{filtered.length === 0 ? (<div className="col-span-2 text-center py-20 bg-white rounded-3xl border border-dashed border-gray-200"><div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400"><Search className="w-8 h-8"/></div><p className="text-gray-500 font-medium">No batches found.</p></div>) : filtered.map(course => (
-          <Link to={`/course/${course.id}`} key={course.id} className="bg-white rounded-3xl shadow-card border border-gray-100 overflow-hidden flex flex-col group hover:-translate-y-1 transition-all duration-300">
-            <div className="relative h-48 overflow-hidden"><img src={course.image} alt={course.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" /><div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent"></div><div className="absolute bottom-3 left-3"><span className="bg-white/90 backdrop-blur text-brand-dark text-[10px] px-3 py-1 rounded-full font-bold uppercase tracking-wider">{course.category}</span></div>{course.isPaid && <div className="absolute top-3 right-3 bg-yellow-400 text-yellow-900 text-[10px] px-2 py-1 rounded-lg font-bold shadow-sm flex items-center gap-1"><Lock className="w-3 h-3"/> LOCKED</div>}</div>
-            <div className="p-5 flex-1 flex flex-col"><h3 className="font-display font-bold text-gray-900 text-xl leading-tight mb-2 flex-1">{course.title}</h3><p className="text-gray-500 text-sm line-clamp-2 mb-4">{course.description}</p><div className="flex items-center justify-between pt-4 border-t border-gray-50"><div className="flex flex-col"><span className="text-[10px] text-gray-400 font-bold uppercase">Status</span><span className={`font-bold ${course.isPaid ? 'text-gray-900' : 'text-green-600'}`}>{course.isPaid ? 'Key Required' : 'Free Access'}</span></div><button className="bg-gray-900 text-white text-sm font-bold px-6 py-2.5 rounded-xl hover:bg-brand transition-colors shadow-lg group-hover:shadow-xl">View Batch</button></div></div>
-          </Link>
-        ))}</div>
-    </div>
-  );
-};
-
-const Watch = () => {
-    const { courseId } = useParams();
-    const { courses, currentUser, saveVideoProgress, saveAiQuiz, saveNote } = useStore();
-    const [currentVideo, setCurrentVideo] = useState<Video | null>(null);
-    const [showQuiz, setShowQuiz] = useState(false);
-    const [quizLoading, setQuizLoading] = useState(false);
-    const [showNoteModal, setShowNoteModal] = useState(false);
+    const { login, signup, currentUser } = useStore();
     const navigate = useNavigate();
-    const course = courses.find(c => c.id === courseId);
-    const allVideos: { video: Video, chapterId: string, chapterTitle: string }[] = [];
-    course?.chapters.forEach(chap => chap.videos.forEach(vid => allVideos.push({ video: vid, chapterId: chap.id, chapterTitle: chap.title })));
-    const [currentVideoIdx, setCurrentVideoIdx] = useState(0);
-    useEffect(() => { if(allVideos.length > 0) setCurrentVideo(allVideos[currentVideoIdx].video); }, [currentVideoIdx, courses]);
-    const handleVideoProgress = (currentTime: number, duration: number) => { if (currentVideo) saveVideoProgress(currentVideo.id, currentTime, duration); };
-    if (!currentUser) return <Navigate to="/login" />;
-    if (!course) return <Navigate to="/" />;
-    const hasAccess = currentUser.purchasedCourseIds.includes(course.id) || (currentUser.tempAccess?.[course.id] && new Date(currentUser.tempAccess[course.id]) > new Date());
-    if (!hasAccess) return <Navigate to={`/course/${courseId}`} />;
+    const [isS, setIsS] = useState(false);
+    const [f, setF] = useState({ name: '', email: '', pass: '' });
+
+    useEffect(() => { if (currentUser) navigate('/'); }, [currentUser, navigate]);
+
     return (
-        <div className="min-h-screen bg-gray-900 text-white flex flex-col md:flex-row h-screen overflow-hidden">
-            <div className="flex-1 flex flex-col relative bg-black">
-                <div className="flex-1 relative flex items-center justify-center">{currentVideo ? (<VideoPlayer src={currentVideo.filename} onProgress={handleVideoProgress} onBack={() => navigate(`/course/${courseId}`)} initialTime={currentUser.videoProgress?.[currentVideo.id]?.timestamp || 0} />) : <div className="text-gray-500">Select a video</div>}</div>
-                <div className="p-4 bg-gray-900 border-t border-gray-800 flex justify-between items-center"><div><h1 className="text-xl font-bold">{currentVideo?.title}</h1><p className="text-gray-400 text-sm">{allVideos[currentVideoIdx]?.chapterTitle}</p></div></div>
+        <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-[#7c5cdb] relative overflow-hidden">
+            <div className="text-center mb-12 relative z-10">
+              <div className="w-20 h-20 bg-white rounded-[28px] flex items-center justify-center mx-auto mb-4 text-[#7c5cdb] text-3xl font-black shadow-2xl">S</div>
+              <h1 className="text-2xl font-black text-white italic tracking-tighter uppercase">Study Tool Hub</h1>
             </div>
-            <div className="w-full md:w-80 bg-gray-800 border-l border-gray-700 flex flex-col h-[40vh] md:h-full overflow-hidden">
-                <div className="p-4 border-b border-gray-700"><h2 className="font-bold text-lg">Course Content</h2></div>
-                <div className="flex-1 overflow-y-auto">{course.chapters.map((chap) => (<div key={chap.id}><div className="px-4 py-2 bg-gray-700/50 text-xs font-bold text-gray-300 uppercase">{chap.title}</div>{chap.videos.map((vid) => { const idx = allVideos.findIndex(v => v.video.id === vid.id); const isPlaying = idx === currentVideoIdx; return (<button key={vid.id} onClick={() => setCurrentVideoIdx(idx)} className={`w-full text-left p-3 flex gap-3 hover:bg-gray-700 border-b border-gray-700/50 ${isPlaying ? 'bg-gray-700 border-l-4 border-l-brand' : ''}`}><div className="mt-1">{isPlaying ? <PlayCircle className="w-4 h-4 text-brand" /> : <div className="w-4 h-4 rounded-full border border-gray-500" />}</div><div><p className={`text-sm font-medium ${isPlaying ? 'text-white' : 'text-gray-300'}`}>{vid.title}</p><p className="text-xs text-gray-500">{vid.duration}</p></div></button>); })}</div>))}</div>
+            <div className="bg-white p-10 rounded-[50px] w-full max-w-md shadow-2xl animate-fade-in relative z-10">
+                <h2 className="text-3xl font-black text-gray-800 mb-8 text-center italic uppercase tracking-tighter">Identity Sync</h2>
+                <form onSubmit={e => { e.preventDefault(); if(isS) signup(f.name, f.email, '', f.pass); else login(f.email, f.pass); }} className="space-y-4">
+                    {isS && <input className="w-full p-5 bg-gray-50 rounded-2xl outline-none font-bold border-2 border-transparent focus:border-blue-100" placeholder="Full Identity" value={f.name} onChange={e => setF({...f, name: e.target.value})} required />}
+                    <input className="w-full p-5 bg-gray-50 rounded-2xl outline-none font-bold border-2 border-transparent focus:border-blue-100" placeholder="Email/Terminal" value={f.email} onChange={e => setF({...f, email: e.target.value})} required />
+                    <input className="w-full p-5 bg-gray-50 rounded-2xl outline-none font-bold border-2 border-transparent focus:border-blue-100" type="password" placeholder="Pass-Sequence" value={f.pass} onChange={e => setF({...f, pass: e.target.value})} required />
+                    <button className="w-full py-6 bg-[#7c5cdb] text-white font-black rounded-3xl shadow-xl shadow-blue-100 uppercase tracking-widest text-lg active:scale-95 transition-all mt-6">Initialize</button>
+                </form>
+                <button onClick={() => setIsS(!isS)} className="w-full mt-10 text-[10px] text-[#7c5cdb] font-black uppercase tracking-[0.4em] text-center">{isS ? '< Revert to Login' : 'Construct New Node >'}</button>
             </div>
-        </div>
-    );
-};
-
-const Profile = () => {
-   const { currentUser, updateUser, logout, deleteNote } = useStore();
-   const [isEditing, setIsEditing] = useState(false);
-   const [data, setData] = useState({ name: currentUser?.name || '', email: currentUser?.email || '', phone: currentUser?.phone || '' });
-   if (!currentUser) return <Navigate to="/login" />;
-   return (
-      <div className="pb-24 pt-20 p-6 bg-gray-50 min-h-screen">
-         <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-card border border-gray-100 overflow-hidden mb-6 relative">
-            <div className="h-32 bg-gradient-to-r from-brand to-indigo-600"></div>
-            <div className="px-8 pb-8">
-                <div className="flex justify-between items-end -mt-12 mb-4"><div className="w-24 h-24 rounded-full bg-white p-1.5 shadow-lg"><div className="w-full h-full rounded-full bg-gray-100 flex items-center justify-center text-brand text-3xl font-display font-bold">{currentUser.name.charAt(0).toUpperCase()}</div></div><button onClick={() => isEditing ? (updateUser(data), setIsEditing(false)) : setIsEditing(true)} className="text-brand font-bold text-sm bg-brand-light px-4 py-2 rounded-xl hover:bg-brand/10 transition-colors">{isEditing ? 'Save' : 'Edit'}</button></div>
-               {!isEditing ? (<div><h2 className="text-2xl font-display font-bold text-gray-900">{currentUser.name}</h2><p className="text-gray-500 font-medium">{currentUser.email}</p></div>) : (<div className="space-y-4 mt-2"><input className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl" value={data.name} onChange={e => setData({...data, name: e.target.value})} /><input className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl" value={data.phone} onChange={e => setData({...data, phone: e.target.value})} /></div>)}
-            </div>
-         </div>
-         <button onClick={logout} className="w-full mt-8 py-4 text-red-600 font-bold bg-white/80 backdrop-blur border-2 border-red-50 rounded-2xl hover:bg-red-50 transition-colors shadow-sm flex items-center justify-center gap-2"><LogOut className="w-5 h-5" /> Logout</button>
-      </div>
-   );
-};
-
-const MyCourses = () => {
-  const { currentUser, courses } = useStore();
-  if (!currentUser) return <Navigate to="/login" />;
-  const myCourses = courses.filter(c => currentUser.purchasedCourseIds.includes(c.id) || (currentUser.tempAccess?.[c.id] && new Date(currentUser.tempAccess[c.id]) > new Date()));
-  return (
-    <div className="pb-24 pt-24 p-6 min-h-screen">
-       <h1 className="text-2xl font-display font-bold text-gray-900 mb-6">My Batches</h1>
-       {myCourses.length === 0 ? (<div className="text-center py-20 bg-white/80 rounded-3xl border border-dashed border-gray-200"><BookOpen className="w-16 h-16 mx-auto mb-4 text-gray-300" /><p>No batches found.</p></div>) : (<div className="grid grid-cols-1 md:grid-cols-2 gap-5">{myCourses.map(course => (<Link to={`/course/${course.id}`} key={course.id} className="bg-white/80 backdrop-blur rounded-3xl shadow-sm border border-gray-100 overflow-hidden flex gap-4 p-4 hover:border-brand transition-colors group"><div className="w-24 h-24 rounded-xl overflow-hidden flex-none"><img src={course.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform" /></div><div className="flex-1 flex flex-col justify-center"><h3 className="font-bold text-gray-900 line-clamp-1">{course.title}</h3><p className="text-xs text-gray-500">{course.chapters.length} Chapters</p></div><div className="flex items-center justify-center"><div className="w-10 h-10 rounded-full bg-brand/10 text-brand flex items-center justify-center"><PlayCircle className="w-6 h-6" /></div></div></Link>))}</div>)}
-    </div>
-  );
-};
-
-const CourseDetail = () => {
-    const { id } = useParams();
-    const { courses, currentUser, enrollCourse } = useStore();
-    const navigate = useNavigate();
-    const course = courses.find(c => c.id === id);
-    if (!course) return <div className="pt-24 text-center">Batch not found</div>;
-    const expiryDate = currentUser?.tempAccess?.[course.id];
-    const isTempAccessValid = expiryDate && new Date(expiryDate) > new Date();
-    const isEnrolled = currentUser && (currentUser.purchasedCourseIds.includes(course.id) || isTempAccessValid);
-    const handleEnroll = () => {
-        if (!currentUser) { navigate('/login'); return; }
-        if (!course.isPaid) { enrollCourse(course.id); alert('Enrolled!'); } else navigate(`/verify/${course.id}`);
-    };
-    return (
-        <div className="pb-24 pt-0 min-h-screen">
-            <div className="relative h-64 md:h-80"><img src={course.image} className="w-full h-full object-cover" /><div className="absolute inset-0 bg-gradient-to-t from-gray-900 to-transparent"></div><div className="absolute bottom-0 left-0 right-0 p-6 text-white"><span className="bg-brand text-xs font-bold px-2 py-1 rounded mb-2 inline-block">{course.category}</span><h1 className="text-3xl font-display font-bold mb-2">{course.title}</h1></div><button onClick={() => navigate(-1)} className="absolute top-6 left-4 bg-black/30 p-2 rounded-full text-white backdrop-blur-sm"><ArrowLeft className="w-6 h-6"/></button></div>
-            <div className="p-6 -mt-6 bg-gray-50 rounded-t-3xl relative z-10">
-                {isTempAccessValid && <div className="mb-6 flex justify-center"><CountdownTimer expiryDate={expiryDate} /></div>}
-                <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
-                    <div><p className="text-gray-500 text-sm font-bold uppercase">Price</p><p className="text-2xl font-bold text-gray-900">{course.isPaid ? `₹${course.price}` : 'Free'}</p></div>
-                    {isEnrolled ? (<button className="bg-green-600 text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg"><CheckCircle className="w-5 h-5" /> {isTempAccessValid ? 'Access Active' : 'Enrolled'}</button>) : (
-                        <div className="flex gap-2">
-                            {course.isPaid && course.shortenerLink && (<a href={course.shortenerLink} target="_blank" rel="noopener noreferrer" className="bg-purple-600 text-white px-4 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-purple-500/30 hover:scale-105 transition-transform text-sm"><Unlock className="w-4 h-4" /> 24h Free Access</a>)}
-                            <button onClick={handleEnroll} className="bg-brand text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg hover:scale-105 transition-transform text-sm">{course.isPaid ? <Lock className="w-4 h-4" /> : <PlayCircle className="w-4 h-4" />}{course.isPaid ? 'Unlock' : 'Start'}</button>
-                        </div>
-                    )}
-                </div>
-                <h3 className="font-bold text-gray-900 text-lg mb-4">Course Content</h3>
-                <div className="space-y-4">{course.chapters.map((chapter, idx) => (<div key={chapter.id} className="bg-white rounded-2xl border border-gray-100 overflow-hidden"><div className="p-4 bg-gray-50/50 border-b font-bold text-gray-800 flex justify-between"><span>{idx + 1}. {chapter.title}</span><span className="text-xs text-gray-500">{chapter.videos.length} Videos</span></div><div className="divide-y">{chapter.videos.map((video) => (<div key={video.id} onClick={() => isEnrolled ? navigate(`/watch/${course.id}`) : handleEnroll()} className={`p-4 flex items-center gap-3 hover:bg-gray-50 cursor-pointer ${!isEnrolled ? 'opacity-50' : ''}`}><div className="w-8 h-8 rounded-full bg-brand/10 text-brand flex items-center justify-center">{isEnrolled ? <PlayCircle className="w-5 h-5" /> : <Lock className="w-4 h-4" />}</div><div className="flex-1"><p className="text-sm font-medium text-gray-900">{video.title}</p></div></div>))}</div></div>))}</div>
-            </div>
-        </div>
-    );
-};
-
-const VerifyAccess = () => {
-    const { courseId } = useParams();
-    const { courses, enrollCourse, currentUser } = useStore();
-    const [key, setKey] = useState('');
-    const navigate = useNavigate();
-    const course = courses.find(c => c.id === courseId);
-    if (!course) return <Navigate to="/" />;
-    if (!currentUser) { localStorage.setItem('pendingCourseVerification', courseId || ''); return <Navigate to="/login" />; }
-    const handleVerify = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (key === course.accessKey) { enrollCourse(course.id); alert('Unlocked!'); navigate(`/course/${course.id}`); }
-        else alert('Invalid Key');
-    };
-    return (
-        <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6">
-            <div className="bg-white/80 backdrop-blur-xl p-8 rounded-3xl shadow-xl max-w-md w-full border">
-                <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4 text-yellow-600"><Lock className="w-8 h-8" /></div>
-                <h2 className="text-2xl font-display font-bold text-center text-gray-900 mb-6">Unlock Batch</h2>
-                <form onSubmit={handleVerify} className="space-y-4"><input type="text" placeholder="Enter Access Key" className="w-full p-4 bg-gray-50 border rounded-xl text-center font-mono text-lg uppercase" value={key} onChange={(e) => setKey(e.target.value)} /><button className="w-full py-4 bg-brand text-white rounded-xl font-bold shadow-lg">Unlock Now</button></form>
-                <button onClick={() => navigate(-1)} className="w-full mt-4 text-gray-400 text-xs font-bold">Cancel</button>
-            </div>
-        </div>
-    );
-};
-
-const TempAccess = () => {
-    const { courseId } = useParams();
-    const { grantTempAccess } = useStore();
-    const navigate = useNavigate();
-    const [progress, setProgress] = useState(0);
-    useEffect(() => {
-        if (courseId) {
-            const timer = setInterval(() => {
-                setProgress(prev => {
-                    if (prev >= 100) {
-                        clearInterval(timer);
-                        grantTempAccess(courseId);
-                        setTimeout(() => navigate(`/course/${courseId}`), 500);
-                        return 100;
-                    }
-                    return prev + 1; // 1% every 100ms = 10 seconds total
-                });
-            }, 100);
-            return () => clearInterval(timer);
-        }
-    }, [courseId, grantTempAccess, navigate]);
-    return (
-        <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
-            <div className="bg-white/80 backdrop-blur-xl p-8 rounded-3xl shadow-xl max-w-sm w-full flex flex-col items-center border">
-                <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mb-6 relative"><Unlock className="w-10 h-10 text-green-600 relative z-10" /><svg className="absolute inset-0 w-full h-full -rotate-90"><circle cx="40" cy="40" r="36" stroke="#f0fdf4" strokeWidth="4" fill="none" /><circle cx="40" cy="40" r="36" stroke="#16a34a" strokeWidth="4" fill="none" strokeDasharray="226" strokeDashoffset={226 - (226 * progress) / 100} className="transition-all duration-300" /></svg></div>
-                <h2 className="text-xl font-display font-bold text-gray-900 mb-2">Unlocking Access</h2>
-                <p className="text-gray-500 text-sm mb-6">Verifying completion... please wait 10 seconds.</p>
-                <div className="w-full bg-gray-100 rounded-full h-2 mb-2 overflow-hidden"><div className="bg-green-500 h-2 rounded-full transition-all duration-300" style={{ width: `${progress}%` }}></div></div>
-                <p className="text-xs text-gray-400 font-bold">{progress}% Verified</p>
-            </div>
-        </div>
-    );
-};
-
-const RevealKey = () => {
-    const { key } = useParams();
-    return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white p-6">
-            <div className="text-center"><h1 className="text-3xl font-bold mb-4">Access Key Revealed</h1><div className="bg-white/10 p-6 rounded-2xl border backdrop-blur-md"><code className="text-2xl font-mono text-yellow-400 tracking-wider select-all">{key}</code></div><Link to="/" className="inline-block mt-8 text-brand">Go to App</Link></div>
-        </div>
-    );
-};
-
-const ContentManager = ({ course, onClose }: { course: Course, onClose: () => void }) => {
-    const { updateCourse } = useStore();
-    const [chapters, setChapters] = useState<Chapter[]>(course.chapters);
-    const [newChapterTitle, setNewChapterTitle] = useState('');
-    const handleSave = () => updateCourse({ ...course, chapters });
-    const addChapter = () => { if(!newChapterTitle) return; setChapters([...chapters, { id: Date.now().toString(), title: newChapterTitle, videos: [], notes: [] }]); setNewChapterTitle(''); };
-    const addVideo = (chapterId: string) => {
-        const title = prompt('Video Title:');
-        const url = prompt('Video URL:');
-        if (title && url) setChapters(chapters.map(c => c.id === chapterId ? { ...c, videos: [...c.videos, { id: Date.now().toString(), title, filename: url, duration: '10:00' }] } : c));
-    };
-    return (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"><div className="bg-white w-full max-w-2xl rounded-3xl p-6 max-h-[85vh] flex flex-col"><div className="flex justify-between items-center mb-6"><h2 className="text-xl font-bold">Manage Content: {course.title}</h2><button onClick={onClose}><X className="w-5 h-5"/></button></div><div className="flex-1 overflow-y-auto pr-2"><div className="flex gap-2 mb-6"><input value={newChapterTitle} onChange={e => setNewChapterTitle(e.target.value)} placeholder="New Chapter" className="flex-1 p-3 bg-gray-50 rounded-xl border" /><button onClick={addChapter} className="bg-brand text-white px-4 rounded-xl font-bold">Add</button></div><div className="space-y-4">{chapters.map((chapter, idx) => (<div key={chapter.id} className="border rounded-xl overflow-hidden"><div className="bg-gray-50 p-4 flex justify-between items-center border-b"><span>{idx + 1}. {chapter.title}</span><div className="flex gap-2"><button onClick={() => addVideo(chapter.id)} className="text-xs bg-white border px-2 py-1 rounded font-bold">+ Video</button><button onClick={() => setChapters(chapters.filter(c => c.id !== chapter.id))} className="text-red-500"><Trash2 className="w-4 h-4"/></button></div></div><div className="p-2 space-y-1">{chapter.videos.map(video => (<div key={video.id} className="flex justify-between items-center p-2 hover:bg-gray-50 rounded-lg group"><span className="text-sm truncate">{video.title}</span><button onClick={() => setChapters(chapters.map(c => c.id === chapter.id ? { ...c, videos: c.videos.filter(v => v.id !== video.id) } : c))} className="text-gray-400 group-hover:text-red-500"><X className="w-4 h-4"/></button></div>))}</div></div>))}</div></div><div className="pt-4 border-t mt-4 flex justify-end gap-3"><button onClick={onClose} className="px-6 py-2 text-gray-500 font-bold">Cancel</button><button onClick={() => { handleSave(); onClose(); }} className="px-6 py-2 bg-brand text-white font-bold rounded-xl shadow-lg shadow-brand/20">Save Changes</button></div></div></div>
-    );
-};
-
-const QuestionEditor = ({ exam, onSave, onCancel }: { exam: Exam, onSave: (e: Exam) => void, onCancel: () => void }) => {
-    const [questions, setQuestions] = useState<Question[]>(exam.questions);
-    const [qText, setQText] = useState('');
-    const [options, setOptions] = useState(['', '', '', '']);
-    const [correct, setCorrect] = useState(0);
-    const addQuestion = () => {
-        if (!qText || options.some(o => !o)) return;
-        setQuestions([...questions, { id: Date.now().toString(), question: qText, options: [...options], correctAnswer: correct }]);
-        setQText(''); setOptions(['', '', '', '']); setCorrect(0);
-    };
-    return (
-        <div className="flex flex-col h-full"><div className="flex items-center gap-2 mb-4"><button onClick={onCancel} className="text-gray-500"><ArrowLeft className="w-5 h-5"/></button><h3 className="font-bold text-lg">Editing: {exam.title}</h3></div><div className="flex-1 overflow-y-auto space-y-6"><div className="bg-gray-50 p-4 rounded-xl border"><textarea value={qText} onChange={e => setQText(e.target.value)} placeholder="Question" className="w-full p-3 rounded-lg border mb-3" /><div className="grid grid-cols-2 gap-2 mb-3">{options.map((opt, i) => (<div key={i} className="flex items-center gap-2"><input type="radio" checked={correct === i} onChange={() => setCorrect(i)} /><input value={opt} onChange={e => { const newOpts = [...options]; newOpts[i] = e.target.value; setOptions(newOpts); }} placeholder={`Option ${i+1}`} className="flex-1 p-2 rounded border" /></div>))}</div><button onClick={addQuestion} className="w-full py-2 bg-gray-800 text-white rounded-lg font-bold">Add Question</button></div><div className="space-y-3">{questions.map((q, i) => (<div key={q.id} className="p-3 border rounded-xl relative group"><p className="font-bold text-sm">{i+1}. {q.question}</p><button onClick={() => setQuestions(questions.filter(qu => qu.id !== q.id))} className="absolute top-3 right-3 text-gray-400 hover:text-red-500"><Trash2 className="w-4 h-4"/></button></div>))}</div></div><div className="pt-4 border-t mt-4"><button onClick={() => onSave({ ...exam, questions })} className="w-full py-3 bg-brand text-white font-bold rounded-xl shadow-lg">Save Exam</button></div></div>
-    );
-};
-
-const ExamManager = ({ course, onClose }: { course: Course, onClose: () => void }) => {
-    const { updateCourse } = useStore();
-    const [exams, setExams] = useState<Exam[]>(course.exams || []);
-    const [editingExam, setEditingExam] = useState<Exam | null>(null);
-    const handleSave = () => updateCourse({ ...course, exams });
-    const addExam = () => { const title = prompt("Exam Title:"); if (title) setExams([...exams, { id: Date.now().toString(), title, questions: [] }]); };
-    return (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"><div className="bg-white w-full max-w-3xl rounded-3xl p-6 max-h-[85vh] flex flex-col"><div className="flex justify-between items-center mb-6"><h2 className="text-xl font-bold">Manage Exams</h2><button onClick={onClose}><X className="w-5 h-5"/></button></div>{editingExam ? (<QuestionEditor exam={editingExam} onSave={(updated) => { setExams(exams.map(e => e.id === updated.id ? updated : e)); setEditingExam(null); }} onCancel={() => setEditingExam(null)} />) : (<div className="flex-1 overflow-y-auto"><button onClick={addExam} className="w-full py-3 border-2 border-dashed rounded-xl text-gray-400 font-bold hover:border-brand transition-colors mb-4 flex items-center justify-center gap-2"><Plus className="w-5 h-5" /> New Exam</button><div className="space-y-3">{exams.map(exam => (<div key={exam.id} className="bg-gray-50 p-4 rounded-xl flex justify-between border"><div><h3 className="font-bold">{exam.title}</h3><p className="text-xs">{exam.questions.length} Questions</p></div><div className="flex gap-2"><button onClick={() => setEditingExam(exam)} className="px-3 py-1 bg-white border text-xs font-bold rounded hover:bg-brand hover:text-white transition-colors">Edit</button><button onClick={() => setExams(exams.filter(e => e.id !== exam.id))} className="text-red-500"><Trash2 className="w-4 h-4"/></button></div></div>))}</div></div>)}{!editingExam && (<div className="pt-4 border-t mt-4 flex justify-end gap-3"><button onClick={onClose} className="px-6 py-2 text-gray-500 font-bold">Cancel</button><button onClick={() => { handleSave(); onClose(); }} className="px-6 py-2 bg-brand text-white font-bold rounded-xl shadow-lg">Save Changes</button></div>)}</div></div>
-    );
-};
-
-const AdminPanel = () => {
-    const { currentUser, courses, users, banners, settings, addCourse, updateCourse, deleteCourse, addBanner, deleteBanner, updateSettings, addUser, deleteUser, addCourseToUser } = useStore();
-    const [tab, setTab] = useState<'courses' | 'users' | 'banners' | 'settings'>('courses');
-    const [showCourseModal, setShowCourseModal] = useState(false);
-    const [editingCourse, setEditingCourse] = useState<Course | null>(null);
-    const [showExamManager, setShowExamManager] = useState<Course | null>(null);
-    const [showContentManager, setShowContentManager] = useState<Course | null>(null);
-    const [showUserModal, setShowUserModal] = useState(false);
-    const [isGeneratingLink, setIsGeneratingLink] = useState(false);
-    const [showEnrollModal, setShowEnrollModal] = useState<string | null>(null); 
-    const linkInputRef = useRef<HTMLInputElement>(null);
-    if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.EDITOR)) return <Navigate to="/" />;
-    const handleSaveCourse = (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        const fd = new FormData(e.currentTarget);
-        const data: any = { id: editingCourse?.id || Date.now().toString(), title: fd.get('title'), description: fd.get('description'), image: fd.get('image'), category: fd.get('category'), price: Number(fd.get('price')), mrp: Number(fd.get('mrp')), isPaid: fd.get('isPaid') === 'on', accessKey: fd.get('accessKey'), telegramChannelLink: fd.get('telegramChannelLink'), shortenerLink: linkInputRef.current?.value || editingCourse?.shortenerLink || '', chapters: editingCourse?.chapters || [], exams: editingCourse?.exams || [], createdAt: editingCourse?.createdAt || new Date().toISOString() };
-        if (editingCourse) updateCourse(data); else addCourse(data);
-        setShowCourseModal(false); setEditingCourse(null);
-    };
-    const handleGenerateLink = async () => {
-        if(!settings.linkShortenerApiKey || !settings.linkShortenerApiUrl) { alert("Configure Link Shortener first!"); return; }
-        const courseId = editingCourse?.id;
-        if(!courseId) { alert("Save batch first!"); return; }
-        setIsGeneratingLink(true);
-        try {
-            let baseUrl = settings.linkShortenerApiUrl.trim();
-            if (!baseUrl.endsWith('/api') && !baseUrl.includes('/api?')) baseUrl = baseUrl.replace(/\/$/, '') + '/api';
-            const destinationUrl = `${window.location.origin}/#/temp-access/${courseId}`;
-            const encodedDest = encodeURIComponent(destinationUrl);
-            const separator = baseUrl.includes('?') ? '&' : '?';
-            const fetchUrl = `${baseUrl}${separator}api=${settings.linkShortenerApiKey}&url=${encodedDest}`;
-            let response;
-            try {
-                response = await fetch(fetchUrl);
-            } catch (corsErr) {
-                // Common CORS issue: use a proxy
-                response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(fetchUrl)}`);
-                const proxyData = await response.json();
-                const actualData = JSON.parse(proxyData.contents);
-                if (actualData.status === 'success' || actualData.shortenedUrl) {
-                   const shortUrl = actualData.shortenedUrl || actualData.shortlink || actualData.url;
-                   if (linkInputRef.current) linkInputRef.current.value = shortUrl;
-                   return;
-                }
-                throw new Error("Shortening failed");
-            }
-            const data = await response.json();
-            if(data.status === 'success' || data.shortenedUrl || data.shortlink) {
-                const shortUrl = data.shortenedUrl || data.shortlink || data.url;
-                if(linkInputRef.current) linkInputRef.current.value = shortUrl;
-            } else throw new Error(data.message || "Unknown error");
-        } catch(e) {
-            alert(`Manual shortening needed. URL: ${window.location.origin}/#/temp-access/${courseId}`);
-        } finally { setIsGeneratingLink(false); }
-    };
-    return (
-        <div className="pb-24 pt-24 p-6 min-h-screen">
-             <div className="flex gap-2 overflow-x-auto pb-4 mb-4">
-                 {['courses', 'users', 'banners', 'settings'].map(t => (<button key={t} onClick={() => setTab(t as any)} className={`px-5 py-2 rounded-xl font-bold capitalize transition-all ${tab === t ? 'bg-brand text-white shadow-lg shadow-brand/30' : 'bg-white/80 text-gray-600 shadow-sm'}`}>{t}</button>))}
-             </div>
-             {tab === 'courses' && (
-                 <div className="space-y-4">
-                     <button onClick={() => { setEditingCourse(null); setShowCourseModal(true); }} className="w-full py-4 bg-white/70 border-2 border-dashed rounded-2xl text-gray-400 font-bold flex items-center justify-center gap-2 hover:border-brand hover:text-brand transition-all"><Plus className="w-5 h-5" /> New Batch</button>
-                     {courses.map(c => (
-                         <div key={c.id} className="bg-white/80 p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row gap-4 items-center">
-                             <img src={c.image} className="w-16 h-16 rounded-lg object-cover" />
-                             <div className="flex-1"><h3 className="font-bold text-gray-900">{c.title}</h3><p className="text-xs text-gray-500">{c.chapters.length} Chapters • {c.isPaid ? `₹${c.price}` : 'Free'}</p></div>
-                             <div className="flex gap-2">
-                                 <button onClick={() => setShowContentManager(c)} className="px-3 py-2 text-green-700 bg-green-50 rounded-lg hover:bg-green-100 font-bold text-xs">Content</button>
-                                 <button onClick={() => setShowExamManager(c)} className="p-2 text-purple-600 bg-purple-50 rounded-lg"><ClipboardList className="w-4 h-4" /></button>
-                                 <button onClick={() => { setEditingCourse(c); setShowCourseModal(true); }} className="p-2 text-blue-600 bg-blue-50 rounded-lg"><Edit className="w-4 h-4" /></button>
-                                 <button onClick={() => { if(confirm('Delete?')) deleteCourse(c.id); }} className="p-2 text-red-600 bg-red-50 rounded-lg"><Trash2 className="w-4 h-4" /></button>
-                             </div>
-                         </div>
-                     ))}
-                 </div>
-             )}
-             {tab === 'users' && <div className="bg-white/80 rounded-3xl border overflow-hidden">{users.map(u => (<div key={u.id} className="p-4 flex justify-between items-center border-b"><div><div className="flex items-center gap-2"><p className="font-bold text-sm">{u.name}</p><span className="text-[10px] bg-gray-100 px-1 rounded uppercase">{u.role}</span></div><p className="text-xs text-gray-500">{u.email}</p></div><button onClick={() => setShowEnrollModal(u.id)} className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded">Enroll</button></div>))}</div>}
-             {tab === 'settings' && <div className="bg-white/80 p-6 rounded-3xl border"><form onSubmit={(e) => { e.preventDefault(); const fd = new FormData(e.currentTarget); updateSettings({ ...settings, appName: fd.get('appName') as string, adminEmail: fd.get('adminEmail') as string, supportPhone: fd.get('supportPhone') as string, uiColor: fd.get('uiColor') as string, linkShortenerApiUrl: fd.get('linkShortenerApiUrl') as string, linkShortenerApiKey: fd.get('linkShortenerApiKey') as string, adsCode: fd.get('adsCode') as string }); alert('Saved!'); }} className="space-y-4"><div><label className="text-xs font-bold text-gray-500">App Name</label><input name="appName" defaultValue={settings.appName} className="w-full p-3 bg-gray-50 border rounded-xl" /></div><div><label className="text-xs font-bold text-gray-500">Color</label><input type="color" name="uiColor" defaultValue={settings.uiColor} className="w-full h-10 rounded-lg" /></div><div className="p-4 bg-gray-50 rounded-xl border"><h4>Link Shortener</h4><input name="linkShortenerApiUrl" defaultValue={settings.linkShortenerApiUrl} placeholder="URL" className="w-full p-3 border rounded-xl mb-2" /><input name="linkShortenerApiKey" defaultValue={settings.linkShortenerApiKey} placeholder="API Key" className="w-full p-3 border rounded-xl" /></div><div><label className="text-xs font-bold text-gray-500">Ads HTML</label><textarea name="adsCode" defaultValue={settings.adsCode} className="w-full p-3 border rounded-xl" rows={3} /></div><button className="w-full bg-brand text-white py-3 rounded-xl font-bold">Save</button></form></div>}
-             {showCourseModal && (<div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"><div className="bg-white w-full max-w-lg rounded-3xl p-6 overflow-y-auto"><h2 className="text-xl font-bold mb-4">{editingCourse ? 'Edit Batch' : 'New Batch'}</h2><form onSubmit={handleSaveCourse} className="space-y-3"><input name="title" defaultValue={editingCourse?.title} placeholder="Title" className="w-full p-3 bg-gray-50 rounded-xl border" required /><textarea name="description" defaultValue={editingCourse?.description} placeholder="Description" className="w-full p-3 bg-gray-50 rounded-xl border" rows={2} /><input name="image" defaultValue={editingCourse?.image} placeholder="Image URL" className="w-full p-3 bg-gray-50 rounded-xl border" /><input name="category" defaultValue={editingCourse?.category} placeholder="Category" className="w-full p-3 bg-gray-50 rounded-xl border" /><div className="grid grid-cols-2 gap-3"><input type="number" name="price" defaultValue={editingCourse?.price} placeholder="Price" className="w-full p-3 bg-gray-50 border rounded-xl" /><input type="number" name="mrp" defaultValue={editingCourse?.mrp} placeholder="MRP" className="w-full p-3 bg-gray-50 border rounded-xl" /></div><div className="flex items-center gap-3 bg-gray-50 p-3 rounded-xl"><input type="checkbox" name="isPaid" defaultChecked={editingCourse?.isPaid} id="isPaid" /><label htmlFor="isPaid">Premium Course</label></div><input name="accessKey" defaultValue={editingCourse?.accessKey} placeholder="Key" className="w-full p-3 bg-gray-50 rounded-xl border" /><div className="flex gap-2"><input name="shortenerLink" ref={linkInputRef} defaultValue={editingCourse?.shortenerLink} placeholder="Short Link" className="flex-1 p-3 bg-gray-50 rounded-xl border" />{editingCourse && (<button type="button" onClick={handleGenerateLink} disabled={isGeneratingLink} className="bg-gray-100 text-gray-600 px-3 rounded-xl font-bold text-xs">{isGeneratingLink ? <Loader2 className="w-4 h-4 animate-spin"/> : 'Generate'}</button>)}</div><div className="flex gap-3 pt-4"><button type="button" onClick={() => setShowCourseModal(false)} className="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-100">Cancel</button><button type="submit" className="flex-1 py-3 bg-brand text-white font-bold rounded-xl">Save</button></div></form></div></div>)}
-             {showEnrollModal && (<div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"><div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl"><h2 className="text-xl font-bold mb-4">Enroll User</h2><div className="space-y-2 max-h-[60vh] overflow-y-auto">{courses.map(c => (<button key={c.id} onClick={() => { addCourseToUser(showEnrollModal, c.id); setShowEnrollModal(null); }} className="w-full text-left p-3 rounded-xl border hover:bg-gray-50 text-sm font-bold text-gray-700">{c.title}</button>))}</div><button onClick={() => setShowEnrollModal(null)} className="w-full mt-4 py-3 bg-gray-100 text-gray-600 font-bold rounded-xl">Cancel</button></div></div>)}
-             {showExamManager && <ExamManager course={showExamManager} onClose={() => setShowExamManager(null)} />}
-             {showContentManager && <ContentManager course={showContentManager} onClose={() => setShowContentManager(null)} />}
         </div>
     );
 };
 
 const MainContent = () => {
-  const location = useLocation();
-  const isFullScreen = location.pathname.startsWith('/watch') || location.pathname.startsWith('/exam') || location.pathname === '/login' || location.pathname.startsWith('/temp-access');
+  const loc = useLocation();
+  const isWatch = loc.pathname.startsWith('/watch') || loc.pathname.startsWith('/exam') || loc.pathname === '/login' || loc.pathname.startsWith('/temp-access');
   return (
-    <>
-      <FuturisticBackground />
-      {!isFullScreen && <Header />}
+    <div className="min-h-screen bg-[#f8fafc]">
+      {!isWatch && <STHeader />}
       <Routes>
         <Route path="/login" element={<Login />} />
-        <Route path="/" element={<HomePage />} />
+        <Route path="/" element={<CourseListing />} />
         <Route path="/courses" element={<CourseListing />} />
+        <Route path="/my-courses" element={<CourseListing />} />
         <Route path="/course/:id" element={<CourseDetail />} />
-        <Route path="/watch/:courseId" element={<Watch />} />
+        <Route path="/course/:courseId/subject/:subjectId" element={<SubjectDetail />} />
         <Route path="/exam/:id" element={<ExamMode />} />
-        <Route path="/my-courses" element={<MyCourses />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/admin" element={<AdminPanel />} />
-        <Route path="/verify/:courseId" element={<VerifyAccess />} />
-        <Route path="/temp-access/:courseId" element={<TempAccess />} />
-        <Route path="/reveal/:key" element={<RevealKey />} />
-        <Route path="/help" element={<Help />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
-      {!isFullScreen && <BottomNav />}
+      {!isWatch && <STBottomNav />}
       <ChatBot />
-    </>
+    </div>
   );
 };
 
-export const App = () => {
-  return (
+export const App = () => (
     <Router>
       <StoreProvider>
-        <ThemeHandler />
         <MainContent />
       </StoreProvider>
     </Router>
-  );
-};
+);

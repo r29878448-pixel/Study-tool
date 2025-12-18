@@ -1,7 +1,7 @@
 
 import React, { useRef, useState, useEffect } from 'react';
 import { 
-  Play, Pause, Volume2, VolumeX, Maximize, Minimize, Settings, Download, Lock, Loader2, ArrowLeft
+  Play, Pause, Volume2, VolumeX, Maximize, Minimize, Settings, Download, Lock, Loader2, ArrowLeft, Bookmark
 } from './Icons';
 
 interface VideoPlayerProps {
@@ -11,6 +11,11 @@ interface VideoPlayerProps {
   onProgress?: (currentTime: number, duration: number) => void;
   initialTime?: number;
   onBack?: () => void;
+  onDownload?: () => void;
+  onEnded?: () => void;
+  onBookmark?: (currentTime: number) => void;
+  className?: string;
+  title?: string;
 }
 
 // Helper to clean and extract URL from various inputs
@@ -23,16 +28,19 @@ const getEmbedUrl = (input: string) => {
     if (srcMatch && srcMatch[1]) return srcMatch[1];
   }
 
-  // 2. YouTube
-  const ytMatch = input.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
-  if (ytMatch && ytMatch[1]) {
-    return `https://www.youtube.com/embed/${ytMatch[1]}?rel=0&modestbranding=1&playsinline=1`;
+  // 2. YouTube (Handles Shorts, Watch, Embed, youtu.be)
+  const ytMatch = input.match(/^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/);
+  if (ytMatch && ytMatch[7]?.length === 11) {
+    const videoId = ytMatch[7];
+    // Parameters to minimize branding: modestbranding=1 (hides logo in control bar), rel=0 (related videos from same channel)
+    // Note: showinfo=0 is deprecated, modestbranding is the modern standard.
+    return `https://www.youtube.com/embed/${videoId}?autoplay=0&controls=1&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&enablejsapi=1&fs=1`;
   }
 
   // 3. Vimeo
   const vimeoMatch = input.match(/vimeo\.com\/(?:video\/)?(\d+)/);
   if (vimeoMatch && vimeoMatch[1]) {
-    return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
+    return `https://player.vimeo.com/video/${vimeoMatch[1]}?title=0&byline=0&portrait=0&fullscreen=1`;
   }
 
   // 4. Google Drive
@@ -49,7 +57,7 @@ const getEmbedUrl = (input: string) => {
   return input;
 };
 
-const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProgress, initialTime, onBack }) => {
+const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProgress, initialTime, onBack, onDownload, onEnded, onBookmark, className, title }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -64,11 +72,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
   const [isLoading, setIsLoading] = useState(false);
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Determine if source is a direct video file
   const isDirectFile = /\.(mp4|webm|ogg|mov|m4v)($|\?)/i.test(src);
   const isEmbed = !isDirectFile;
-
-  // Process URL
   const displayUrl = isEmbed ? getEmbedUrl(src) : src;
 
   useEffect(() => {
@@ -177,13 +182,21 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
     if (!containerRef.current) return;
 
     if (!document.fullscreenElement) {
-      containerRef.current.requestFullscreen();
-      setIsFullscreen(true);
+      containerRef.current.requestFullscreen().catch(err => {
+        console.error(`Error attempting to enable fullscreen: ${err.message}`);
+      });
     } else {
       document.exitFullscreen();
-      setIsFullscreen(false);
     }
   };
+
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
+  }, []);
 
   const handleSpeedChange = (speed: number) => {
     if (videoRef.current) {
@@ -194,21 +207,20 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
   };
 
   const handleMouseMove = () => {
-    if (isEmbed) return;
     setShowControls(true);
     if (controlsTimeoutRef.current) {
       clearTimeout(controlsTimeoutRef.current);
     }
     controlsTimeoutRef.current = setTimeout(() => {
-      if (isPlaying) setShowControls(false);
+      if (isPlaying || isEmbed) setShowControls(false);
     }, 3000);
   };
 
   if (isLocked) {
     return (
-      <div className="w-full aspect-video bg-gray-900 flex flex-col items-center justify-center text-white rounded-lg">
+      <div className={`w-full ${className || 'aspect-video'} bg-gray-900 flex flex-col items-center justify-center text-white rounded-xl shadow-inner`}>
         <Lock className="w-12 h-12 mb-2 text-gray-500" />
-        <p className="text-gray-400">Content Locked</p>
+        <p className="text-gray-400 font-medium">Content Locked</p>
       </div>
     );
   }
@@ -216,21 +228,52 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
   // Embed Player
   if (isEmbed) {
     return (
-      <div className="w-full aspect-video bg-black rounded-lg overflow-hidden shadow-lg relative group">
-        {onBack && (
-            <button 
-                onClick={onBack}
-                className="absolute top-4 left-4 z-50 p-2 bg-black/50 rounded-full text-white hover:bg-black/70 transition-colors"
-            >
-                <ArrowLeft className="w-5 h-5" />
-            </button>
-        )}
+      <div 
+        ref={containerRef}
+        className={`w-full bg-black rounded-xl overflow-hidden shadow-2xl relative group ${isFullscreen ? 'h-screen w-screen rounded-none fixed inset-0 z-[9999]' : (className || 'aspect-video')}`}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={() => setShowControls(false)}
+      >
+        {/* Header Overlay for Embeds */}
+        <div className={`absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/80 to-transparent z-40 flex justify-between items-start transition-opacity duration-300 pointer-events-none ${showControls ? 'opacity-100' : 'opacity-0'}`}>
+            <div className="pointer-events-auto">
+            {onBack && !isFullscreen && (
+                <button 
+                    onClick={onBack}
+                    className="p-2 bg-white/10 backdrop-blur-md rounded-full text-white hover:bg-white/20 transition-colors"
+                >
+                    <ArrowLeft className="w-5 h-5" />
+                </button>
+            )}
+            </div>
+            
+            <div className="flex gap-2 pointer-events-auto">
+                {onDownload && (
+                    <button 
+                        onClick={onDownload}
+                        className="p-2 bg-white/10 backdrop-blur-md rounded-full text-white hover:bg-white/20 transition-colors"
+                        title="Save to Offline Library"
+                    >
+                        <Bookmark className="w-5 h-5" />
+                    </button>
+                )}
+                <button 
+                    onClick={toggleFullscreen}
+                    className="p-2 bg-white/10 backdrop-blur-md rounded-full text-white hover:bg-white/20 transition-colors"
+                >
+                    {isFullscreen ? <Minimize className="w-5 h-5"/> : <Maximize className="w-5 h-5" />}
+                </button>
+            </div>
+        </div>
+
         <iframe 
           src={displayUrl} 
           title="Video Player"
-          className="w-full h-full"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          className="w-full h-full border-0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
           allowFullScreen
+          webkitallowfullscreen="true"
+          mozallowfullscreen="true"
         ></iframe>
       </div>
     );
@@ -241,7 +284,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
     <div 
       ref={containerRef}
       tabIndex={0}
-      className="relative group w-full bg-black rounded-lg overflow-hidden shadow-lg aspect-video select-none outline-none"
+      className={`relative group w-full bg-black rounded-xl overflow-hidden shadow-2xl ${isFullscreen ? 'h-screen w-screen rounded-none fixed inset-0 z-[9999]' : (className || 'aspect-video')} select-none outline-none`}
       onMouseMove={handleMouseMove}
       onMouseLeave={() => isPlaying && setShowControls(false)}
       onDoubleClick={toggleFullscreen}
@@ -257,18 +300,32 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
         onPause={() => setIsPlaying(false)}
         onWaiting={() => setIsLoading(true)}
         onCanPlay={() => setIsLoading(false)}
+        onEnded={() => { setIsPlaying(false); if (onEnded) onEnded(); }}
         onClick={togglePlay}
         controlsList="nodownload"
+        playsInline
       />
       
-      {onBack && (
-        <button 
-            onClick={onBack}
-            className={`absolute top-4 left-4 z-30 p-2 bg-black/40 backdrop-blur-sm rounded-full text-white hover:bg-black/60 transition-all ${showControls || !isPlaying ? 'opacity-100' : 'opacity-0'} duration-300`}
-        >
-            <ArrowLeft className="w-6 h-6" />
-        </button>
-      )}
+      {/* Top Controls Overlay */}
+      <div className={`absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/80 to-transparent z-30 flex justify-between items-start transition-opacity duration-300 ${showControls || !isPlaying ? 'opacity-100' : 'opacity-0'}`}>
+         {onBack && !isFullscreen && (
+            <button 
+                onClick={onBack}
+                className="p-2 bg-white/10 backdrop-blur-md rounded-full text-white hover:bg-white/20 transition-colors"
+            >
+                <ArrowLeft className="w-6 h-6" />
+            </button>
+         )}
+         <div className="flex-1"></div>
+         <div className="flex gap-2">
+            <button 
+                onClick={toggleFullscreen}
+                className="p-2 bg-white/10 backdrop-blur-md rounded-full text-white hover:bg-white/20 transition-colors"
+            >
+                {isFullscreen ? <Minimize className="w-5 h-5"/> : <Maximize className="w-5 h-5" />}
+            </button>
+         </div>
+      </div>
 
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/20 z-20 pointer-events-none">
@@ -287,7 +344,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
         </div>
       )}
 
-      <div className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-4 transition-opacity duration-300 z-20 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
+      {/* Bottom Controls */}
+      <div className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-4 transition-opacity duration-300 z-20 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
         <div className="flex items-center gap-3 mb-2">
            <span className="text-white text-xs font-mono">{formatTime(currentTime)}</span>
            <input 
@@ -349,27 +407,27 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
               )}
             </div>
 
-            {/* Quality Badge (Visual Only) */}
-            <div className="text-white/70 text-[10px] border border-white/20 px-1.5 py-0.5 rounded font-medium cursor-help" title="Auto Quality">
-               HD
-            </div>
+            {/* Bookmark */}
+            {onBookmark && (
+                <button 
+                  onClick={() => onBookmark(currentTime)}
+                  className="text-white hover:text-brand transition-colors"
+                  title="Add Bookmark"
+                >
+                   <Bookmark className="w-5 h-5" />
+                </button>
+            )}
 
             {/* Download */}
-            <a 
-              href={src} 
-              download 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-white hover:text-brand transition-colors"
-              title="Download Video"
-            >
-               <Download className="w-5 h-5" />
-            </a>
-
-            {/* Fullscreen */}
-            <button onClick={toggleFullscreen} className="text-white hover:text-brand transition-colors">
-               {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
-            </button>
+            {onDownload && (
+                <button 
+                  onClick={onDownload}
+                  className="text-white hover:text-brand transition-colors"
+                  title="Download to Phone"
+                >
+                   <Download className="w-5 h-5" />
+                </button>
+            )}
           </div>
         </div>
       </div>

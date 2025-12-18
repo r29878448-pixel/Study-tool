@@ -1,59 +1,73 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, Navigate } from 'react-router-dom';
-import { Timer, CheckCircle, AlertCircle, ArrowLeft, Loader2, List, PlayCircle, Bot, Save, LogOut, RotateCcw, Brain } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
+import { Timer, CheckCircle, AlertCircle, ArrowLeft, Loader2, List, PlayCircle, Bot, Save, LogOut, RotateCcw, Brain, Sparkles } from 'lucide-react';
+import { GoogleGenAI, Type } from "@google/genai";
 import { Course, Question, Exam, ExamProgress } from '../types';
 import { useStore } from '../store';
 
 declare var process: { env: { API_KEY: string } };
 
+/**
+ * Robustly parses JSON from model output, handling potential markdown wrappers
+ * or trailing text that might occur even in JSON mode.
+ */
+const cleanJson = (text: string) => {
+  if (!text) return null;
+  try {
+    // 1. Initial attempt to parse directly
+    return JSON.parse(text);
+  } catch (e) {
+    try {
+      // 2. Fallback: Strip common markdown wrappers and extract array/object content
+      let cleaned = text.replace(/```json\s*|\s*```/g, '').trim();
+      const firstBracket = cleaned.search(/\[|\{/);
+      const lastBracket = Math.max(cleaned.lastIndexOf(']'), cleaned.lastIndexOf('}'));
+      
+      if (firstBracket !== -1 && lastBracket !== -1) {
+         cleaned = cleaned.substring(firstBracket, lastBracket + 1);
+      }
+      return JSON.parse(cleaned);
+    } catch (innerError) {
+      console.error("Critical JSON Parse Failure:", innerError, "Original text:", text);
+      return null;
+    }
+  }
+};
+
 const ExamMode = () => {
   const { id } = useParams();
   const { courses, saveExamResult, saveExamProgress, clearExamProgress, currentUser } = useStore();
   const navigate = useNavigate();
-  
   const course = courses.find(c => c.id === id);
   
-  // States
   const [view, setView] = useState<'selection' | 'taking' | 'review'>('selection');
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [timeLeft, setTimeLeft] = useState(600); // 10 minutes default
+  const [timeLeft, setTimeLeft] = useState(600);
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
   const [answers, setAnswers] = useState<number[]>([]);
   const [isFinished, setIsFinished] = useState(false);
   const [score, setScore] = useState(0);
   const [isAiGenerated, setIsAiGenerated] = useState(false);
   const [resumePrompt, setResumePrompt] = useState<ExamProgress | null>(null);
-  
-  // Track if we've already checked for saved progress to prevent loops
-  const hasCheckedProgress = useRef(false);
 
-  // Validate Course
   if (!course) return <Navigate to="/" />;
 
-  // Check for saved progress on mount (and when user data loads)
+  // Check for saved progress on initial load
   useEffect(() => {
-    // CRITICAL FIX: If we are already in 'taking' or 'review' mode, do NOT check for saved progress.
-    // This prevents the auto-save mechanism (which updates currentUser) from re-triggering this check
-    // and incorrectly showing the "Resume" screen in the middle of an exam.
     if (view !== 'selection') return;
-
     if (currentUser?.savedExamProgress) {
       const saved = currentUser.savedExamProgress.find(p => p.courseId === course.id);
       if (saved) {
         setResumePrompt(saved);
-        return; 
       }
     }
   }, [course, currentUser, view]);
 
-  // Timer Logic
+  // Assessment Timer Logic
   useEffect(() => {
     if (view !== 'taking' || loading || isFinished || timeLeft <= 0) return;
-
     const timer = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
@@ -63,32 +77,105 @@ const ExamMode = () => {
         return prev - 1;
       });
     }, 1000);
-
     return () => clearInterval(timer);
   }, [view, loading, isFinished, timeLeft]);
 
-  // Auto-save progress
+  // Periodic Auto-save Progress
   useEffect(() => {
     if (view === 'taking' && !loading && !isFinished && questions.length > 0) {
       const timeout = setTimeout(() => {
-        saveProgress();
-      }, 2000); // Increased to 2s debounce
+        if (timeLeft > 0) {
+          saveExamProgress({
+            courseId: course.id,
+            questions,
+            answers,
+            timeLeft,
+            lastSaved: new Date().toISOString(),
+            isAiGenerated
+          });
+        }
+      }, 3000);
       return () => clearTimeout(timeout);
     }
-  }, [answers, currentQuestionIdx, timeLeft]); // Added timeLeft to ensure regular saves
+  }, [answers, currentQuestionIdx, timeLeft]);
 
-  const saveProgress = () => {
-    // Don't save if 0 time left
-    if (timeLeft <= 0) return;
-    
-    saveExamProgress({
-      courseId: course.id,
-      questions,
-      answers,
-      timeLeft,
-      lastSaved: new Date().toISOString(),
-      isAiGenerated
-    });
+  const startAiExam = async () => {
+    setView('taking');
+    setLoading(true);
+    setQuestions([]);
+    setIsAiGenerated(true);
+
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      
+      // Build context for AI to generate highly relevant questions
+      const chapterContext = course.chapters?.map(c => 
+        `Chapter "${c.title}" covers topics like: ${c.videos?.map(v => v.title).join(', ')}`
+      ).join('. ') || course.description;
+
+      const prompt = `Act as an expert educational assessor for the course: "${course.title}".
+      Target Course Content: ${chapterContext}.
+      Task: Create exactly 10 high-quality, conceptual, and challenging multiple choice questions.
+      Strict Requirements:
+      - 4 unique options per question.
+      - Exactly one clearly correct answer.
+      - Varied difficulty levels.
+      - Output strictly as a JSON array of objects.`;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: prompt,
+        config: { 
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                id: { type: Type.STRING, description: "A unique identifier for the question" },
+                question: { type: Type.STRING, description: "The full text of the question" },
+                options: {
+                  type: Type.ARRAY,
+                  items: { type: Type.STRING },
+                  minItems: 4,
+                  maxItems: 4,
+                  description: "Exactly 4 options for the user to choose from"
+                },
+                correctAnswer: { 
+                  type: Type.INTEGER, 
+                  description: "The 0-based index (0-3) of the correct answer in the options array" 
+                }
+              },
+              required: ["id", "question", "options", "correctAnswer"],
+              propertyOrdering: ["id", "question", "options", "correctAnswer"]
+            }
+          }
+        }
+      });
+
+      const data = cleanJson(response.text);
+      if (Array.isArray(data) && data.length > 0) {
+        setQuestions(data);
+        setAnswers(new Array(data.length).fill(-1));
+        setTimeLeft(data.length * 60); // 1 minute per question
+        setLoading(false);
+      } else {
+        throw new Error("Received empty or malformed question array from AI.");
+      }
+    } catch (err) {
+      console.error("AI Generation Failure:", err);
+      alert("Neural sync failure: Could not synthesize assessment questions. Please check your terminal connection.");
+      setView('selection');
+      setLoading(false);
+    }
+  };
+
+  const startManualExam = (exam: Exam) => {
+    setQuestions(exam.questions);
+    setAnswers(new Array(exam.questions.length).fill(-1));
+    setTimeLeft(exam.questions.length * 60);
+    setIsAiGenerated(false);
+    setView('taking');
   };
 
   const handleResume = () => {
@@ -103,63 +190,10 @@ const ExamMode = () => {
   };
 
   const handleDiscardSaved = () => {
-    clearExamProgress(course.id);
-    setResumePrompt(null);
-    setView('selection');
-  };
-
-  const startAiExam = async () => {
-    setView('taking');
-    setLoading(true);
-    setQuestions([]);
-    setError('');
-    setIsAiGenerated(true);
-
-    try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const chapterContext = course.chapters.map(c => 
-        `Chapter: ${c.title} (Topics: ${c.videos.map(v => v.title).join(', ')})`
-      ).join('; ');
-
-      const prompt = `Act as a strict exam setter for a school. Create 10 multiple choice questions for the course "${course.title}".
-      The course specifically covers these topics: ${chapterContext || course.description}.
-      Questions must be strictly relevant. Format strictly as a JSON array of objects with keys: "id", "question", "options" (array of 4 strings), "correctAnswer" (number index 0-3).`;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-        config: { responseMimeType: 'application/json' }
-      });
-
-      const text = response.text;
-      if (text) {
-        const data = JSON.parse(text);
-        setQuestions(data);
-        setAnswers(new Array(data.length).fill(-1));
-        setTimeLeft(data.length * 60);
-        setLoading(false);
-      } else {
-        throw new Error("No data returned");
-      }
-    } catch (err) {
-      console.error(err);
-      setError("Failed to generate exam. Please check your connection or try again.");
-      setLoading(false);
+    if (confirm("Permanently discard this unfinished assessment sequence?")) {
+      clearExamProgress(course.id);
+      setResumePrompt(null);
     }
-  };
-
-  const startManualExam = (exam: Exam) => {
-    setQuestions(exam.questions);
-    setAnswers(new Array(exam.questions.length).fill(-1));
-    setTimeLeft(exam.questions.length * 60);
-    setIsAiGenerated(false);
-    setView('taking');
-  };
-
-  const handleAnswer = (optionIdx: number) => {
-    const newAnswers = [...answers];
-    newAnswers[currentQuestionIdx] = optionIdx;
-    setAnswers(newAnswers);
   };
 
   const finishExam = () => {
@@ -173,32 +207,25 @@ const ExamMode = () => {
     clearExamProgress(course.id);
   };
 
-  const saveAndExit = () => {
-    saveProgress();
-    navigate(`/course/${course.id}`);
-  };
-
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
-  // --- Views ---
-
   if (resumePrompt) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
-         <div className="bg-white p-8 rounded-3xl shadow-xl max-w-sm w-full text-center animate-fade-in">
-            <h2 className="text-2xl font-display font-bold mb-2 text-gray-900">Resume Exam?</h2>
-            <p className="text-gray-500 mb-6 text-sm">
-               You have an unfinished exam saved on {new Date(resumePrompt.lastSaved).toLocaleDateString()}.
+      <div className="min-h-screen bg-[#050508] flex items-center justify-center p-6">
+         <div className="glass p-10 rounded-[50px] border-indigo-500/20 max-w-sm w-full text-center shadow-neon">
+            <h2 className="text-2xl font-display font-bold mb-4 text-white">Resume Sync?</h2>
+            <p className="text-gray-400 mb-8 text-sm leading-relaxed">
+               An active assessment node from {new Date(resumePrompt.lastSaved).toLocaleDateString()} was detected in your neural logs.
             </p>
-            <div className="flex gap-3">
-               <button onClick={handleDiscardSaved} className="flex-1 py-3 text-red-500 font-bold border-2 border-red-50 rounded-2xl hover:bg-red-50 transition-colors">
+            <div className="flex gap-4">
+               <button onClick={handleDiscardSaved} className="flex-1 py-4 text-red-400 font-bold border border-red-400/20 rounded-2xl hover:bg-red-400/10 transition-colors">
                   Discard
                </button>
-               <button onClick={handleResume} className="flex-1 py-3 bg-brand text-white font-bold rounded-2xl shadow-lg shadow-brand/30 hover:shadow-brand/50 transition-all">
+               <button onClick={handleResume} className="flex-1 py-4 bg-indigo-600 text-white font-bold rounded-2xl shadow-neon hover:scale-105 transition-all">
                   Resume
                </button>
             </div>
@@ -209,58 +236,43 @@ const ExamMode = () => {
 
   if (view === 'selection') {
     return (
-       <div className="min-h-screen bg-gray-50 p-6 pt-24">
-          <div className="flex items-center gap-3 mb-8">
-             <button onClick={() => navigate(`/course/${course.id}`)} className="bg-white p-2.5 rounded-xl shadow-sm hover:shadow-md transition-all">
-               <ArrowLeft className="w-5 h-5 text-gray-600" />
-             </button>
-             <h2 className="text-3xl font-display font-bold text-gray-900">Select Exam</h2>
-          </div>
-          
-          <div className="grid gap-4 max-w-xl mx-auto">
-            {/* AI Generator Option */}
-            <button 
-               onClick={startAiExam}
-               className="bg-gradient-to-br from-indigo-600 to-purple-700 p-6 rounded-3xl shadow-glow text-left text-white flex items-center justify-between group hover:scale-[1.02] transition-transform"
-            >
-               <div>
-                  <h3 className="font-bold text-xl font-display flex items-center gap-2">
-                    <Brain className="w-5 h-5 text-white/80"/> AI Mock Test
-                  </h3>
-                  <p className="text-white/70 text-sm mt-1">Generate a unique test instantly</p>
-               </div>
-               <div className="bg-white/20 p-3 rounded-full backdrop-blur-sm">
-                  <PlayCircle className="w-6 h-6 text-white" />
-               </div>
-            </button>
-
-            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mt-4">Available Tests</h3>
-
-            {/* Manual Exams */}
-            {course.exams?.length === 0 && (
-                <div className="text-center py-10 bg-white rounded-3xl border border-dashed border-gray-300">
-                    <p className="text-gray-400 font-medium">No tests created yet.</p>
-                </div>
-            )}
-
-            {course.exams?.map((exam) => (
-               <button 
-                 key={exam.id}
-                 onClick={() => startManualExam(exam)}
-                 className="bg-white p-5 rounded-2xl shadow-card border border-gray-100 text-left hover:border-brand transition-all flex items-center justify-between group"
-               >
-                  <div>
-                    <h3 className="font-bold text-lg text-gray-800 group-hover:text-brand transition-colors">{exam.title}</h3>
-                    <div className="flex items-center gap-3 mt-1 text-xs font-medium text-gray-500">
-                        <span className="flex items-center gap-1"><List className="w-3 h-3"/> {exam.questions.length} Qs</span>
-                        <span className="flex items-center gap-1"><Timer className="w-3 h-3"/> {exam.questions.length} Mins</span>
+       <div className="min-h-screen bg-[#050508] p-6 pt-24 overflow-hidden relative">
+          <div className="absolute inset-0 futuristic-grid opacity-10"></div>
+          <div className="max-w-2xl mx-auto relative z-10">
+              <button onClick={() => navigate(`/course/${course.id}`)} className="p-3 glass rounded-2xl text-white mb-10 transition-transform hover:scale-110 shadow-neon border-white/10">
+                <ArrowLeft />
+              </button>
+              <h2 className="text-4xl font-display font-bold text-white mb-2 tracking-tight">Select Assessment Node</h2>
+              <p className="text-indigo-400 font-bold uppercase tracking-widest text-[10px] mb-12">Calibration required for progress tracking</p>
+              
+              <div className="grid gap-6">
+                <button onClick={startAiExam} className="glass p-8 rounded-[40px] border-indigo-500/30 text-left group hover:border-indigo-500 transition-all shadow-neon shadow-indigo-500/5 hover:bg-indigo-500/5">
+                    <div className="flex justify-between items-center mb-4">
+                        <div className="p-3 rounded-2xl bg-indigo-500 shadow-neon text-white transition-transform group-hover:scale-110">
+                          <Brain className="w-6 h-6" />
+                        </div>
+                        <Sparkles className="text-indigo-400 animate-pulse" />
                     </div>
-                  </div>
-                  <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-brand group-hover:text-white transition-colors">
-                      <PlayCircle className="w-5 h-5" />
-                  </div>
-               </button>
-            ))}
+                    <h3 className="text-xl font-bold text-white mb-2 uppercase tracking-widest">Neural AI Mock Test</h3>
+                    <p className="text-sm text-gray-400 font-medium leading-relaxed">Synthesize a unique, personalized assessment based on current course topography and complexity vectors.</p>
+                </button>
+
+                {course.exams?.length ? (
+                  <h3 className="text-xs font-bold text-gray-500 uppercase tracking-[0.3em] mt-8 mb-2">Preset Nodes</h3>
+                ) : null}
+
+                {course.exams?.map((exam) => (
+                  <button key={exam.id} onClick={() => startManualExam(exam)} className="glass p-6 rounded-[35px] border-white/5 text-left flex items-center justify-between hover:bg-white/5 transition-all group">
+                      <div>
+                        <h3 className="font-bold text-white text-lg group-hover:text-indigo-400 transition-colors">{exam.title}</h3>
+                        <p className="text-[10px] text-gray-500 font-bold uppercase mt-1 tracking-widest">{exam.questions.length} Question Units</p>
+                      </div>
+                      <div className="w-12 h-12 rounded-2xl bg-indigo-600/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-neon">
+                        <PlayCircle className="w-6 h-6" />
+                      </div>
+                  </button>
+                ))}
+              </div>
           </div>
        </div>
     );
@@ -268,228 +280,95 @@ const ExamMode = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
-        <div className="bg-white p-8 rounded-3xl shadow-xl flex flex-col items-center">
-            <Loader2 className="w-12 h-12 text-brand animate-spin mb-4" />
-            <h2 className="text-xl font-bold text-gray-800">Creating Your Exam</h2>
-            <p className="text-gray-500 text-center max-w-xs mt-2 text-sm">
-            AI is analyzing {course.title} to prepare high-quality questions.
-            </p>
-        </div>
+      <div className="min-h-screen bg-[#050508] flex flex-col items-center justify-center p-8 text-center">
+        <Loader2 className="w-16 h-16 text-indigo-500 animate-spin mb-6" />
+        <h2 className="text-2xl font-display font-bold text-white tracking-widest uppercase">Synthesizing node sequence...</h2>
+        <p className="text-indigo-400/60 text-xs mt-3 font-mono animate-pulse uppercase tracking-[0.2em]">Calibrating Neural Weights & Topography</p>
       </div>
     );
   }
 
-  // REVIEW MODE
-  if (view === 'review') {
-    const currentQ = questions[currentQuestionIdx];
-    const userAnswer = answers[currentQuestionIdx];
-    const isCorrect = userAnswer === currentQ.correctAnswer;
-
-    return (
-      <div className="min-h-screen bg-gray-50 flex flex-col pb-safe">
-         <div className="bg-white/80 backdrop-blur-md border-b p-4 flex justify-between items-center sticky top-0 z-10">
-            <button onClick={() => navigate(`/course/${course.id}`)} className="text-gray-600 flex items-center gap-2 font-bold hover:bg-gray-100 px-3 py-1.5 rounded-lg transition-colors">
-               <ArrowLeft className="w-5 h-5" /> Exit Review
-            </button>
-         </div>
-
-         <div className="flex-1 p-4 max-w-2xl mx-auto w-full overflow-y-auto">
-            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 mb-6">
-              <div className="flex justify-between items-start mb-4">
-                 <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Question {currentQuestionIdx + 1}</span>
-                 {userAnswer === -1 ? (
-                    <span className="text-xs font-bold bg-gray-100 text-gray-600 px-3 py-1 rounded-full">Skipped</span>
-                 ) : isCorrect ? (
-                    <span className="text-xs font-bold bg-green-100 text-green-700 px-3 py-1 rounded-full flex items-center gap-1"><CheckCircle className="w-3 h-3"/> Correct</span>
-                 ) : (
-                    <span className="text-xs font-bold bg-red-100 text-red-700 px-3 py-1 rounded-full flex items-center gap-1"><AlertCircle className="w-3 h-3"/> Incorrect</span>
-                 )}
-              </div>
-              <h2 className="text-xl font-display font-bold text-gray-900 leading-snug">
-                {currentQ.question}
-              </h2>
-            </div>
-
-            <div className="space-y-3">
-              {currentQ.options.map((opt, idx) => {
-                 let style = "bg-white border-gray-200 text-gray-700 opacity-60";
-                 let icon = null;
-
-                 if (idx === currentQ.correctAnswer) {
-                    style = "bg-green-50 border-green-500 text-green-900 font-bold opacity-100 shadow-md ring-1 ring-green-500";
-                    icon = <CheckCircle className="w-5 h-5 text-green-600" />;
-                 } else if (idx === userAnswer && idx !== currentQ.correctAnswer) {
-                    style = "bg-red-50 border-red-500 text-red-900 font-bold opacity-100 shadow-md";
-                    icon = <AlertCircle className="w-5 h-5 text-red-600" />;
-                 }
-
-                 return (
-                   <div key={idx} className={`w-full text-left p-4 rounded-2xl border-2 transition-all flex items-center justify-between ${style}`}>
-                     <div className="flex items-center gap-3">
-                        <span className="w-8 h-8 flex-none rounded-full bg-white/50 border border-current flex items-center justify-center text-sm font-bold">
-                            {String.fromCharCode(65 + idx)}
-                        </span>
-                        <span>{opt}</span>
-                     </div>
-                     {icon}
-                   </div>
-                 );
-              })}
-            </div>
-         </div>
-
-         <div className="bg-white/80 backdrop-blur border-t p-4 flex justify-between max-w-2xl mx-auto w-full">
-            <button 
-              onClick={() => setCurrentQuestionIdx(curr => Math.max(0, curr - 1))}
-              disabled={currentQuestionIdx === 0}
-              className="px-6 py-3 text-gray-500 font-bold disabled:opacity-30 hover:bg-gray-100 rounded-xl transition-colors"
-            >
-              Previous
-            </button>
-            <div className="flex items-center text-sm font-bold text-gray-400">
-               {currentQuestionIdx + 1} / {questions.length}
-            </div>
-            <button 
-              onClick={() => setCurrentQuestionIdx(curr => Math.min(questions.length - 1, curr + 1))}
-              disabled={currentQuestionIdx === questions.length - 1}
-              className="px-6 py-3 bg-brand text-white rounded-xl font-bold shadow-lg shadow-brand/20 disabled:opacity-50"
-            >
-              Next
-            </button>
-         </div>
-      </div>
-    );
-  }
-
-  // FINISHED SCREEN
   if (isFinished) {
     const percentage = (score / questions.length) * 100;
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center p-6">
-        <div className="w-full max-w-md text-center animate-slide-up">
-          <div className="w-24 h-24 bg-gradient-to-tr from-green-400 to-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-green-500/40">
+      <div className="min-h-screen bg-[#050508] flex items-center justify-center p-8">
+        <div className="max-w-md w-full text-center glass p-12 rounded-[60px] border-indigo-500/20 shadow-neon animate-slide-up">
+          <div className="w-24 h-24 bg-emerald-500 shadow-neon shadow-emerald-500/40 rounded-[30px] flex items-center justify-center mx-auto mb-8">
             <CheckCircle className="w-12 h-12 text-white" />
           </div>
-          <h2 className="text-3xl font-display font-bold text-gray-900 mb-2">Great Job!</h2>
-          <p className="text-gray-500 mb-8">You have completed the test for {course.title}</p>
+          <h2 className="text-4xl font-display font-bold text-white mb-2 tracking-tight">Sync Complete</h2>
+          <p className="text-gray-500 font-bold uppercase tracking-widest text-[10px] mb-12">Assessor Results Verified</p>
           
-          <div className="bg-gray-50 rounded-3xl p-8 mb-8 border border-gray-100 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-1 bg-gray-200">
-                <div className="h-full bg-brand transition-all duration-1000" style={{width: `${percentage}%`}}></div>
-            </div>
-            <div className="text-5xl font-display font-bold text-gray-900 mb-2">{score}<span className="text-2xl text-gray-400">/{questions.length}</span></div>
-            <div className={`text-sm font-bold uppercase tracking-wider ${percentage >= 70 ? 'text-green-600' : percentage >= 40 ? 'text-yellow-600' : 'text-red-500'}`}>
-              {percentage >= 70 ? 'Excellent Score' : percentage >= 40 ? 'Good Effort' : 'Needs Improvement'}
-            </div>
+          <div className="text-6xl font-display font-bold text-white mb-4">
+            {score}<span className="text-2xl text-indigo-500">/{questions.length}</span>
           </div>
-
-          <div className="grid grid-cols-2 gap-4">
-             <button 
-               onClick={() => { setView('review'); setCurrentQuestionIdx(0); }}
-               className="w-full bg-white text-gray-700 border-2 border-gray-200 py-3.5 rounded-2xl font-bold hover:bg-gray-50 transition-colors"
-             >
-               Review
-             </button>
-             <button 
-               onClick={() => navigate(`/course/${course.id}`)}
-               className="w-full bg-brand text-white py-3.5 rounded-2xl font-bold shadow-lg shadow-brand/30 hover:shadow-brand/50 transition-all"
-             >
-               Finish
-             </button>
-          </div>
+          <div className="text-[10px] font-bold text-indigo-400 uppercase tracking-[0.4em] mb-12">Accuracy: {Math.round(percentage)}%</div>
+          
+          <button onClick={() => navigate(`/course/${course.id}`)} className="w-full py-5 bg-indigo-600 text-white font-bold rounded-2xl shadow-neon tracking-widest uppercase hover:scale-[1.02] active:scale-95 transition-all">
+            RETURN TO GRID
+          </button>
         </div>
       </div>
     );
   }
 
-  const currentQ = questions[currentQuestionIdx];
+  const q = questions[currentQuestionIdx];
 
-  // EXAM TAKING VIEW
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col pb-safe">
-      {/* Header */}
-      <div className="bg-white/80 backdrop-blur-md shadow-sm border-b p-4 flex justify-between items-center sticky top-0 z-20">
-        <div className="flex items-center gap-2 text-red-600 font-bold font-mono text-lg bg-red-50 px-3 py-1.5 rounded-lg">
-          <Timer className="w-5 h-5" />
-          {formatTime(timeLeft)}
+    <div className="min-h-screen bg-[#050508] text-white flex flex-col">
+        <div className="p-6 glass border-b border-white/5 flex justify-between items-center sticky top-0 z-20">
+            <div className="flex items-center gap-4">
+                <div className="text-indigo-400 font-mono text-xl font-bold px-4 py-2 glass rounded-xl border-indigo-500/20 shadow-neon">
+                  {formatTime(timeLeft)}
+                </div>
+            </div>
+            <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+              Unit {currentQuestionIdx + 1} of {questions.length}
+            </div>
         </div>
-        
-        <div className="flex items-center gap-3">
-           <button 
-              onClick={saveAndExit}
-              className="text-gray-600 font-bold text-sm flex items-center gap-1 hover:bg-gray-100 px-3 py-1.5 rounded-lg transition-colors"
-           >
-              <Save className="w-4 h-4" /> Save
-           </button>
-        </div>
-      </div>
 
-      {/* Question Area */}
-      <div className="flex-1 p-4 max-w-2xl mx-auto w-full flex flex-col justify-start pt-6 overflow-y-auto">
-        <div className="mb-6 px-2">
-            <span className="text-xs font-bold text-brand uppercase tracking-widest mb-2 block">Question {currentQuestionIdx + 1} of {questions.length}</span>
-            <h2 className="text-xl md:text-2xl font-display font-bold text-gray-900 leading-snug">
-                {currentQ.question}
+        <div className="flex-1 p-8 max-w-3xl mx-auto w-full animate-fade-in flex flex-col" key={currentQuestionIdx}>
+            <h2 className="text-3xl font-display font-bold mb-12 leading-tight tracking-tight text-indigo-50">
+              {q.question}
             </h2>
+            <div className="grid gap-4">
+                {q.options.map((opt, idx) => (
+                    <button 
+                      key={idx} 
+                      onClick={() => { const na = [...answers]; na[currentQuestionIdx] = idx; setAnswers(na); }} 
+                      className={`p-6 rounded-[30px] border text-left transition-all font-medium text-lg flex items-center gap-5 group ${answers[currentQuestionIdx] === idx ? 'bg-indigo-600 border-indigo-400 shadow-neon scale-[1.02]' : 'glass border-white/5 hover:bg-white/5'}`}
+                    >
+                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-sm transition-colors ${answers[currentQuestionIdx] === idx ? 'bg-white text-indigo-600' : 'bg-white/10 text-gray-400 group-hover:text-white'}`}>
+                          {String.fromCharCode(65 + idx)}
+                        </div>
+                        <span className="flex-1 leading-snug">{opt}</span>
+                        {answers[currentQuestionIdx] === idx && <CheckCircle className="w-5 h-5 text-white/50" />}
+                    </button>
+                ))}
+            </div>
         </div>
 
-        <div className="space-y-3 pb-8">
-          {currentQ.options.map((opt, idx) => {
-            const isSelected = answers[currentQuestionIdx] === idx;
-            return (
-                <button
-                key={idx}
-                onClick={() => handleAnswer(idx)}
-                className={`w-full text-left p-5 rounded-2xl border-2 transition-all flex items-center gap-4 group relative overflow-hidden ${
-                    isSelected
-                    ? 'border-brand bg-white shadow-glow ring-1 ring-brand z-10' 
-                    : 'border-gray-200 bg-white shadow-sm hover:border-gray-300 hover:bg-gray-50'
-                }`}
-                >
-                    {/* Visual Selection Indicator */}
-                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-none transition-colors ${isSelected ? 'border-brand bg-brand text-white' : 'border-gray-300 text-gray-400'}`}>
-                        {isSelected && <div className="w-2 h-2 bg-white rounded-full" />}
-                    </div>
-
-                    <span className={`text-base font-medium ${isSelected ? 'text-brand-dark' : 'text-gray-700'}`}>
-                        {opt}
-                    </span>
-                    
-                    {/* Subtle Background Effect for Selection */}
-                    {isSelected && <div className="absolute inset-0 bg-brand/5 pointer-events-none" />}
+        <div className="p-6 glass border-t border-white/5 flex justify-between gap-4 sticky bottom-0 z-20">
+            <button 
+              onClick={() => setCurrentQuestionIdx(prev => Math.max(0, prev - 1))} 
+              disabled={currentQuestionIdx === 0}
+              className="px-8 py-4 glass border-white/10 rounded-2xl font-bold text-gray-400 hover:text-white disabled:opacity-20 transition-all uppercase tracking-widest text-[10px]"
+            >
+              Previous
+            </button>
+            <div className="flex-1 flex justify-center">
+               <button onClick={finishExam} className="px-10 py-4 border border-indigo-500/30 text-indigo-400 rounded-2xl font-bold text-[10px] uppercase tracking-widest hover:bg-indigo-500/10 transition-all">Submit Early</button>
+            </div>
+            {currentQuestionIdx === questions.length - 1 ? (
+                <button onClick={finishExam} className="px-12 py-4 bg-indigo-600 rounded-2xl font-bold shadow-neon uppercase tracking-widest text-[10px] transition-all hover:scale-105 active:scale-95">
+                  Finalize
                 </button>
-            );
-          })}
+            ) : (
+                <button onClick={() => setCurrentQuestionIdx(prev => Math.min(questions.length - 1, prev + 1))} className="px-12 py-4 bg-indigo-600 rounded-2xl font-bold shadow-neon uppercase tracking-widest text-[10px] transition-all hover:scale-105 active:scale-95">
+                  Next Node
+                </button>
+            )}
         </div>
-      </div>
-
-      {/* Footer Navigation */}
-      <div className="bg-white/90 backdrop-blur border-t p-4 flex justify-between max-w-2xl mx-auto w-full sticky bottom-0 z-20">
-        <button 
-          onClick={() => setCurrentQuestionIdx(curr => Math.max(0, curr - 1))}
-          disabled={currentQuestionIdx === 0}
-          className="px-6 py-3 text-gray-500 font-bold disabled:opacity-30 hover:bg-gray-100 rounded-xl transition-colors"
-        >
-          Previous
-        </button>
-        
-        {currentQuestionIdx === questions.length - 1 ? (
-          <button 
-            onClick={finishExam}
-            className="bg-green-600 text-white px-8 py-3 rounded-xl font-bold shadow-lg shadow-green-500/30 hover:bg-green-700 transition-all"
-          >
-            Submit
-          </button>
-        ) : (
-          <button 
-            onClick={() => setCurrentQuestionIdx(curr => Math.min(questions.length - 1, curr + 1))}
-            className="bg-brand text-white px-8 py-3 rounded-xl font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition-all"
-          >
-            Next
-          </button>
-        )}
-      </div>
     </div>
   );
 };

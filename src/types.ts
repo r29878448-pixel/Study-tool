@@ -21,49 +21,6 @@ export interface ExamProgress {
   isAiGenerated: boolean;
 }
 
-export interface VideoProgress {
-  timestamp: number;
-  duration: number;
-  completed: boolean;
-  lastWatched: string;
-}
-
-export interface AiGeneratedQuiz {
-  videoId: string;
-  questions: Question[];
-  generatedAt: string;
-}
-
-export interface SavedNote {
-  id: string;
-  videoId: string;
-  videoTitle: string;
-  courseTitle: string;
-  content: string; // Markdown content
-  imageUrl?: string; // Base64 string
-  generatedAt: string;
-  syllabusVersion: string; // e.g., "CBSE 2025-26"
-}
-
-export interface OfflineContent {
-  id: string;
-  type: 'video' | 'note';
-  title: string;
-  url: string; // Data URL (for small notes) or External Link
-  courseName: string;
-  savedAt: string;
-  isExternal: boolean; // True if it's a YouTube link (Bookmark), False if it's a file
-}
-
-export interface VideoBookmark {
-  id: string;
-  courseId: string;
-  videoId: string;
-  videoTitle: string;
-  timestamp: number;
-  createdAt: string;
-}
-
 export interface User {
   id: string;
   name: string;
@@ -74,39 +31,30 @@ export interface User {
   purchasedCourseIds: string[];
   lastLogin?: string;
   examResults?: ExamResult[];
-  tempAccess?: Record<string, string>; // courseId -> ISO Expiry Date
-  savedExamProgress?: ExamProgress[]; // Array of unfinished exams
-  videoProgress?: Record<string, VideoProgress>; // videoId -> Progress Data
-  generatedQuizzes?: AiGeneratedQuiz[]; // Cache for AI quizzes per video
-  savedNotes?: SavedNote[]; // User's library of AI notes
-  offlineLibrary?: OfflineContent[]; // Downloaded/Saved content
-  bookmarks?: VideoBookmark[]; // Saved video timestamps
-}
-
-export interface Banner {
-  id: string;
-  image: string;
-  link: string;
+  tempAccess?: Record<string, string>;
+  savedExamProgress?: ExamProgress[];
 }
 
 export interface Video {
   id: string;
   title: string;
-  filename: string; // URL in this context
+  filename: string;
   duration: string;
-}
-
-export interface Note {
-  id: string;
-  title: string;
-  url: string;
+  date?: string;
+  type?: 'lecture' | 'dpp' | 'note';
 }
 
 export interface Chapter {
   id: string;
   title: string;
   videos: Video[];
-  notes: Note[];
+}
+
+export interface Subject {
+  id: string;
+  title: string;
+  iconText: string;
+  chapters: Chapter[];
 }
 
 export interface Question {
@@ -131,35 +79,25 @@ export interface Course {
   image: string;
   category: string;
   chapters: Chapter[];
+  subjects?: Subject[]; 
   createdAt: string;
   isPaid?: boolean;
-  verificationLink?: string;
+  accessKey?: string;
+  shortenerLink?: string;
+  telegramLink?: string;
   exams?: Exam[];
-  accessKey?: string; // Key to unlock the course
-  shortenerLink?: string; // External link to generate temp access
-  telegramChannelLink?: string; // Link to specific telegram channel for this batch
-}
-
-export interface Order {
-  id: string;
-  userId: string;
-  courseId: string;
-  amount: number;
-  status: 'SUCCESS' | 'FAILED';
-  razorpayOrderId: string;
-  date: string;
+  isNew?: boolean;
+  startDate?: string;
+  endDate?: string;
 }
 
 export interface AppSettings {
   appName: string;
   adminEmail: string;
   supportPhone: string;
-  uiColor?: string; // Hex code for brand color
+  uiColor?: string;
+  theme: 'dark' | 'light';
   razorpayKey: string;
-  razorpaySecret?: string;
   linkShortenerApiUrl?: string;
   linkShortenerApiKey?: string;
-  telegramBotToken?: string;
-  adsCode?: string; // HTML/JS code for ads
-  videoApiKey?: string; // Key for Video Metadata API (e.g., YouTube)
 }

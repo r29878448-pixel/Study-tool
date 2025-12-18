@@ -57,7 +57,7 @@ const ChatBot = () => {
       }));
 
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3-flash-preview',
         contents: contents,
         config: {
           systemInstruction: "You are a helpful, encouraging, and knowledgeable tutor for students. Keep answers concise and easy to understand. Use emojis occasionally.",

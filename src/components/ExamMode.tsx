@@ -24,8 +24,8 @@ const cleanJson = (text: string) => {
 };
 
 const ExamMode = () => {
-  const { id } = useParams();
-  const { courses, saveExamResult, saveExamProgress, clearExamProgress, currentUser } = useStore();
+  const { id } = useParams<{ id: string }>();
+  const { courses, saveExamResult, currentUser } = useStore();
   const navigate = useNavigate();
   const course = courses.find(c => c.id === id);
   
@@ -38,7 +38,7 @@ const ExamMode = () => {
   const [isFinished, setIsFinished] = useState(false);
   const [score, setScore] = useState(0);
 
-  if (!course) return <Navigate to="/" />;
+  if (!course || !id) return <Navigate to="/" />;
 
   useEffect(() => {
     if (view !== 'taking' || loading || isFinished || timeLeft <= 0) return;

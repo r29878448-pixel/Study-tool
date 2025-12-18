@@ -130,6 +130,16 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
         }
     };
 
+    const updateVideoData = () => {
+        if (!editingVideo || !activeSubjectId) return;
+        const { chapId, vid } = editingVideo;
+        setSubjects(subjects.map(s => s.id === activeSubjectId ? {
+            ...s,
+            chapters: s.chapters.map(c => c.id === chapId ? { ...c, videos: c.videos.map(v => v.id === vid.id ? vid : v) } : c)
+        } : s));
+        setEditingVideo(null);
+    };
+
     const activeSubject = subjects.find(s => s.id === activeSubjectId);
     const activeChapter = activeSubject?.chapters.find(c => c.id === activeChapterId);
 
@@ -155,7 +165,18 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
                 </div>
                 
                 <div className="flex-1 overflow-y-auto space-y-4 no-scrollbar">
-                    {activeChapterId && activeSubjectId ? (
+                    {editingVideo ? (
+                        <div className="space-y-4 bg-gray-50 p-6 rounded-2xl">
+                            <h3 className="font-bold text-gray-700">Edit Node Data</h3>
+                            <input value={editingVideo.vid.title} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, title: e.target.value}})} className="w-full p-3 border rounded-xl" placeholder="Title" />
+                            <input value={editingVideo.vid.filename} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, filename: e.target.value}})} className="w-full p-3 border rounded-xl" placeholder="URL" />
+                            <input value={editingVideo.vid.duration} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, duration: e.target.value}})} className="w-full p-3 border rounded-xl" placeholder="Duration" />
+                            <div className="flex gap-2">
+                                <button onClick={() => setEditingVideo(null)} className="flex-1 py-2 text-gray-500 font-bold bg-white border rounded-xl">Cancel</button>
+                                <button onClick={updateVideoData} className="flex-1 py-2 bg-[#0056d2] text-white font-bold rounded-xl">Save Node</button>
+                            </div>
+                        </div>
+                    ) : activeChapterId && activeSubjectId ? (
                         <div className="space-y-3">
                             <button onClick={() => addVideo(activeSubjectId, activeChapterId)} className="w-full py-4 border-2 border-dashed border-blue-100 rounded-2xl text-blue-600 font-bold hover:bg-blue-50 transition-all">+ Add Chapter Content</button>
                             {activeChapter?.videos.map(vid => (
@@ -164,7 +185,10 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
                                         <p className="text-sm font-bold text-gray-800 truncate">{vid.title}</p>
                                         <p className="text-[10px] text-blue-500 font-bold uppercase">{vid.type} • {vid.duration}</p>
                                     </div>
-                                    <button onClick={() => setSubjects(subjects.map(s => s.id === activeSubjectId ? {...s, chapters: s.chapters.map(c => c.id === activeChapterId ? {...c, videos: c.videos.filter(v => v.id !== vid.id)} : c)} : s))} className="text-red-500 p-2"><Trash2 className="w-4 h-4" /></button>
+                                    <div className="flex gap-1">
+                                        <button onClick={() => setEditingVideo({chapId: activeChapterId, vid})} className="p-2 text-gray-400 hover:text-blue-500"><Edit className="w-4 h-4" /></button>
+                                        <button onClick={() => setSubjects(subjects.map(s => s.id === activeSubjectId ? {...s, chapters: s.chapters.map(c => c.id === activeChapterId ? {...c, videos: c.videos.filter(v => v.id !== vid.id)} : c)} : s))} className="text-red-500 p-2"><Trash2 className="w-4 h-4" /></button>
+                                    </div>
                                 </div>
                             ))}
                         </div>
@@ -203,7 +227,7 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
     );
 };
 
-// --- ADMIN PANEL WITH THUMBNAIL FEATURE ---
+// --- ADMIN PANEL ---
 
 const AdminPanel = () => {
     const { currentUser, courses, settings, addCourse, updateCourse, deleteCourse, users } = useStore();
@@ -212,18 +236,42 @@ const AdminPanel = () => {
     const [editing, setEditing] = useState<Course | null>(null);
     const [contentTarget, setContentTarget] = useState<Course | null>(null);
     
-    const [form, setForm] = useState({ title: '', description: '', image: '', category: '', price: 0, isPaid: false, accessKey: '', startDate: '', endDate: '', isNew: true });
+    const [form, setForm] = useState({ 
+      title: '', description: '', image: '', category: '', 
+      price: 0, mrp: 0, isPaid: false, accessKey: '', 
+      shortenerLink: '', telegramLink: '', startDate: '', 
+      endDate: '', isNew: true 
+    });
 
     useEffect(() => {
-        if (editing) setForm({ ...editing, isPaid: !!editing.isPaid });
-        else setForm({ title: '', description: '', image: '', category: '', price: 0, isPaid: false, accessKey: '', startDate: '', endDate: '', isNew: true });
+        if (editing) {
+          setForm({ 
+            title: editing.title,
+            description: editing.description,
+            image: editing.image,
+            category: editing.category,
+            price: editing.price,
+            mrp: editing.mrp,
+            isPaid: !!editing.isPaid,
+            accessKey: editing.accessKey || '',
+            shortenerLink: editing.shortenerLink || '',
+            telegramLink: editing.telegramLink || '',
+            startDate: editing.startDate || '',
+            endDate: editing.endDate || '',
+            isNew: editing.isNew ?? true
+          });
+        }
+        else setForm({ title: '', description: '', image: '', category: '', price: 0, mrp: 0, isPaid: false, accessKey: '', shortenerLink: '', telegramLink: '', startDate: '', endDate: '', isNew: true });
     }, [editing, showModal]);
 
     if (!currentUser || currentUser.role !== UserRole.ADMIN) return <Navigate to="/" />;
 
     const handleSaveCourse = (e: React.FormEvent) => {
         e.preventDefault();
-        const data = { ...(editing || { id: Date.now().toString(), chapters: [], subjects: [], createdAt: new Date().toISOString() }), ...form };
+        const data: Course = { 
+          ...(editing || { id: Date.now().toString(), chapters: [], subjects: [], createdAt: new Date().toISOString() }), 
+          ...form 
+        };
         if (editing) updateCourse(data); else addCourse(data);
         setShowModal(false);
     };
@@ -232,8 +280,8 @@ const AdminPanel = () => {
         <div className="pb-24 pt-20 px-4 min-h-screen bg-[#f8fafc]">
              <div className="max-w-4xl mx-auto">
                  <div className="flex bg-white p-1.5 rounded-[24px] shadow-sm border border-gray-100 mb-8">
-                    {['batches', 'users', 'settings'].map(t => (
-                        <button key={t} onClick={() => setTab(t as any)} className={`flex-1 py-3 font-bold capitalize transition-all rounded-[18px] text-sm ${tab === t ? 'bg-[#0056d2] text-white shadow-md' : 'text-gray-400 hover:bg-gray-50'}`}>
+                    {(['batches', 'users', 'settings'] as const).map(t => (
+                        <button key={t} onClick={() => setTab(t)} className={`flex-1 py-3 font-bold capitalize transition-all rounded-[18px] text-sm ${tab === t ? 'bg-[#0056d2] text-white shadow-md' : 'text-gray-400 hover:bg-gray-50'}`}>
                             {t}
                         </button>
                     ))}
@@ -248,7 +296,7 @@ const AdminPanel = () => {
                          <div className="grid gap-3">
                              {courses.map(c => (
                                  <div key={c.id} className="bg-white p-4 rounded-[28px] flex items-center gap-4 border border-gray-100 shadow-sm">
-                                     <img src={c.image} className="w-16 h-16 rounded-2xl object-cover" />
+                                     <img src={c.image} className="w-16 h-16 rounded-2xl object-cover" alt="" />
                                      <div className="flex-1">
                                         <h3 className="font-bold text-gray-800 text-sm">{c.title}</h3>
                                         <p className="text-[10px] text-blue-600 font-bold uppercase">{c.category}</p>
@@ -263,6 +311,23 @@ const AdminPanel = () => {
                          </div>
                      </div>
                  )}
+
+                {tab === 'users' && (
+                    <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 overflow-hidden">
+                      <div className="p-4 bg-gray-50 border-b border-gray-100 font-bold text-gray-500 uppercase text-[10px] tracking-widest">User Registry</div>
+                      <div className="divide-y divide-gray-50">
+                      {users.map(u => (
+                          <div key={u.id} className="p-5 flex justify-between items-center">
+                              <div>
+                                  <p className="font-bold text-gray-800">{u.name}</p>
+                                  <p className="text-[11px] text-gray-400">{u.email}</p>
+                              </div>
+                              <span className="text-[10px] font-bold px-3 py-1 bg-blue-50 text-blue-600 rounded-full">{u.role}</span>
+                          </div>
+                      ))}
+                      </div>
+                    </div>
+                )}
              </div>
 
              {showModal && (
@@ -273,7 +338,6 @@ const AdminPanel = () => {
                             <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X /></button>
                         </div>
                         <form onSubmit={handleSaveCourse} className="space-y-5">
-                            {/* Thumbnail Config */}
                             <div className="space-y-2">
                                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Batch Thumbnail</label>
                                 <div className="relative aspect-video rounded-2xl overflow-hidden bg-gray-50 border-2 border-dashed border-gray-200 flex items-center justify-center group">
@@ -287,11 +351,11 @@ const AdminPanel = () => {
                                     ) : (
                                         <div className="text-center p-6">
                                             <ImageIcon className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-                                            <p className="text-[10px] font-bold text-gray-400">Enter Image URL Below to Set Thumbnail</p>
+                                            <p className="text-[10px] font-bold text-gray-400">Enter Image URL Below</p>
                                         </div>
                                     )}
                                 </div>
-                                <input value={form.image} onChange={e => setForm({ ...form, image: e.target.value })} className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl font-mono text-[10px]" placeholder="https://example.com/thumbnail.jpg" />
+                                <input value={form.image} onChange={e => setForm({ ...form, image: e.target.value })} className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl font-mono text-[10px]" placeholder="Thumbnail URL" />
                             </div>
 
                             <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-blue-500 font-bold" placeholder="Batch Name" required />
@@ -307,11 +371,11 @@ const AdminPanel = () => {
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-bold text-gray-400 ml-1">Starts On</label>
-                                    <input value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs" placeholder="01 Jan 2025" />
+                                    <input value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs" placeholder="Starts Date" />
                                 </div>
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-bold text-gray-400 ml-1">Ends On</label>
-                                    <input value={form.endDate} onChange={e => setForm({ ...form, endDate: e.target.value })} className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs" placeholder="31 Dec 2025" />
+                                    <input value={form.endDate} onChange={e => setForm({ ...form, endDate: e.target.value })} className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs" placeholder="Ends Date" />
                                 </div>
                             </div>
 
@@ -339,8 +403,8 @@ const CourseListing = () => {
         <div className="pb-24 pt-20 px-5 min-h-screen bg-[#f8fafc]">
             <div className="max-w-md mx-auto space-y-6">
                 <div className="bg-white p-1 rounded-2xl border border-gray-100 flex shadow-sm">
-                    {['Paid', 'Free'].map((t) => (
-                        <button key={t} onClick={() => setFilter(t as any)} className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all ${filter === t ? 'bg-blue-50 text-[#0056d2]' : 'text-gray-400'}`}>
+                    {(['Paid', 'Free'] as const).map((t) => (
+                        <button key={t} onClick={() => setFilter(t)} className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all ${filter === t ? 'bg-blue-50 text-[#0056d2]' : 'text-gray-400'}`}>
                             {t}
                         </button>
                     ))}
@@ -356,7 +420,7 @@ const CourseListing = () => {
                                 </div>
                             </div>
                             <div className="px-6">
-                                <img src={c.image} className="w-full aspect-[16/9] object-cover rounded-2xl" />
+                                <img src={c.image} className="w-full aspect-[16/9] object-cover rounded-2xl" alt={c.title} />
                             </div>
                             <div className="p-6 pt-4 space-y-5">
                                 <div className="flex items-center gap-4 text-[11px] font-bold text-gray-400">
@@ -377,8 +441,8 @@ const CourseListing = () => {
 };
 
 const CourseDetail = () => {
-    const { id } = useParams();
-    const { courses, currentUser } = useStore();
+    const { id } = useParams<{id: string}>();
+    const { courses } = useStore();
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState<'Description' | 'Subjects' | 'Resources' | 'Tests' | 'Community'>('Subjects');
 
@@ -402,8 +466,8 @@ const CourseDetail = () => {
                 </div>
                 
                 <div className="flex px-5 gap-8 overflow-x-auto no-scrollbar">
-                    {['Description', 'Subjects', 'Resources', 'Tests', 'Community'].map(tab => (
-                        <button key={tab} onClick={() => setActiveTab(tab as any)} className={`pb-3 text-sm font-bold whitespace-nowrap transition-all border-b-2 ${activeTab === tab ? 'text-[#7c5cdb] border-[#7c5cdb]' : 'text-gray-400 border-transparent'}`}>
+                    {(['Description', 'Subjects', 'Resources', 'Tests', 'Community'] as const).map(tab => (
+                        <button key={tab} onClick={() => setActiveTab(tab)} className={`pb-3 text-sm font-bold whitespace-nowrap transition-all border-b-2 ${activeTab === tab ? 'text-[#7c5cdb] border-[#7c5cdb]' : 'text-gray-400 border-transparent'}`}>
                             {tab}
                         </button>
                     ))}
@@ -434,7 +498,7 @@ const CourseDetail = () => {
 };
 
 const SubjectDetail = () => {
-    const { courseId, subjectId } = useParams();
+    const { courseId, subjectId } = useParams<{courseId: string, subjectId: string}>();
     const { courses } = useStore();
     const navigate = useNavigate();
     const [tab, setTab] = useState<'Chapters' | 'Notes'>('Chapters');
@@ -493,7 +557,7 @@ const SubjectDetail = () => {
                 ) : (
                   <div className="space-y-4">
                     <div className="flex gap-2 overflow-x-auto no-scrollbar">
-                      {['All', 'Lectures', 'Notes', 'DPPs'].map(f => (
+                      {(['All', 'Lectures', 'Notes', 'DPPs'] as const).map(f => (
                         <button key={f} onClick={() => setFilter(f)} className={`px-5 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all ${filter === f ? 'bg-[#444] text-white' : 'bg-gray-100 text-gray-400'}`}>{f}</button>
                       ))}
                     </div>

@@ -1,26 +1,46 @@
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate, useLocation, Link, useNavigate, useParams } from 'react-router-dom';
 import { StoreProvider, useStore } from './store';
 import { 
-  Home, BookOpen, User, HelpCircle, Menu, LogOut, Search, PlayCircle, Lock, Unlock, 
-  LayoutDashboard, Settings, Plus, Trash2, Edit, Save, X, ChevronDown, CheckCircle, 
-  Timer, Clock, ExternalLink, Play, Bot, Brain, Loader2, ArrowLeft, Video as VideoIcon, 
-  Sparkles, Send, RotateCcw, Smartphone, List, Wand2, Globe, Bell
+  Home, BookOpen, User, Search, PlayCircle, Lock, 
+  LayoutDashboard, Settings, Plus, Trash2, Edit, X, 
+  CheckCircle, ExternalLink, Play, Bot, Brain, Loader2, ArrowLeft, 
+  Video as VideoIcon, Sparkles, Send, Smartphone, List, Globe, Bell, 
+  ChevronRight, MoreVertical, MessageCircle, FileText, Calendar, MessageSquare, Eye,
+  RotateCcw, ImageIcon
 } from './components/Icons';
 import VideoPlayer from './components/VideoPlayer';
 import ChatBot from './components/ChatBot';
 import ExamMode from './components/ExamMode';
-import { Course, Chapter, Video, UserRole, AppSettings } from './types';
+import { GoogleGenAI } from "@google/genai";
+import { Course, Chapter, Video, UserRole, Subject } from './types';
 
-// --- Study Tool UI Components ---
+declare var process: { env: { API_KEY: string } };
+
+// --- SHARED UI COMPONENTS ---
+
+const Banner = () => (
+  <div className="bg-[#fff9e6] px-5 py-3.5 flex items-center justify-between text-[11px] font-semibold text-gray-700 border-b border-yellow-100">
+    <span>Completion % depends on lecture and DPP progress!</span>
+    <X className="w-3.5 h-3.5 text-gray-400" />
+  </div>
+);
+
+const XPBadge = ({ xp = 0 }) => (
+  <div className="flex items-center gap-1.5 bg-gray-100/80 px-3 py-1.5 rounded-full border border-gray-200">
+    <div className="w-5 h-5 bg-[#c5d8f1] rounded-md flex items-center justify-center text-[9px] font-black text-[#4a6da7]">XP</div>
+    <span className="text-xs font-extrabold text-gray-700">{xp}</span>
+  </div>
+);
 
 const STHeader = () => {
   const { currentUser, settings } = useStore();
   const location = useLocation();
   const isNoNav = ['/login', '/watch', '/exam', '/temp-access'].some(p => location.pathname.includes(p));
+  const isTabbedView = location.pathname.startsWith('/course/') || location.pathname.startsWith('/subject/');
 
-  if (isNoNav) return null;
+  if (isNoNav || isTabbedView) return null;
 
   return (
     <header className="fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-100 flex items-center justify-between px-5 z-50">
@@ -31,11 +51,8 @@ const STHeader = () => {
         </Link>
       </div>
       <div className="flex items-center gap-4">
-        <button className="p-2 text-gray-400 hover:bg-gray-50 rounded-full relative transition-colors">
-            <Bell className="w-6 h-6" />
-            <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
-        </button>
-        <Link to="/profile" className="w-9 h-9 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center overflow-hidden transition-transform active:scale-90">
+        <button className="p-2 text-gray-400 relative transition-colors"><Bell className="w-6 h-6" /></button>
+        <Link to="/profile" className="w-9 h-9 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center transition-transform active:scale-90">
             {currentUser ? <span className="font-bold text-[#0056d2]">{currentUser.name.charAt(0)}</span> : <User className="w-5 h-5 text-gray-400" />}
         </Link>
       </div>
@@ -56,7 +73,7 @@ const STBottomNav = () => {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-gray-100 flex items-center justify-around px-2 z-50 pb-safe">
+    <nav className="fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-gray-100 flex items-center justify-around px-2 z-50 pb-safe shadow-sm">
       {tabs.map(tab => {
         const isActive = location.pathname === tab.path;
         return (
@@ -70,136 +87,209 @@ const STBottomNav = () => {
   );
 };
 
-// --- RESTORED CONTENT MANAGER ---
+// --- SUBJECT & CHAPTER CONTENT MANAGER ---
 
 const ContentManager = ({ course, onClose }: { course: Course, onClose: () => void }) => {
     const { updateCourse } = useStore();
-    const [chapters, setChapters] = useState<Chapter[]>(course.chapters || []);
-    const [newTitle, setNewTitle] = useState('');
+    const [subjects, setSubjects] = useState<Subject[]>(course.subjects || []);
+    const [activeSubjectId, setActiveSubjectId] = useState<string | null>(null);
+    const [activeChapterId, setActiveChapterId] = useState<string | null>(null);
+    const [editingVideo, setEditingVideo] = useState<{chapId: string, vid: Video} | null>(null);
 
     const handleSave = () => {
-        updateCourse({ ...course, chapters });
+        updateCourse({ ...course, subjects });
         onClose();
     };
 
-    const addChapter = () => {
-        if (!newTitle.trim()) return;
-        setChapters([...chapters, { id: Date.now().toString(), title: newTitle, videos: [] }]);
-        setNewTitle('');
+    const addSubject = () => {
+        const title = prompt('Subject Title (e.g. Chemistry):');
+        const iconText = prompt('Icon Text (e.g. Ch):') || 'Su';
+        if (title) setSubjects([...subjects, { id: Date.now().toString(), title, iconText, chapters: [] }]);
     };
 
-    const addVideo = (cId: string) => {
-        const title = prompt('Sequence Title:');
-        const url = prompt('Stream Link (URL):');
-        const dur = prompt('Duration (HH:MM):') || '10:00';
-        if (title && url) {
-            setChapters(chapters.map(c => c.id === cId ? { ...c, videos: [...c.videos, { id: Date.now().toString(), title, filename: url, duration: dur }] } : c));
+    const addChapter = (sId: string) => {
+        const title = prompt('Chapter Title:');
+        if (title) {
+            setSubjects(subjects.map(s => s.id === sId ? { ...s, chapters: [...s.chapters, { id: Date.now().toString(), title, videos: [] }] } : s));
         }
     };
 
+    const addVideo = (sId: string, cId: string) => {
+        const title = prompt('Content Title:');
+        const url = prompt('Stream Link:');
+        const dur = prompt('Duration (e.g. 1:20:00):') || '10:00';
+        const typeInput = prompt('Type (lecture/note/dpp):') || 'lecture';
+        const type = (['lecture', 'note', 'dpp'].includes(typeInput) ? typeInput : 'lecture') as 'lecture' | 'note' | 'dpp';
+        
+        if (title && url) {
+            setSubjects(subjects.map(s => s.id === sId ? { 
+                ...s, 
+                chapters: s.chapters.map(c => c.id === cId ? { 
+                    ...c, 
+                    videos: [...c.videos, { id: Date.now().toString(), title, filename: url, duration: dur, type, date: 'TODAY' }] 
+                } : c)
+            } : s));
+        }
+    };
+
+    const updateVideoData = () => {
+        if (!editingVideo || !activeSubjectId) return;
+        const { chapId, vid } = editingVideo;
+        setSubjects(subjects.map(s => s.id === activeSubjectId ? {
+            ...s,
+            chapters: s.chapters.map(c => c.id === chapId ? { ...c, videos: c.videos.map(v => v.id === vid.id ? vid : v) } : c)
+        } : s));
+        setEditingVideo(null);
+    };
+
+    const activeSubject = subjects.find(s => s.id === activeSubjectId);
+    const activeChapter = activeSubject?.chapters.find(c => c.id === activeChapterId);
+
     return (
         <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-2xl rounded-[32px] p-6 md:p-8 max-h-[85vh] flex flex-col shadow-2xl animate-slide-up overflow-hidden">
+            <div className="bg-white w-full max-w-2xl rounded-[32px] p-8 max-h-[85vh] flex flex-col shadow-2xl animate-slide-up overflow-hidden">
                 <div className="flex justify-between items-center mb-6 border-b pb-4">
-                    <h2 className="text-xl font-bold flex items-center gap-2 text-gray-800"><VideoIcon className="text-blue-600" /> Course Architecture</h2>
+                    <h2 className="text-xl font-bold flex items-center gap-2 text-gray-800">
+                      <VideoIcon className="text-blue-600" /> 
+                      {activeChapter ? activeChapter.title : activeSubject ? activeSubject.title : 'Manage Subjects'}
+                    </h2>
                     <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X /></button>
                 </div>
-                
-                <div className="flex gap-2 mb-6">
-                    <input value={newTitle} onChange={e => setNewTitle(e.target.value)} className="flex-1 p-3.5 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:border-blue-500 font-medium" placeholder="New Chapter Identifier..." />
-                    <button onClick={addChapter} className="bg-[#0056d2] text-white px-6 rounded-2xl font-bold transition-transform active:scale-95 shadow-md shadow-blue-100">ADD</button>
-                </div>
 
+                <div className="flex items-center gap-2 mb-4 text-xs font-bold text-gray-400 overflow-x-auto no-scrollbar">
+                    <button onClick={() => { setActiveSubjectId(null); setActiveChapterId(null); }} className={!activeSubjectId ? 'text-blue-600' : ''}>ROOT</button>
+                    {activeSubject && (
+                      <>
+                        <ChevronRight className="w-3 h-3" />
+                        <button onClick={() => setActiveChapterId(null)} className={activeSubjectId && !activeChapterId ? 'text-blue-600' : ''}>{activeSubject.title.toUpperCase()}</button>
+                      </>
+                    )}
+                    {activeChapter && (
+                        <>
+                            <ChevronRight className="w-3 h-3" />
+                            <span className="text-blue-600">{activeChapter.title.toUpperCase()}</span>
+                        </>
+                    )}
+                </div>
+                
                 <div className="flex-1 overflow-y-auto space-y-4 no-scrollbar">
-                    {chapters.length === 0 && <div className="text-center py-10 text-gray-400 italic font-medium">No sequence added yet. Start constructing above.</div>}
-                    {chapters.map((chap, idx) => (
-                        <div key={chap.id} className="border border-gray-100 rounded-3xl bg-gray-50/50 overflow-hidden">
-                            <div className="p-4 bg-white flex justify-between items-center border-b border-gray-100">
-                                <span className="font-bold text-gray-700 text-sm">{idx+1}. {chap.title}</span>
-                                <div className="flex gap-2">
-                                    <button onClick={() => addVideo(chap.id)} className="text-[10px] bg-blue-100 text-blue-700 px-3 py-1.5 rounded-xl font-bold hover:bg-blue-200 transition-colors">+ NODE</button>
-                                    <button onClick={() => setChapters(chapters.filter(c => c.id !== chap.id))} className="text-red-500 p-1.5 hover:bg-red-50 rounded-xl"><Trash2 className="w-4 h-4" /></button>
-                                </div>
-                            </div>
-                            <div className="p-3 space-y-2">
-                                {chap.videos.map(vid => (
-                                    <div key={vid.id} className="p-3.5 bg-white rounded-2xl flex justify-between items-center border border-gray-50 shadow-sm">
-                                        <div className="flex-1 truncate pr-4 text-sm font-semibold text-gray-600">
-                                            <p className="truncate">{vid.title}</p>
-                                            <p className="text-[10px] text-blue-400 font-mono mt-1 opacity-70 truncate">{vid.filename}</p>
-                                        </div>
-                                        <button onClick={() => setChapters(chapters.map(c => c.id === chap.id ? {...c, videos: c.videos.filter(v => v.id !== vid.id)} : c))} className="text-gray-400 hover:text-red-500 p-1"><X className="w-4 h-4" /></button>
-                                    </div>
-                                ))}
+                    {editingVideo ? (
+                        <div className="space-y-4 bg-gray-50 p-6 rounded-2xl animate-fade-in">
+                            <h3 className="font-bold text-gray-700">Edit Node Data</h3>
+                            <input value={editingVideo.vid.title} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, title: e.target.value}})} className="w-full p-3 border rounded-xl" placeholder="Title" />
+                            <input value={editingVideo.vid.filename} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, filename: e.target.value}})} className="w-full p-3 border rounded-xl" placeholder="URL" />
+                            <input value={editingVideo.vid.duration} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, duration: e.target.value}})} className="w-full p-3 border rounded-xl" placeholder="Duration" />
+                            <div className="flex gap-2">
+                                <button onClick={() => setEditingVideo(null)} className="flex-1 py-2 text-gray-500 font-bold bg-white border rounded-xl">Cancel</button>
+                                <button onClick={updateVideoData} className="flex-1 py-2 bg-[#0056d2] text-white font-bold rounded-xl">Save Node</button>
                             </div>
                         </div>
-                    ))}
+                    ) : activeChapterId && activeSubjectId ? (
+                        <div className="space-y-3">
+                            <button onClick={() => addVideo(activeSubjectId, activeChapterId)} className="w-full py-4 border-2 border-dashed border-blue-100 rounded-2xl text-blue-600 font-bold hover:bg-blue-50 transition-all">+ Add Chapter Content</button>
+                            {activeChapter?.videos.map(vid => (
+                                <div key={vid.id} className="p-4 bg-gray-50 border border-gray-100 rounded-2xl flex justify-between items-center">
+                                    <div className="truncate pr-4">
+                                        <p className="text-sm font-bold text-gray-800 truncate">{vid.title}</p>
+                                        <p className="text-[10px] text-blue-500 font-bold uppercase">{vid.type} • {vid.duration}</p>
+                                    </div>
+                                    <div className="flex gap-1">
+                                        <button onClick={() => setEditingVideo({chapId: activeChapterId, vid})} className="p-2 text-gray-400 hover:text-blue-500"><Edit className="w-4 h-4" /></button>
+                                        <button onClick={() => setSubjects(subjects.map(s => s.id === activeSubjectId ? {...s, chapters: s.chapters.map(c => c.id === activeChapterId ? {...c, videos: c.videos.filter(v => v.id !== vid.id)} : c)} : s))} className="text-red-500 p-2"><Trash2 className="w-4 h-4" /></button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : activeSubjectId ? (
+                        <div className="space-y-3">
+                            <button onClick={() => addChapter(activeSubjectId)} className="w-full py-4 border-2 border-dashed border-blue-100 rounded-2xl text-blue-600 font-bold hover:bg-blue-50 transition-all">+ Add New Chapter</button>
+                            {activeSubject?.chapters.map(chap => (
+                                <div key={chap.id} className="p-4 bg-white border border-gray-100 rounded-2xl flex justify-between items-center shadow-sm">
+                                    <button onClick={() => setActiveChapterId(chap.id)} className="flex-1 text-left font-bold text-gray-700">{chap.title}</button>
+                                    <button onClick={() => setSubjects(subjects.map(s => s.id === activeSubjectId ? {...s, chapters: s.chapters.filter(c => c.id !== chap.id)} : s))} className="text-red-500 p-2"><Trash2 className="w-4 h-4" /></button>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            <button onClick={addSubject} className="w-full py-4 border-2 border-dashed border-blue-100 rounded-2xl text-blue-600 font-bold hover:bg-blue-50 transition-all">+ Add Subject wise Column</button>
+                            {subjects.map(sub => (
+                                <div key={sub.id} className="p-5 bg-white border border-gray-100 rounded-2xl flex justify-between items-center shadow-sm group">
+                                    <button onClick={() => setActiveSubjectId(sub.id)} className="flex items-center gap-4 flex-1 text-left">
+                                        <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600 font-bold text-xs">{sub.iconText}</div>
+                                        <span className="font-bold text-gray-800">{sub.title}</span>
+                                    </button>
+                                    <button onClick={() => setSubjects(subjects.filter(s => s.id !== sub.id))} className="text-red-500 p-2 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-4 h-4" /></button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
+                
                 <div className="mt-6 pt-6 border-t flex gap-3">
-                    <button onClick={onClose} className="flex-1 py-3.5 text-gray-500 font-bold hover:bg-gray-50 rounded-2xl transition-colors">Discard</button>
-                    <button onClick={handleSave} className="flex-1 py-3.5 bg-[#0056d2] text-white font-bold rounded-2xl shadow-lg shadow-blue-100 active:scale-95 transition-all">Commit Batch Grid</button>
+                    <button onClick={onClose} className="flex-1 py-4 text-gray-500 font-bold hover:bg-gray-50 rounded-2xl transition-colors">Discard</button>
+                    <button onClick={handleSave} className="flex-1 py-4 bg-[#0056d2] text-white font-bold rounded-2xl shadow-lg active:scale-95 transition-all">Commit Changes</button>
                 </div>
             </div>
         </div>
     );
 };
 
-// --- RESTORED ADMIN PANEL ---
+// --- ADMIN PANEL ---
 
 const AdminPanel = () => {
-    const { currentUser, courses, settings, addCourse, updateCourse, deleteCourse, updateSettings, users } = useStore();
+    const { currentUser, courses, settings, addCourse, updateCourse, deleteCourse, users } = useStore();
     const [tab, setTab] = useState<'batches' | 'users' | 'settings'>('batches');
     const [showModal, setShowModal] = useState(false);
     const [editing, setEditing] = useState<Course | null>(null);
     const [contentTarget, setContentTarget] = useState<Course | null>(null);
-    const [isGenerating, setIsGenerating] = useState(false);
     
-    const [form, setForm] = useState({ title: '', description: '', image: '', category: '', price: 0, mrp: 0, isPaid: false, accessKey: '', shortenerLink: '' });
+    const [form, setForm] = useState({ 
+      title: '', description: '', image: '', category: '', 
+      price: 0, mrp: 0, isPaid: false, accessKey: '', 
+      shortenerLink: '', telegramLink: '', startDate: '', 
+      endDate: '', isNew: true 
+    });
 
     useEffect(() => {
-        if (editing) setForm({ ...editing, isPaid: !!editing.isPaid });
-        else setForm({ title: '', description: '', image: '', category: '', price: 0, mrp: 0, isPaid: false, accessKey: '', shortenerLink: '' });
+        if (editing) {
+          setForm({ 
+            title: editing.title,
+            description: editing.description,
+            image: editing.image,
+            category: editing.category,
+            price: editing.price,
+            mrp: editing.mrp,
+            isPaid: !!editing.isPaid,
+            accessKey: editing.accessKey || '',
+            shortenerLink: editing.shortenerLink || '',
+            telegramLink: editing.telegramLink || '',
+            startDate: editing.startDate || '',
+            endDate: editing.endDate || '',
+            isNew: editing.isNew ?? true
+          });
+        }
+        else setForm({ title: '', description: '', image: '', category: '', price: 0, mrp: 0, isPaid: false, accessKey: '', shortenerLink: '', telegramLink: '', startDate: '', endDate: '', isNew: true });
     }, [editing, showModal]);
 
     if (!currentUser || currentUser.role !== UserRole.ADMIN) return <Navigate to="/" />;
 
     const handleSaveCourse = (e: React.FormEvent) => {
         e.preventDefault();
-        const data = { ...(editing || { id: Date.now().toString(), chapters: [], createdAt: new Date().toISOString() }), ...form };
+        const data: Course = { 
+          ...(editing || { id: Date.now().toString(), subjects: [], createdAt: new Date().toISOString() }), 
+          ...form 
+        };
         if (editing) updateCourse(data); else addCourse(data);
         setShowModal(false);
-    };
-
-    const handleGenerateLink = async () => {
-        if (!settings.linkShortenerApiKey || !settings.linkShortenerApiUrl) { 
-            const courseId = editing?.id || 'manual_sync';
-            setForm({ ...form, shortenerLink: `${window.location.origin}/#/temp-access/${courseId}` });
-            alert("No Link Shortener API set. Direct neural link generated.");
-            return; 
-        }
-        setIsGenerating(true);
-        try {
-            const courseId = editing?.id || 'temp';
-            const dest = `${window.location.origin}/#/temp-access/${courseId}`;
-            const api = `${settings.linkShortenerApiUrl}?api=${settings.linkShortenerApiKey}&url=${encodeURIComponent(dest)}`;
-            const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(api)}`);
-            const json = await res.json();
-            const data = JSON.parse(json.contents);
-            if (data.shortenedUrl || data.shortlink) {
-                setForm({ ...form, shortenerLink: data.shortenedUrl || data.shortlink });
-            } else throw new Error();
-        } catch {
-            const courseId = editing?.id || 'temp';
-            setForm({ ...form, shortenerLink: `${window.location.origin}/#/temp-access/${courseId}` });
-        } finally { setIsGenerating(false); }
     };
 
     return (
         <div className="pb-24 pt-20 px-4 min-h-screen bg-[#f8fafc]">
              <div className="max-w-4xl mx-auto">
                  <div className="flex bg-white p-1.5 rounded-[24px] shadow-sm border border-gray-100 mb-8 overflow-hidden">
-                    {['batches', 'users', 'settings'].map(t => (
-                        <button key={t} onClick={() => setTab(t as any)} className={`flex-1 py-3 font-bold capitalize transition-all rounded-[18px] text-sm ${tab === t ? 'bg-[#0056d2] text-white shadow-md' : 'text-gray-400 hover:bg-gray-50'}`}>
+                    {(['batches', 'users', 'settings'] as const).map(t => (
+                        <button key={t} onClick={() => setTab(t)} className={`flex-1 py-3 font-bold capitalize transition-all rounded-[18px] text-sm ${tab === t ? 'bg-[#0056d2] text-white shadow-md' : 'text-gray-400 hover:bg-gray-50'}`}>
                             {t}
                         </button>
                     ))}
@@ -207,24 +297,22 @@ const AdminPanel = () => {
 
                  {tab === 'batches' && (
                      <div className="space-y-4">
-                         <button onClick={() => { setEditing(null); setShowModal(true); }} className="w-full py-12 bg-white border-2 border-dashed border-blue-200 rounded-[32px] text-[#0056d2] font-bold flex flex-col items-center justify-center gap-2 hover:bg-blue-50 transition-all group">
-                            <Plus className="w-8 h-8 group-hover:scale-110 transition-transform" />
+                         <button onClick={() => { setEditing(null); setShowModal(true); }} className="w-full py-10 bg-white border-2 border-dashed border-blue-200 rounded-[32px] text-[#0056d2] font-bold flex flex-col items-center justify-center gap-2 hover:bg-blue-50 transition-all">
+                            <Plus className="w-8 h-8" />
                             <span>INITIALIZE NEW BATCH</span>
                          </button>
                          <div className="grid gap-3">
                              {courses.map(c => (
-                                 <div key={c.id} className="bg-white p-4 rounded-[28px] flex items-center gap-4 border border-gray-100 shadow-sm transition-all hover:shadow-md group">
-                                     <img src={c.image} className="w-16 h-16 rounded-2xl object-cover" />
-                                     <div className="flex-1 min-w-0">
-                                        <h3 className="font-bold text-gray-800 truncate">{c.title}</h3>
-                                        <p className="text-[10px] text-blue-600 font-bold uppercase tracking-widest">{c.category} • {c.isPaid ? 'Premium' : 'Public'}</p>
+                                 <div key={c.id} className="bg-white p-4 rounded-[28px] flex items-center gap-4 border border-gray-100 shadow-sm hover:shadow-md transition-all">
+                                     <img src={c.image} className="w-16 h-16 rounded-2xl object-cover" alt="" />
+                                     <div className="flex-1">
+                                        <h3 className="font-bold text-gray-800 text-sm truncate">{c.title}</h3>
+                                        <p className="text-[10px] text-blue-600 font-bold uppercase tracking-widest">{c.category} • {c.isPaid ? 'Paid' : 'Free'}</p>
                                      </div>
-                                     <div className="flex flex-col gap-2">
-                                         <button onClick={() => setContentTarget(c)} className="px-4 py-2 bg-[#0056d2] text-white rounded-xl font-bold text-[10px] active:scale-95 transition-transform uppercase tracking-widest">CONTENT</button>
-                                         <div className="flex gap-2 justify-end">
-                                            <button onClick={() => { setEditing(c); setShowModal(true); }} className="p-2 bg-gray-50 text-gray-400 hover:text-blue-600 rounded-xl transition-colors"><Edit className="w-4 h-4" /></button>
-                                            <button onClick={() => { if(confirm('Erase sequence?')) deleteCourse(c.id); }} className="p-2 bg-red-50 text-red-400 hover:bg-red-500 hover:text-white rounded-xl transition-all"><Trash2 className="w-4 h-4" /></button>
-                                         </div>
+                                     <div className="flex gap-2">
+                                         <button onClick={() => setContentTarget(c)} className="px-4 py-2 bg-[#0056d2] text-white rounded-xl font-bold text-[10px] active:scale-95 transition-all">CONTENT</button>
+                                         <button onClick={() => { setEditing(c); setShowModal(true); }} className="p-2 bg-gray-50 text-gray-400 rounded-xl hover:bg-blue-50 hover:text-blue-600 transition-colors"><Edit className="w-4 h-4" /></button>
+                                         <button onClick={() => { if(confirm('Delete batch sequence?')) deleteCourse(c.id); }} className="p-2 bg-red-50 text-red-400 rounded-xl hover:bg-red-500 hover:text-white transition-all"><Trash2 className="w-4 h-4" /></button>
                                      </div>
                                  </div>
                              ))}
@@ -232,94 +320,77 @@ const AdminPanel = () => {
                      </div>
                  )}
 
-                 {tab === 'users' && (
-                     <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 overflow-hidden">
-                        <div className="p-4 bg-gray-50 border-b border-gray-100 font-bold text-gray-500 uppercase text-[10px] tracking-widest">Neural Identity Registry</div>
-                        <div className="divide-y divide-gray-50">
-                        {users.map(u => (
-                            <div key={u.id} className="p-5 flex justify-between items-center hover:bg-gray-50 transition-colors">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-11 h-11 rounded-2xl bg-blue-100 text-[#0056d2] flex items-center justify-center font-bold text-lg">{u.name.charAt(0)}</div>
-                                    <div>
-                                        <div className="flex items-center gap-2">
-                                            <p className="font-bold text-gray-800">{u.name}</p>
-                                            <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${u.role === UserRole.ADMIN ? 'bg-blue-600 text-white border-blue-600' : 'bg-gray-100 text-gray-500 border-gray-200'}`}>{u.role}</span>
-                                        </div>
-                                        <p className="text-[11px] text-gray-400 font-medium">{u.email}</p>
-                                    </div>
-                                </div>
-                                <button className="text-[10px] font-bold text-blue-600 bg-blue-50 px-4 py-2 rounded-xl transition-colors hover:bg-blue-100">DETAILS</button>
-                            </div>
-                        ))}
-                        </div>
-                     </div>
-                 )}
-
-                 {tab === 'settings' && (
-                    <div className="bg-white p-8 rounded-[32px] shadow-sm border border-gray-100">
-                        <h2 className="text-xl font-bold text-gray-800 mb-8 tracking-tight">Portal Configuration</h2>
-                        <div className="space-y-6">
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">App Identifier</label>
-                                <input value={settings.appName} onChange={e => updateSettings({ ...settings, appName: e.target.value })} className="w-full p-4 bg-gray-50 rounded-2xl outline-none border border-gray-100 focus:border-blue-500 font-medium" />
-                            </div>
-                            <div className="grid md:grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Bridge API Endpoint</label>
-                                    <input value={settings.linkShortenerApiUrl || ''} onChange={e => updateSettings({ ...settings, linkShortenerApiUrl: e.target.value })} className="w-full p-4 bg-gray-50 rounded-2xl outline-none border border-gray-100 focus:border-blue-500 font-mono text-xs" placeholder="https://domain.com/api" />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Bridge API Key</label>
-                                    <input value={settings.linkShortenerApiKey || ''} onChange={e => updateSettings({ ...settings, linkShortenerApiKey: e.target.value })} className="w-full p-4 bg-gray-50 rounded-2xl outline-none border border-gray-100 focus:border-blue-500 font-mono text-xs" type="password" />
-                                </div>
-                            </div>
-                            <button onClick={() => alert("Memory Synced.")} className="w-full py-4 bg-[#0056d2] text-white font-bold rounded-2xl shadow-lg shadow-blue-100 hover:scale-[1.01] transition-transform mt-4 uppercase tracking-[0.2em] text-xs">SYNC NEURAL GLOBALS</button>
-                        </div>
+                {tab === 'users' && (
+                    <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 overflow-hidden animate-fade-in">
+                      <div className="p-4 bg-gray-50 border-b border-gray-100 font-bold text-gray-500 uppercase text-[10px] tracking-widest">Global User Registry</div>
+                      <div className="divide-y divide-gray-50 max-h-[60vh] overflow-y-auto no-scrollbar">
+                      {users.map(u => (
+                          <div key={u.id} className="p-5 flex justify-between items-center hover:bg-gray-50 transition-colors">
+                              <div>
+                                  <p className="font-bold text-gray-800">{u.name}</p>
+                                  <p className="text-[11px] text-gray-400">{u.email}</p>
+                              </div>
+                              <span className="text-[10px] font-bold px-3 py-1 bg-blue-50 text-blue-600 rounded-full border border-blue-100">{u.role}</span>
+                          </div>
+                      ))}
+                      </div>
                     </div>
-                 )}
+                )}
              </div>
 
-             {/* Add/Edit Modal */}
              {showModal && (
                  <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                    <div className="bg-white w-full max-w-lg rounded-[40px] p-10 shadow-2xl max-h-[90vh] overflow-y-auto no-scrollbar border border-gray-100 animate-slide-up">
-                        <div className="flex justify-between items-center mb-10">
-                            <h2 className="text-2xl font-bold text-gray-800 tracking-tight">{editing ? 'Configure Node' : 'Initialize Batch'}</h2>
+                    <div className="bg-white w-full max-w-lg rounded-[40px] p-8 shadow-2xl max-h-[90vh] overflow-y-auto no-scrollbar border border-gray-100 animate-slide-up">
+                        <div className="flex justify-between items-center mb-8">
+                            <h2 className="text-2xl font-bold text-gray-800 tracking-tight">{editing ? 'Edit Batch Configuration' : 'Initialize New Batch Node'}</h2>
                             <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X /></button>
                         </div>
-                        <form onSubmit={handleSaveCourse} className="space-y-6">
-                            <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:border-blue-500 font-bold" placeholder="Batch Name (e.g. Full-Stack 2025)" required />
-                            <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:border-blue-500 text-sm leading-relaxed" placeholder="Batch Description..." rows={3} />
-                            <div className="grid grid-cols-2 gap-4">
-                                <input value={form.image} onChange={e => setForm({ ...form, image: e.target.value })} className="p-4 bg-gray-50 border border-gray-100 rounded-2xl text-xs font-mono" placeholder="Image URL" />
-                                <input value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className="p-4 bg-gray-50 border border-gray-100 rounded-2xl text-xs uppercase font-bold" placeholder="Category" />
-                            </div>
-                            <div className="p-5 bg-gray-50 rounded-[24px] flex items-center justify-between cursor-pointer border border-gray-100 hover:bg-gray-100 transition-colors" onClick={() => setForm({ ...form, isPaid: !form.isPaid })}>
-                                <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Premium Enrolment Node</span>
-                                <div className={`w-11 h-6 rounded-full relative transition-all duration-300 ${form.isPaid ? 'bg-blue-600' : 'bg-gray-300'}`}>
-                                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 ${form.isPaid ? 'left-6' : 'left-1'}`} />
-                                </div>
-                            </div>
-                            {form.isPaid && (
-                                <div className="space-y-4 animate-fade-in">
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-bold text-blue-600 uppercase ml-1 tracking-widest">Master Key Signature</label>
-                                        <input value={form.accessKey} onChange={e => setForm({ ...form, accessKey: e.target.value })} className="w-full p-5 bg-blue-50 border-2 border-blue-600 text-blue-800 rounded-2xl text-center font-mono text-2xl tracking-[0.3em] outline-none" placeholder="KEY_123" />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-bold text-blue-600 uppercase ml-1 tracking-widest">Shortener Bridge Link</label>
-                                        <div className="flex gap-2">
-                                            <input value={form.shortenerLink} onChange={e => setForm({ ...form, shortenerLink: e.target.value })} className="flex-1 p-4 bg-gray-50 border border-gray-100 rounded-2xl text-[10px] font-mono" placeholder="External Bridge URL" />
-                                            <button type="button" onClick={handleGenerateLink} disabled={isGenerating} className="px-5 bg-blue-600 text-white rounded-2xl hover:scale-105 active:scale-95 transition-all shadow-lg shadow-blue-100">
-                                                {isGenerating ? <Loader2 className="animate-spin w-5 h-5" /> : <Globe className="w-5 h-5" />}
-                                            </button>
+                        <form onSubmit={handleSaveCourse} className="space-y-5">
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Identity Thumbnail</label>
+                                <div className="relative aspect-video rounded-3xl overflow-hidden bg-gray-50 border-2 border-dashed border-gray-200 flex items-center justify-center group shadow-inner">
+                                    {form.image ? (
+                                        <>
+                                            <img src={form.image} className="w-full h-full object-cover" alt="Preview" />
+                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                <button type="button" onClick={() => setForm({...form, image: ''})} className="bg-white text-red-500 p-2.5 rounded-full shadow-lg hover:scale-110 transition-transform"><Trash2 className="w-5 h-5" /></button>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div className="text-center p-6">
+                                            <ImageIcon className="w-12 h-12 text-gray-300 mx-auto mb-2 opacity-50" />
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Inject Thumbnail URL Below</p>
                                         </div>
+                                    )}
+                                </div>
+                                <input value={form.image} onChange={e => setForm({ ...form, image: e.target.value })} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl font-mono text-[10px] shadow-sm" placeholder="https://domain.com/thumbnail.jpg" />
+                            </div>
+
+                            <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:border-blue-500 font-bold shadow-sm" placeholder="Course Title" required />
+                            
+                            <div className="grid grid-cols-2 gap-4">
+                                <input value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className="p-4 bg-gray-50 border border-gray-100 rounded-2xl text-xs uppercase font-bold shadow-sm" placeholder="Category" required />
+                                <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-2xl border border-gray-100 shadow-sm cursor-pointer" onClick={() => setForm({...form, isNew: !form.isNew})}>
+                                    <span className="text-xs font-bold text-gray-400 uppercase">New Badge</span>
+                                    <div className={`w-10 h-5 rounded-full relative transition-all ${form.isNew ? 'bg-blue-600' : 'bg-gray-300'}`}>
+                                        <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${form.isNew ? 'left-5.5' : 'left-0.5'}`} />
                                     </div>
                                 </div>
-                            )}
-                            <div className="pt-6 flex flex-col gap-4">
-                                <button type="submit" className="w-full py-5 bg-[#0056d2] text-white font-bold rounded-[22px] shadow-xl shadow-blue-100 hover:scale-[1.01] active:scale-95 transition-all uppercase tracking-[0.2em] text-sm">Commit Batch</button>
-                                <button type="button" onClick={() => setShowModal(false)} className="w-full py-3 text-gray-400 font-bold hover:text-gray-600 transition-colors uppercase text-[10px] tracking-widest">Abort Protocol</button>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-gray-400 ml-1 uppercase">Node Active</label>
+                                    <input value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl text-xs shadow-sm" placeholder="Start Date" />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-gray-400 ml-1 uppercase">Node Expiry</label>
+                                    <input value={form.endDate} onChange={e => setForm({ ...form, endDate: e.target.value })} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl text-xs shadow-sm" placeholder="End Date" />
+                                </div>
+                            </div>
+
+                            <div className="pt-4">
+                                <button type="submit" className="w-full py-5 bg-[#0056d2] text-white font-black rounded-3xl shadow-xl shadow-blue-100 active:scale-95 transition-all uppercase tracking-[0.2em] text-sm">Commit Sequence</button>
                             </div>
                         </form>
                     </div>
@@ -335,43 +406,50 @@ const AdminPanel = () => {
 
 const CourseListing = () => {
     const { courses } = useStore();
+    const [filter, setFilter] = useState<'Paid' | 'Free'>('Free');
+    const filteredCourses = courses.filter(c => filter === 'Paid' ? c.isPaid : !c.isPaid);
+
     return (
-        <div className="pb-24 pt-20 px-4 min-h-screen bg-[#f8fafc]">
-            <div className="max-w-6xl mx-auto">
-                <div className="mb-8 flex items-center justify-between">
-                    <div>
-                        <h1 className="text-3xl font-black text-gray-800 tracking-tight">Active Batches</h1>
-                        <div className="w-16 h-1.5 bg-blue-600 rounded-full mt-2"></div>
-                    </div>
-                    <div className="p-3 bg-white rounded-2xl border border-gray-100 shadow-sm">
-                        <Search className="w-6 h-6 text-gray-400" />
-                    </div>
+        <div className="pb-24 pt-20 px-5 min-h-screen bg-[#f8fafc]">
+            <div className="max-w-md mx-auto space-y-6">
+                <div className="bg-white p-1 rounded-3xl border border-gray-100 flex shadow-sm">
+                    {(['Paid', 'Free'] as const).map((t) => (
+                        <button key={t} onClick={() => setFilter(t)} className={`flex-1 py-3 rounded-2xl font-bold text-sm transition-all ${filter === t ? 'bg-blue-50 text-[#0056d2] shadow-sm' : 'text-gray-400 hover:bg-gray-50'}`}>
+                            {t}
+                        </button>
+                    ))}
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {courses.map(c => (
-                        <Link key={c.id} to={`/course/${c.id}`} className="bg-white rounded-[32px] overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl transition-all flex flex-col group">
-                            <div className="relative h-56 overflow-hidden">
-                                <img src={c.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                                <div className="absolute top-4 right-4 bg-white/95 backdrop-blur px-4 py-1.5 rounded-full text-[10px] font-black text-[#0056d2] uppercase shadow-md tracking-widest">
-                                    {c.category}
+
+                <div className="space-y-8">
+                    {filteredCourses.length === 0 ? (
+                        <div className="text-center py-20 animate-fade-in">
+                            <Search className="w-12 h-12 text-gray-200 mx-auto mb-4" />
+                            <p className="text-gray-400 font-bold uppercase text-[10px] tracking-widest">No active nodes in this sector</p>
+                        </div>
+                    ) : filteredCourses.map(c => (
+                        <div key={c.id} className="bg-white rounded-[40px] overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-500 animate-slide-up">
+                            <div className="p-7 flex justify-between items-center">
+                                <div className="flex items-center gap-2.5">
+                                    <h3 className="text-lg font-black text-gray-800 tracking-tight">{c.title}</h3>
+                                    {c.isNew && <span className="bg-[#fff9e6] text-[#eab308] text-[9px] font-black px-2.5 py-1 rounded-lg border border-yellow-200 uppercase tracking-tighter shadow-sm">New</span>}
                                 </div>
                             </div>
-                            <div className="p-7 flex-1 flex flex-col justify-between">
-                                <div>
-                                    <h3 className="text-xl font-bold text-gray-800 leading-tight mb-3 group-hover:text-blue-600 transition-colors">{c.title}</h3>
-                                    <p className="text-gray-400 text-xs line-clamp-2 leading-relaxed font-medium">{c.description}</p>
+                            <div className="px-7 relative group">
+                                <img src={c.image} className="w-full aspect-[16/9] object-cover rounded-[30px] group-hover:scale-[1.02] transition-transform duration-700" alt={c.title} />
+                                {!c.isPaid && <div className="absolute top-4 left-11 bg-white/95 backdrop-blur-md px-3.5 py-1.5 rounded-xl text-[10px] font-black text-gray-800 shadow-xl ring-1 ring-black/5 uppercase tracking-widest">Free Node</div>}
+                            </div>
+                            <div className="p-7 pt-5 space-y-6">
+                                <div className="flex items-center gap-5 text-[11px] font-bold text-gray-400">
+                                    <div className="flex items-center gap-2"><Calendar className="w-4 h-4 text-brand/50" /><span>Starts {c.startDate}</span></div>
+                                    <div className="w-1.5 h-1.5 bg-gray-200 rounded-full"></div>
+                                    <div className="flex items-center gap-2"><span>Ends {c.endDate}</span></div>
                                 </div>
-                                <div className="mt-8 flex items-center justify-between border-t border-gray-50 pt-6">
-                                    <div className="flex flex-col">
-                                        <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">Enrollment Status</span>
-                                        <span className={`text-sm font-black ${c.isPaid ? 'text-gray-800' : 'text-emerald-500'} uppercase`}>{c.isPaid ? 'Premium Node' : 'Public Domain'}</span>
-                                    </div>
-                                    <div className="w-12 h-12 rounded-[18px] bg-blue-50 flex items-center justify-center text-[#0056d2] group-hover:bg-[#0056d2] group-hover:text-white transition-all shadow-lg shadow-blue-50">
-                                        <PlayCircle className="w-7 h-7" />
-                                    </div>
+                                <div className="flex gap-4">
+                                    <button className="flex-1 py-4 text-sm font-black text-[#7c5cdb] border-2 border-[#7c5cdb]/10 rounded-2xl hover:bg-[#7c5cdb]/5 transition-all uppercase tracking-widest">Archive</button>
+                                    <Link to={`/course/${c.id}`} className="flex-[1.5] py-4 bg-[#7c5cdb] text-white text-center text-sm font-black rounded-2xl shadow-xl shadow-[#7c5cdb]/20 active:scale-95 transition-all uppercase tracking-widest">Let's Study</Link>
                                 </div>
                             </div>
-                        </Link>
+                        </div>
                     ))}
                 </div>
             </div>
@@ -380,246 +458,196 @@ const CourseListing = () => {
 };
 
 const CourseDetail = () => {
-    const { id } = useParams();
-    const { courses, currentUser, enrollCourse } = useStore();
+    const { id } = useParams<{id: string}>();
+    const { courses } = useStore();
     const navigate = useNavigate();
-    const course = courses.find(c => c.id === id);
-    if (!course) return null;
+    const [activeTab, setActiveTab] = useState<'Description' | 'Subjects' | 'Resources' | 'Tests' | 'Community'>('Subjects');
 
-    const expiryDate = currentUser?.tempAccess?.[course.id];
-    const isTempValid = expiryDate && new Date(expiryDate) > new Date();
-    const isEnrolled = currentUser?.purchasedCourseIds.includes(course.id) || isTempValid;
+    const course = courses.find(c => c.id === id);
+    if (!course) return <Navigate to="/" />;
 
     return (
-        <div className="pb-24 pt-0 min-h-screen bg-[#f8fafc]">
-            <div className="relative h-[40vh] w-full">
-                <img src={course.image} className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-between p-8">
-                    <button onClick={() => navigate(-1)} className="p-3 bg-white/10 backdrop-blur-md rounded-[18px] text-white w-fit border border-white/20 transition-all hover:bg-white/20"><ArrowLeft /></button>
-                    <div>
-                        <span className="bg-blue-600 text-white text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-[0.2em] mb-4 inline-block shadow-lg shadow-blue-500/20">{course.category}</span>
-                        <h1 className="text-4xl font-black text-white leading-tight tracking-tight">{course.title}</h1>
+        <div className="pb-24 pt-0 min-h-screen bg-white">
+            <div className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
+                <div className="flex items-center justify-between p-4 px-6">
+                    <div className="flex items-center gap-5">
+                        <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-50 rounded-full transition-colors"><ArrowLeft className="w-6 h-6 text-gray-800" /></button>
+                        <h1 className="text-xl font-black text-gray-800 truncate max-w-[180px] tracking-tight">{course.title}</h1>
                     </div>
+                    <div className="flex items-center gap-4">
+                        <XPBadge />
+                        <Bell className="w-6 h-6 text-gray-600" />
+                        <MoreVertical className="w-6 h-6 text-gray-600" />
+                    </div>
+                </div>
+                
+                <div className="flex px-6 gap-8 overflow-x-auto no-scrollbar">
+                    {(['Description', 'Subjects', 'Resources', 'Tests', 'Community'] as const).map(tab => (
+                        <button key={tab} onClick={() => setActiveTab(tab)} className={`pb-3 text-sm font-black whitespace-nowrap transition-all border-b-4 ${activeTab === tab ? 'text-brand border-brand' : 'text-gray-400 border-transparent'}`}>
+                            {tab}
+                        </button>
+                    ))}
                 </div>
             </div>
-
-            <div className="px-6 -mt-10 relative z-10 max-w-4xl mx-auto">
-                <div className="bg-white p-8 rounded-[40px] shadow-2xl border border-gray-50 flex flex-col md:flex-row justify-between items-center gap-6">
-                    <div className="text-center md:text-left">
-                        <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-1">Batch Pricing Protocol</p>
-                        <p className="text-3xl font-black text-gray-800">{course.isPaid ? `₹${course.price}` : 'FREE ENROLLMENT'}</p>
-                    </div>
-                    <div className="flex-1 w-full md:w-auto">
-                    {isEnrolled ? (
-                        <div className="flex flex-col gap-2">
-                             <button onClick={() => navigate(`/watch/${course.id}`)} className="w-full bg-[#0056d2] text-white py-5 rounded-[22px] font-black flex items-center justify-center gap-4 shadow-xl shadow-blue-100 active:scale-95 transition-all text-lg tracking-widest uppercase">
-                                <PlayCircle className="w-8 h-8" /> START STREAMING
-                             </button>
-                             {isTempValid && <p className="text-center text-[10px] text-amber-500 font-black animate-pulse uppercase tracking-[0.2em]">Temporal Link Active (24H)</p>}
-                        </div>
-                    ) : (
-                        <div className="flex gap-4">
-                            {course.isPaid && course.shortenerLink && (
-                                <a href={course.shortenerLink} target="_blank" rel="noopener noreferrer" className="p-5 bg-white border-2 border-blue-600 text-[#0056d2] rounded-[22px] flex items-center justify-center shadow-lg shadow-blue-50 hover:scale-105 transition-transform"><ExternalLink className="w-7 h-7" /></a>
-                            )}
-                            <button onClick={() => course.isPaid ? navigate(`/verify/${course.id}`) : enrollCourse(course.id)} className="flex-1 bg-[#0056d2] text-white py-5 rounded-[22px] font-black text-lg shadow-xl shadow-blue-100 active:scale-95 transition-all tracking-[0.2em] uppercase">
-                                {course.isPaid ? 'UNLOCK NODE' : 'ENROLL NOW'}
-                            </button>
-                        </div>
-                    )}
-                    </div>
-                </div>
-
-                <div className="mt-12">
-                    <div className="flex items-center gap-4 mb-8">
-                        <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-[18px] flex items-center justify-center shadow-sm">
-                            <List className="w-6 h-6" />
-                        </div>
-                        <h3 className="text-2xl font-black text-gray-800 tracking-tight">Syllabus Grid</h3>
-                    </div>
-                    
-                    <div className="space-y-4">
-                        {course.chapters && course.chapters.length > 0 ? course.chapters.map((chap, idx) => (
-                            <div key={chap.id} className="bg-white rounded-[32px] border border-gray-100 overflow-hidden shadow-sm transition-all hover:border-blue-100">
-                                <div className="p-6 bg-gray-50/50 flex justify-between items-center border-b border-gray-50">
-                                    <span className="font-black text-gray-700 text-sm uppercase tracking-tighter">{idx + 1}. {chap.title}</span>
-                                    <span className="text-[10px] text-blue-600 font-black bg-blue-100 px-4 py-1.5 rounded-full shadow-inner">{chap.videos?.length || 0} UNITS</span>
+            <Banner />
+            <div className="p-6">
+                {activeTab === 'Subjects' && (
+                    <div className="space-y-5">
+                        {(course.subjects || []).map((sub) => (
+                            <div key={sub.id} onClick={() => navigate(`/course/${course.id}/subject/${sub.id}`)} className="bg-white border border-gray-100 rounded-[35px] p-6 flex items-center gap-6 shadow-sm active:scale-[0.98] transition-all hover:border-brand/30 hover:shadow-md">
+                                <div className="w-16 h-16 bg-brand/5 rounded-2xl flex items-center justify-center text-brand font-black text-xl border border-brand/10 shadow-inner">{sub.iconText}</div>
+                                <div className="flex-1">
+                                    <h3 className="font-black text-gray-800 text-lg leading-tight mb-2">{sub.title}</h3>
+                                    <div className="flex items-center gap-5 mt-3">
+                                        <div className="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden shadow-inner"><div className="h-full bg-brand w-[0%]"></div></div>
+                                        <span className="text-[12px] font-black text-gray-400">0%</span>
+                                    </div>
                                 </div>
-                                <div className="p-3 space-y-2">
-                                    {chap.videos?.map(vid => (
-                                        <div key={vid.id} onClick={() => isEnrolled && navigate(`/watch/${course.id}`)} className={`p-5 flex items-center gap-5 rounded-[22px] cursor-pointer transition-all ${isEnrolled ? 'hover:bg-blue-50/50 hover:scale-[1.01]' : 'opacity-40 group-hover:scale-95'}`}>
-                                            <div className={`w-12 h-12 rounded-[16px] flex items-center justify-center shadow-sm ${isEnrolled ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'}`}>
-                                                {isEnrolled ? <PlayCircle className="w-6 h-6" /> : <Lock className="w-5 h-5" />}
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="font-black text-base text-gray-700 truncate tracking-tight">{vid.title}</p>
-                                                <p className="text-[10px] text-gray-400 font-black mt-1 uppercase tracking-widest">{vid.duration} SEQUENCE</p>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
+                                <ChevronRight className="w-6 h-6 text-gray-300" />
                             </div>
-                        )) : (
-                            <div className="text-center py-20 bg-white rounded-[40px] border-2 border-dashed border-gray-100">
-                                <p className="text-gray-300 font-black uppercase tracking-[0.2em] text-sm italic">Neural Data Sequenced Incomplete</p>
-                            </div>
-                        )}
+                        ))}
                     </div>
-                    <button onClick={() => navigate(`/exam/${course.id}`)} className="w-full mt-10 py-6 bg-white border-2 border-blue-600 text-[#0056d2] rounded-[32px] font-black flex items-center justify-center gap-4 active:scale-95 transition-all text-lg shadow-xl shadow-blue-50 uppercase tracking-[0.2em]">
-                        <Brain className="w-8 h-8" /> COMMENCE EVALUATION
-                    </button>
-                </div>
+                )}
+                {activeTab === 'Description' && (
+                    <div className="space-y-8 animate-fade-in">
+                        <div className="relative group">
+                             <img src={course.image} className="w-full h-56 object-cover rounded-[50px] shadow-2xl" alt="" />
+                             <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent rounded-[50px]"></div>
+                        </div>
+                        <div>
+                            <h2 className="text-3xl font-black text-gray-800 mb-4 tracking-tight">{course.title}</h2>
+                            <p className="text-gray-500 text-base leading-relaxed font-medium">{course.description}</p>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
 };
 
-// --- AUTH & FLOW COMPONENTS ---
-
-const VerifyNode = () => {
-    const { id } = useParams();
-    const { courses, enrollCourse } = useStore();
+const SubjectDetail = () => {
+    const { courseId, subjectId } = useParams<{courseId: string, subjectId: string}>();
+    const { courses } = useStore();
     const navigate = useNavigate();
-    const [key, setKey] = useState('');
-    const course = courses.find(c => c.id === id);
+    const [tab, setTab] = useState<'Chapters' | 'Notes'>('Chapters');
+    const [filter, setFilter] = useState('All');
+    const [generatingNotes, setGeneratingNotes] = useState(false);
+    const [notes, setNotes] = useState<string | null>(null);
+    
+    const course = courses.find(c => c.id === courseId);
+    const subject = course?.subjects.find(s => s.id === subjectId);
+    if (!subject || !courseId) return <Navigate to="/" />;
 
-    const handleVerify = () => {
-        if (key === course?.accessKey) {
-            enrollCourse(course.id);
-            alert("Master Key Accepted. Identity Synced.");
-            navigate(`/course/${course.id}`);
-        } else alert("Invalid Authentication Signature.");
+    const handleGenerateNotes = async () => {
+        setGeneratingNotes(true);
+        try {
+            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            const prompt = `Generate highly concise educational summary for "${subject.title}" based on these chapter topics: ${subject.chapters.map(c => c.title).join(', ')}. Use professional teaching tone.`;
+            const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: prompt });
+            setNotes(response.text || "Neural downlink failure. Could not synthesize data.");
+        } catch (e) { alert("AI sync failed. Check terminal."); } finally { setGeneratingNotes(false); }
     };
 
     return (
-        <div className="min-h-screen pt-24 px-6 flex items-center justify-center bg-[#f8fafc]">
-            <div className="bg-white p-10 rounded-[50px] max-w-md w-full shadow-2xl border border-gray-100 animate-slide-up">
-                <div className="w-20 h-20 bg-blue-100 text-blue-600 rounded-[28px] flex items-center justify-center mb-8 mx-auto shadow-lg shadow-blue-100"><Lock className="w-10 h-10" /></div>
-                <h2 className="text-3xl font-black text-gray-800 mb-2 text-center tracking-tight">Access Verification</h2>
-                <p className="text-gray-400 text-sm mb-12 text-center font-medium">Input unique Master Key for <span className="text-blue-600 font-bold">{course?.title}</span>.</p>
-                <input value={key} onChange={e => setKey(e.target.value)} className="w-full p-6 bg-gray-50 border-2 border-blue-100 rounded-[24px] mb-8 text-center text-3xl font-mono text-blue-800 outline-none focus:border-blue-600 transition-all shadow-inner" placeholder="000-000" />
-                <button onClick={handleVerify} className="w-full py-6 bg-[#0056d2] text-white font-black rounded-[24px] shadow-2xl shadow-blue-100 active:scale-95 transition-all text-xl uppercase tracking-[0.2em]">DECRYPT NODE</button>
+        <div className="pb-24 pt-0 min-h-screen bg-white">
+            <div className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
+                <div className="flex items-center justify-between p-4 px-6">
+                    <div className="flex items-center gap-5">
+                        <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-50 rounded-full transition-colors"><ArrowLeft className="w-6 h-6 text-gray-800" /></button>
+                        <h1 className="text-xl font-black text-gray-800 tracking-tight">{subject.title}</h1>
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <button onClick={handleGenerateNotes} className="text-brand p-2.5 rounded-2xl hover:bg-brand/5 border border-brand/10 transition-all active:scale-90">
+                          {generatingNotes ? <Loader2 className="w-6 h-6 animate-spin" /> : <Sparkles className="w-6 h-6" />}
+                        </button>
+                        <XPBadge />
+                    </div>
+                </div>
+                <div className="flex px-6 gap-10">
+                    {(['Chapters', 'Study Material'] as const).map(t => (
+                        <button key={t} onClick={() => setTab(t === 'Chapters' ? 'Chapters' : 'Notes')} className={`pb-4 text-sm font-black border-b-4 transition-all ${tab === (t === 'Chapters' ? 'Chapters' : 'Notes') ? 'text-brand border-brand' : 'text-gray-400 border-transparent'}`}>{t}</button>
+                    ))}
+                </div>
             </div>
-        </div>
-    );
-};
 
-const TempAccess = () => {
-    const { courseId } = useParams();
-    const { grantTempAccess } = useStore();
-    const navigate = useNavigate();
-    const [progress, setProgress] = useState(0);
-    
-    useEffect(() => {
-        const interval = setInterval(() => {
-            setProgress(p => {
-                if (p >= 100) { 
-                    clearInterval(interval); 
-                    grantTempAccess(courseId!); 
-                    setTimeout(() => navigate(`/course/${courseId}`), 300);
-                    return 100; 
-                }
-                return p + 1.5;
-            });
-        }, 30);
-        return () => clearInterval(interval);
-    }, [courseId, grantTempAccess, navigate]);
-
-    return (
-        <div className="min-h-screen flex flex-col items-center justify-center p-12 text-center bg-white">
-            <div className="w-24 h-24 bg-blue-50 text-[#0056d2] rounded-[32px] flex items-center justify-center mb-10 shadow-2xl animate-pulse border border-blue-100"><Globe className="w-12 h-12" /></div>
-            <h2 className="text-3xl font-black text-gray-800 mb-3 uppercase tracking-tighter">Bypassing Link Firewall</h2>
-            <p className="text-sm font-bold text-gray-400 mb-12 uppercase tracking-[0.3em]">Neural Bridge Synchronization: {Math.floor(progress)}%</p>
-            <div className="w-full max-w-sm h-3 bg-gray-100 rounded-full overflow-hidden shadow-inner">
-                <div className="h-full bg-[#0056d2] transition-all duration-100 shadow-glow" style={{width: `${progress}%`}}></div>
-            </div>
-        </div>
-    );
-};
-
-const Watch = () => {
-    const { courseId } = useParams();
-    const { courses, currentUser } = useStore();
-    const navigate = useNavigate();
-    const course = courses.find(c => c.id === courseId);
-    const [idx, setIdx] = useState(0);
-
-    const allVideos: any[] = [];
-    course?.chapters?.forEach(c => c.videos?.forEach(v => allVideos.push({ ...v, chap: c.title })));
-
-    if (!currentUser) return <Navigate to="/login" />;
-    if (!course || allVideos.length === 0) return <Navigate to="/" />;
-
-    const isEnrolled = currentUser.purchasedCourseIds.includes(course.id) || 
-                      (currentUser.tempAccess?.[course.id] && new Date(currentUser.tempAccess[course.id]) > new Date());
-    
-    if (!isEnrolled) return <Navigate to={`/course/${course.id}`} />;
-
-    return (
-      <div className="min-h-screen bg-black flex flex-col h-screen overflow-hidden">
-        <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-          <div className="flex-1 flex flex-col bg-black relative">
-            <VideoPlayer src={allVideos[idx].filename} onBack={() => navigate(`/course/${courseId}`)} title={allVideos[idx].title} />
-            <div className="p-8 bg-white border-t border-gray-100">
-              <h1 className="text-2xl font-black text-gray-800 leading-tight tracking-tight uppercase">{allVideos[idx].title}</h1>
-              <p className="text-[#0056d2] font-black text-[11px] uppercase tracking-[0.4em] mt-2 opacity-60">{allVideos[idx].chap} Module</p>
-            </div>
-          </div>
-          <div className="w-full md:w-[450px] bg-white border-l border-gray-100 flex flex-col overflow-hidden">
-            <div className="p-8 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
-              <h2 className="font-black text-gray-800 uppercase tracking-tighter text-xl">Module Stream</h2>
-              <span className="text-[11px] font-black text-[#0056d2] bg-blue-100 px-4 py-1.5 rounded-full">{allVideos.length} NODES</span>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar">
-              {allVideos.map((v, i) => (
-                <button key={v.id} onClick={() => setIdx(i)} className={`w-full text-left p-6 rounded-[28px] flex items-center gap-5 transition-all ${idx === i ? 'bg-[#0056d2] text-white shadow-2xl scale-[1.02]' : 'bg-gray-50 hover:bg-gray-100'}`}>
-                  <div className={`w-14 h-14 rounded-[18px] flex items-center justify-center transition-all ${idx === i ? 'bg-white/20' : 'bg-white text-[#0056d2] shadow-sm'}`}>
-                    {idx === i ? <Play className="w-7 h-7" fill="white" /> : <PlayCircle className="w-7 h-7" />}
+            <div className="p-6 space-y-8 pb-32">
+                {tab === 'Chapters' ? (
+                  subject.chapters.length === 0 ? (
+                    <div className="text-center py-32 opacity-30 italic font-black uppercase text-[10px] tracking-widest">No data sequences discovered</div>
+                  ) : (
+                    subject.chapters.map((chap, idx) => (
+                        <div key={chap.id} onClick={() => setTab('Notes')} className="bg-white border border-gray-100 rounded-[40px] p-8 shadow-sm flex justify-between items-center active:scale-[0.98] transition-all hover:border-brand/20">
+                            <div>
+                                <span className="inline-block bg-brand/5 text-brand text-[10px] font-black px-3 py-1.5 rounded-xl mb-3 border border-brand/10 uppercase tracking-[0.2em] shadow-sm">UNIT - {String(idx+1).padStart(2, '0')}</span>
+                                <h3 className="font-black text-gray-800 text-xl mb-2 tracking-tight leading-tight">{chap.title}</h3>
+                                <p className="text-[11px] text-gray-400 font-black uppercase tracking-[0.3em]">Module Stream : {chap.videos.filter(v => v.type === 'lecture').length} SEQUENCES</p>
+                            </div>
+                            <div className="w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-300 group-hover:text-brand transition-colors"><ChevronRight className="w-7 h-7" /></div>
+                        </div>
+                    ))
+                  )
+                ) : (
+                  <div className="space-y-6">
+                    <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
+                      {(['All', 'Lectures', 'Notes', 'DPPs'] as const).map(f => (
+                        <button key={f} onClick={() => setFilter(f)} className={`px-6 py-2.5 rounded-full text-xs font-black whitespace-nowrap transition-all uppercase tracking-widest border-2 ${filter === f ? 'bg-[#333] border-[#333] text-white shadow-lg' : 'bg-white border-gray-100 text-gray-400 hover:border-gray-200'}`}>{f}</button>
+                      ))}
+                    </div>
+                    <div className="space-y-4">
+                    {subject.chapters.flatMap(c => c.videos).filter(v => filter === 'All' || (filter === 'Lectures' && v.type === 'lecture') || (filter === 'Notes' && v.type === 'note') || (filter === 'DPPs' && v.type === 'dpp')).map(v => (
+                      <div key={v.id} className="bg-white border border-gray-100 rounded-[35px] p-5 shadow-sm flex gap-5 animate-slide-up group">
+                        <div className="w-28 aspect-video bg-gray-50 rounded-2xl overflow-hidden shrink-0 flex items-center justify-center border border-gray-100 shadow-inner group-hover:border-brand/30 transition-colors">
+                          <PlayCircle className="w-8 h-8 text-brand/20 group-hover:text-brand transition-colors" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.3em] mb-1.5">{v.type?.toUpperCase()} • {v.date}</p>
+                          <h4 className="text-sm font-black text-gray-800 line-clamp-2 leading-tight tracking-tight mb-3 group-hover:text-brand transition-colors">{v.title}</h4>
+                          <button onClick={() => navigate(`/watch/${courseId}`)} className="flex items-center gap-2 px-4 py-2 bg-brand/5 text-brand rounded-xl text-[10px] font-black hover:bg-brand hover:text-white transition-all shadow-sm active:scale-95 uppercase tracking-widest border border-brand/5">
+                            <PlayCircle className="w-4 h-4" /> Initialize
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    </div>
                   </div>
-                  <div className="flex-1 truncate">
-                    <p className={`font-black text-base truncate uppercase tracking-tighter ${idx === i ? 'text-white' : 'text-gray-700'}`}>{v.title}</p>
-                    <p className={`text-[10px] font-black uppercase tracking-widest mt-1 ${idx === i ? 'opacity-70' : 'opacity-40'}`}>{v.duration} Sequence</p>
-                  </div>
-                </button>
-              ))}
+                )}
             </div>
-          </div>
+
+            {notes && (
+                <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-xl flex items-center justify-center p-4 animate-fade-in" onClick={() => setNotes(null)}>
+                    <div className="bg-white w-full max-w-lg max-h-[85vh] rounded-[50px] p-10 overflow-y-auto shadow-2xl animate-slide-up relative border border-white/20" onClick={e => e.stopPropagation()}>
+                        <div className="flex justify-between items-center mb-8 sticky top-0 bg-white/80 backdrop-blur pb-4">
+                            <h2 className="text-2xl font-black flex items-center gap-3 tracking-tight"><Sparkles className="w-7 h-7 text-brand" /> Neural Summary</h2>
+                            <button onClick={() => setNotes(null)} className="p-2 hover:bg-gray-50 rounded-full transition-colors"><X className="text-gray-400" /></button>
+                        </div>
+                        <div className="prose prose-sm text-gray-600 leading-relaxed whitespace-pre-wrap font-medium text-lg selection:bg-brand/10">{notes}</div>
+                    </div>
+                </div>
+            )}
         </div>
-      </div>
     );
 };
 
 const Profile = () => {
-    const { currentUser, logout, settings } = useStore();
+    const { currentUser, logout } = useStore();
     if (!currentUser) return <Navigate to="/login" />;
     return (
         <div className="pb-24 pt-24 px-6 min-h-screen bg-[#f8fafc]">
-            <div className="max-w-2xl mx-auto space-y-6">
-                <div className="bg-white rounded-[50px] p-12 shadow-sm border border-gray-100 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-48 h-48 bg-blue-50 rounded-full -mr-24 -mt-24 blur-3xl opacity-50"></div>
-                    <div className="flex items-center gap-8 mb-12 relative z-10">
-                        <div className="w-24 h-24 rounded-[32px] bg-[#0056d2] flex items-center justify-center text-white text-4xl font-black shadow-2xl shadow-blue-100">
-                            {currentUser.name.charAt(0)}
-                        </div>
-                        <div>
-                            <h2 className="text-3xl font-black text-gray-800 tracking-tighter uppercase">{currentUser.name}</h2>
-                            <p className="text-[#0056d2] font-black text-[11px] uppercase tracking-[0.4em] bg-blue-50 px-4 py-1 rounded-full inline-block mt-3 shadow-inner">{currentUser.role} IDENTITY</p>
-                        </div>
+            <div className="max-w-2xl mx-auto space-y-8">
+                <div className="bg-white rounded-[60px] p-12 shadow-sm border border-gray-100 relative overflow-hidden text-center">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-brand/5 rounded-full -mr-32 -mt-32 blur-3xl opacity-50"></div>
+                    <div className="w-32 h-32 rounded-[45px] bg-brand flex items-center justify-center text-white text-5xl font-black shadow-2xl mx-auto mb-8 border-4 border-white">
+                        {currentUser.name.charAt(0)}
                     </div>
-                    <div className="space-y-4 relative z-10">
-                        <div className="p-6 bg-gray-50 rounded-[28px] flex items-center gap-6 border border-gray-100/50">
-                            <Send className="w-6 h-6 text-blue-600" />
-                            <span className="text-base font-bold text-gray-500">{currentUser.email}</span>
-                        </div>
-                        <div className="p-6 bg-gray-50 rounded-[28px] flex items-center gap-6 border border-gray-100/50">
-                            <Smartphone className="w-6 h-6 text-blue-600" />
-                            <span className="text-base font-bold text-gray-500">{currentUser.phone || 'Terminal Unlinked'}</span>
-                        </div>
+                    <h2 className="text-4xl font-black text-gray-800 tracking-tighter uppercase mb-2">{currentUser.name}</h2>
+                    <p className="text-brand font-black text-xs uppercase tracking-[0.4em] bg-brand/5 px-6 py-2 rounded-full inline-block mb-10 shadow-inner">{currentUser.role} IDENTITY</p>
+                    <div className="mt-6 space-y-4">
+                        <div className="p-6 bg-gray-50 rounded-[35px] text-gray-500 font-bold border border-gray-100/50 shadow-inner">{currentUser.email}</div>
                     </div>
-                    <button onClick={logout} className="mt-12 w-full py-5 text-red-500 font-black bg-red-50 rounded-[24px] active:scale-95 transition-all text-xs uppercase tracking-[0.5em] shadow-lg shadow-red-50">DISCONNECT IDENTITY</button>
+                    <button onClick={logout} className="mt-14 w-full py-6 text-red-500 font-black bg-red-50 rounded-[30px] shadow-xl shadow-red-100 active:scale-95 transition-all uppercase tracking-[0.4em] text-xs">DISCONNECT</button>
                 </div>
-                {(currentUser.role === UserRole.ADMIN) && (
-                    <Link to="/admin" className="block w-full py-7 bg-gradient-to-r from-[#0056d2] to-blue-800 text-white rounded-[40px] text-center font-black shadow-2xl shadow-blue-200 text-xl active:scale-95 transition-transform uppercase tracking-[0.2em]">ADMIN COMMAND GRID</Link>
+                {currentUser.role === UserRole.ADMIN && (
+                    <Link to="/admin" className="block w-full py-8 bg-gradient-to-r from-brand to-[#003ea1] text-white rounded-[50px] text-center font-black shadow-2xl uppercase tracking-[0.3em] text-xl active:scale-95 transition-transform">ADMIN COMMAND GRID</Link>
                 )}
             </div>
         </div>
@@ -627,61 +655,53 @@ const Profile = () => {
 };
 
 const Login = () => {
-  const [isSign, setIsSign] = useState(false);
-  const [f, setF] = useState({ name: '', email: '', phone: '', pass: '' });
-  const { login, signup, currentUser } = useStore();
-  const navigate = useNavigate();
+    const { login, signup, currentUser } = useStore();
+    const navigate = useNavigate();
+    const [isS, setIsS] = useState(false);
+    const [f, setF] = useState({ name: '', email: '', pass: '' });
 
-  useEffect(() => {
-    if (currentUser) navigate(currentUser.role === UserRole.ADMIN ? '/admin' : '/');
-  }, [currentUser, navigate]);
+    useEffect(() => { if (currentUser) navigate('/'); }, [currentUser, navigate]);
 
-  const sub = (e: any) => {
-    e.preventDefault();
-    if (isSign) signup(f.name, f.email, f.phone, f.pass);
-    else if (!login(f.email, f.pass)) alert('Neural match failed. Signal rejected.');
-  };
-
-  return (
-    <div className="min-h-screen items-center justify-center p-6 bg-[#0056d2] flex flex-col relative overflow-hidden">
-      <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none futuristic-grid"></div>
-      <div className="mb-14 text-center relative z-10">
-          <div className="w-24 h-24 bg-white rounded-[32px] flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-blue-900 text-[#0056d2] font-black text-5xl">ST</div>
-          <h1 className="text-3xl font-black text-white uppercase tracking-tighter italic drop-shadow-lg">Study Tool Hub</h1>
-      </div>
-      <div className="bg-white p-12 rounded-[60px] w-full max-w-md shadow-2xl animate-fade-in border border-blue-400/20 relative z-10">
-        <h2 className="text-4xl font-black text-gray-800 mb-12 text-center uppercase tracking-tighter">Authentication</h2>
-        <form onSubmit={sub} className="space-y-5">
-          {isSign && <input className="w-full p-5 bg-gray-50 rounded-[24px] outline-none border border-gray-100 focus:border-blue-500 font-bold" placeholder="Full Identity Name" value={f.name} onChange={e => setF({...f, name: e.target.value})} required />}
-          <input className="w-full p-5 bg-gray-50 rounded-[24px] outline-none border border-gray-100 focus:border-blue-500 font-bold" placeholder="Terminal ID / Email" value={f.email} onChange={e => setF({...f, email: e.target.value})} required />
-          {isSign && <input className="w-full p-5 bg-gray-50 rounded-[24px] outline-none border border-gray-100 focus:border-blue-500 font-bold" placeholder="Phone Link" value={f.phone} onChange={e => setF({...f, phone: e.target.value})} required />}
-          <input className="w-full p-5 bg-gray-50 rounded-[24px] outline-none border border-gray-100 focus:border-blue-500 font-bold" type="password" placeholder="Pass-Sequence" value={f.pass} onChange={e => setF({...f, pass: e.target.value})} required />
-          <button className="w-full py-6 bg-[#0056d2] text-white font-black rounded-[24px] shadow-2xl shadow-blue-100 uppercase tracking-[0.3em] active:scale-95 transition-all text-xl mt-6">INITIALIZE</button>
-        </form>
-        <button className="w-full mt-12 text-[10px] text-blue-600 font-black uppercase tracking-[0.5em] text-center block" onClick={() => setIsSign(!isSign)}>{isSign ? '< Revert to Login' : 'Construct New Identity Node >'}</button>
-      </div>
-    </div>
-  );
+    return (
+        <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-[#7c5cdb] relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-full futuristic-grid opacity-10 pointer-events-none"></div>
+            <div className="text-center mb-14 relative z-10">
+              <div className="w-24 h-24 bg-white rounded-[40px] flex items-center justify-center mx-auto mb-6 text-[#7c5cdb] text-4xl font-black shadow-2xl">S</div>
+              <h1 className="text-3xl font-black text-white italic tracking-tighter uppercase drop-shadow-xl">Study Tool Hub</h1>
+            </div>
+            <div className="bg-white p-12 rounded-[70px] w-full max-w-md shadow-2xl animate-fade-in relative z-10 border border-white/20">
+                <h2 className="text-4xl font-black text-gray-800 mb-12 text-center uppercase tracking-tighter italic">Identity</h2>
+                <form onSubmit={e => { e.preventDefault(); if(isS) signup(f.name, f.email, '', f.pass); else if (!login(f.email, f.pass)) alert('Neural mismatch. Signal rejected.'); }} className="space-y-5">
+                    {isS && <input className="w-full p-6 bg-gray-50 rounded-3xl outline-none font-black border-2 border-transparent focus:border-brand/20 transition-all shadow-inner" placeholder="IDENTITY NAME" value={f.name} onChange={e => setF({...f, name: e.target.value})} required />}
+                    <input className="w-full p-6 bg-gray-50 rounded-3xl outline-none font-black border-2 border-transparent focus:border-brand/20 transition-all shadow-inner" placeholder="SIGNAL / EMAIL" value={f.email} onChange={e => setF({...f, email: e.target.value})} required />
+                    <input className="w-full p-6 bg-gray-50 rounded-3xl outline-none font-black border-2 border-transparent focus:border-brand/20 transition-all shadow-inner" type="password" placeholder="PASS-SEQUENCE" value={f.pass} onChange={e => setF({...f, pass: e.target.value})} required />
+                    <button className="w-full py-6 bg-[#7c5cdb] text-white font-black rounded-[35px] shadow-2xl shadow-indigo-200 uppercase tracking-[0.3em] text-xl active:scale-95 transition-all mt-8">Initialize</button>
+                </form>
+                <button onClick={() => setIsS(!isS)} className="w-full mt-12 text-[10px] text-[#7c5cdb] font-black uppercase tracking-[0.5em] text-center">{isS ? '< Revert Access' : 'Construct New Identity >'}</button>
+            </div>
+        </div>
+    );
 };
 
 const MainContent = () => {
+  const loc = useLocation();
+  const isWatch = loc.pathname.startsWith('/watch') || loc.pathname.startsWith('/exam') || loc.pathname === '/login' || loc.pathname.startsWith('/temp-access');
   return (
     <div className="min-h-screen bg-[#f8fafc]">
-      <STHeader />
+      {!isWatch && <STHeader />}
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/" element={<CourseListing />} />
         <Route path="/courses" element={<CourseListing />} />
+        <Route path="/my-courses" element={<CourseListing />} />
         <Route path="/course/:id" element={<CourseDetail />} />
-        <Route path="/temp-access/:courseId" element={<TempAccess />} />
-        <Route path="/verify/:id" element={<VerifyNode />} />
-        <Route path="/admin" element={<AdminPanel />} />
-        <Route path="/watch/:courseId" element={<Watch />} />
+        <Route path="/course/:courseId/subject/:subjectId" element={<SubjectDetail />} />
         <Route path="/exam/:id" element={<ExamMode />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/admin" element={<AdminPanel />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
-      <STBottomNav />
+      {!isWatch && <STBottomNav />}
       <ChatBot />
     </div>
   );

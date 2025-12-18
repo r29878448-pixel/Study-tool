@@ -8,7 +8,7 @@ import {
   CheckCircle, ExternalLink, Play, Bot, Brain, Loader2, ArrowLeft, 
   Video as VideoIcon, Sparkles, Send, Smartphone, List, Globe, Bell, 
   ChevronRight, MoreVertical, MessageCircle, FileText, Calendar, MessageSquare, Eye,
-  RotateCcw, ImageIcon
+  RotateCcw, ImageIcon, Upload
 } from './components/Icons';
 import VideoPlayer from './components/VideoPlayer';
 import ChatBot from './components/ChatBot';
@@ -118,7 +118,9 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
         const title = prompt('Content Title:');
         const url = prompt('Stream Link:');
         const dur = prompt('Duration (e.g. 1:20:00):') || '10:00';
-        const type = (prompt('Type (lecture/note/dpp):') || 'lecture') as any;
+        const typeInput = prompt('Type (lecture/note/dpp):') || 'lecture';
+        const type = (['lecture', 'note', 'dpp'].includes(typeInput) ? typeInput : 'lecture') as 'lecture' | 'note' | 'dpp';
+        
         if (title && url) {
             setSubjects(subjects.map(s => s.id === sId ? { 
                 ...s, 
@@ -159,14 +161,20 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
                     {activeSubject && (
                       <>
                         <ChevronRight className="w-3 h-3" />
-                        <button onClick={() => setActiveChapterId(null)} className={!activeChapterId ? 'text-blue-600' : ''}>{activeSubject.title.toUpperCase()}</button>
+                        <button onClick={() => setActiveChapterId(null)} className={activeSubjectId && !activeChapterId ? 'text-blue-600' : ''}>{activeSubject.title.toUpperCase()}</button>
                       </>
+                    )}
+                    {activeChapter && (
+                        <>
+                            <ChevronRight className="w-3 h-3" />
+                            <span className="text-blue-600">{activeChapter.title.toUpperCase()}</span>
+                        </>
                     )}
                 </div>
                 
                 <div className="flex-1 overflow-y-auto space-y-4 no-scrollbar">
                     {editingVideo ? (
-                        <div className="space-y-4 bg-gray-50 p-6 rounded-2xl">
+                        <div className="space-y-4 bg-gray-50 p-6 rounded-2xl animate-fade-in">
                             <h3 className="font-bold text-gray-700">Edit Node Data</h3>
                             <input value={editingVideo.vid.title} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, title: e.target.value}})} className="w-full p-3 border rounded-xl" placeholder="Title" />
                             <input value={editingVideo.vid.filename} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, filename: e.target.value}})} className="w-full p-3 border rounded-xl" placeholder="URL" />
@@ -264,12 +272,23 @@ const AdminPanel = () => {
         else setForm({ title: '', description: '', image: '', category: '', price: 0, mrp: 0, isPaid: false, accessKey: '', shortenerLink: '', telegramLink: '', startDate: '', endDate: '', isNew: true });
     }, [editing, showModal]);
 
+    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setForm({ ...form, image: reader.result as string });
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
     if (!currentUser || currentUser.role !== UserRole.ADMIN) return <Navigate to="/" />;
 
     const handleSaveCourse = (e: React.FormEvent) => {
         e.preventDefault();
         const data: Course = { 
-          ...(editing || { id: Date.now().toString(), chapters: [], subjects: [], createdAt: new Date().toISOString() }), 
+          ...(editing || { id: Date.now().toString(), subjects: [], createdAt: new Date().toISOString() }), 
           ...form 
         };
         if (editing) updateCourse(data); else addCourse(data);
@@ -279,7 +298,7 @@ const AdminPanel = () => {
     return (
         <div className="pb-24 pt-20 px-4 min-h-screen bg-[#f8fafc]">
              <div className="max-w-4xl mx-auto">
-                 <div className="flex bg-white p-1.5 rounded-[24px] shadow-sm border border-gray-100 mb-8">
+                 <div className="flex bg-white p-1.5 rounded-[24px] shadow-sm border border-gray-100 mb-8 overflow-hidden">
                     {(['batches', 'users', 'settings'] as const).map(t => (
                         <button key={t} onClick={() => setTab(t)} className={`flex-1 py-3 font-bold capitalize transition-all rounded-[18px] text-sm ${tab === t ? 'bg-[#0056d2] text-white shadow-md' : 'text-gray-400 hover:bg-gray-50'}`}>
                             {t}
@@ -295,16 +314,16 @@ const AdminPanel = () => {
                          </button>
                          <div className="grid gap-3">
                              {courses.map(c => (
-                                 <div key={c.id} className="bg-white p-4 rounded-[28px] flex items-center gap-4 border border-gray-100 shadow-sm">
+                                 <div key={c.id} className="bg-white p-4 rounded-[28px] flex items-center gap-4 border border-gray-100 shadow-sm hover:shadow-md transition-all">
                                      <img src={c.image} className="w-16 h-16 rounded-2xl object-cover" alt="" />
                                      <div className="flex-1">
-                                        <h3 className="font-bold text-gray-800 text-sm">{c.title}</h3>
-                                        <p className="text-[10px] text-blue-600 font-bold uppercase">{c.category}</p>
+                                        <h3 className="font-bold text-gray-800 text-sm truncate">{c.title}</h3>
+                                        <p className="text-[10px] text-blue-600 font-bold uppercase tracking-widest">{c.category} • {c.isPaid ? 'Paid' : 'Free'}</p>
                                      </div>
                                      <div className="flex gap-2">
-                                         <button onClick={() => setContentTarget(c)} className="px-4 py-2 bg-[#0056d2] text-white rounded-xl font-bold text-[10px]">CONTENT</button>
-                                         <button onClick={() => { setEditing(c); setShowModal(true); }} className="p-2 bg-gray-50 text-gray-400 rounded-xl"><Edit className="w-4 h-4" /></button>
-                                         <button onClick={() => { if(confirm('Delete batch?')) deleteCourse(c.id); }} className="p-2 bg-red-50 text-red-400 rounded-xl"><Trash2 className="w-4 h-4" /></button>
+                                         <button onClick={() => setContentTarget(c)} className="px-4 py-2 bg-[#0056d2] text-white rounded-xl font-bold text-[10px] active:scale-95 transition-all">CONTENT</button>
+                                         <button onClick={() => { setEditing(c); setShowModal(true); }} className="p-2 bg-gray-50 text-gray-400 rounded-xl hover:bg-blue-50 hover:text-blue-600 transition-colors"><Edit className="w-4 h-4" /></button>
+                                         <button onClick={() => { if(confirm('Delete batch sequence?')) deleteCourse(c.id); }} className="p-2 bg-red-50 text-red-400 rounded-xl hover:bg-red-500 hover:text-white transition-all"><Trash2 className="w-4 h-4" /></button>
                                      </div>
                                  </div>
                              ))}
@@ -313,16 +332,16 @@ const AdminPanel = () => {
                  )}
 
                 {tab === 'users' && (
-                    <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 overflow-hidden">
-                      <div className="p-4 bg-gray-50 border-b border-gray-100 font-bold text-gray-500 uppercase text-[10px] tracking-widest">User Registry</div>
-                      <div className="divide-y divide-gray-50">
+                    <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 overflow-hidden animate-fade-in">
+                      <div className="p-4 bg-gray-50 border-b border-gray-100 font-bold text-gray-500 uppercase text-[10px] tracking-widest">Global User Registry</div>
+                      <div className="divide-y divide-gray-50 max-h-[60vh] overflow-y-auto no-scrollbar">
                       {users.map(u => (
-                          <div key={u.id} className="p-5 flex justify-between items-center">
+                          <div key={u.id} className="p-5 flex justify-between items-center hover:bg-gray-50 transition-colors">
                               <div>
                                   <p className="font-bold text-gray-800">{u.name}</p>
                                   <p className="text-[11px] text-gray-400">{u.email}</p>
                               </div>
-                              <span className="text-[10px] font-bold px-3 py-1 bg-blue-50 text-blue-600 rounded-full">{u.role}</span>
+                              <span className="text-[10px] font-bold px-3 py-1 bg-blue-50 text-blue-600 rounded-full border border-blue-100">{u.role}</span>
                           </div>
                       ))}
                       </div>
@@ -334,53 +353,68 @@ const AdminPanel = () => {
                  <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
                     <div className="bg-white w-full max-w-lg rounded-[40px] p-8 shadow-2xl max-h-[90vh] overflow-y-auto no-scrollbar border border-gray-100 animate-slide-up">
                         <div className="flex justify-between items-center mb-8">
-                            <h2 className="text-2xl font-bold text-gray-800 tracking-tight">Batch Management</h2>
+                            <h2 className="text-2xl font-bold text-gray-800 tracking-tight">{editing ? 'Edit Batch Configuration' : 'Initialize New Batch Node'}</h2>
                             <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X /></button>
                         </div>
                         <form onSubmit={handleSaveCourse} className="space-y-5">
                             <div className="space-y-2">
-                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Batch Thumbnail</label>
-                                <div className="relative aspect-video rounded-2xl overflow-hidden bg-gray-50 border-2 border-dashed border-gray-200 flex items-center justify-center group">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Identity Thumbnail</label>
+                                <div className="relative aspect-video rounded-3xl overflow-hidden bg-gray-50 border-2 border-dashed border-gray-200 flex items-center justify-center group shadow-inner">
                                     {form.image ? (
                                         <>
                                             <img src={form.image} className="w-full h-full object-cover" alt="Preview" />
-                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                <button type="button" onClick={() => setForm({...form, image: ''})} className="bg-white text-red-500 p-2 rounded-full shadow-lg"><Trash2 className="w-5 h-5" /></button>
+                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                                                <button type="button" onClick={() => setForm({...form, image: ''})} className="bg-white text-red-500 p-2.5 rounded-full shadow-lg hover:scale-110 transition-transform"><Trash2 className="w-5 h-5" /></button>
+                                                <label className="bg-white text-blue-500 p-2.5 rounded-full shadow-lg hover:scale-110 transition-transform cursor-pointer">
+                                                    <Upload className="w-5 h-5" />
+                                                    <input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} />
+                                                </label>
                                             </div>
                                         </>
                                     ) : (
-                                        <div className="text-center p-6">
-                                            <ImageIcon className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-                                            <p className="text-[10px] font-bold text-gray-400">Enter Image URL Below</p>
+                                        <div className="text-center p-6 w-full h-full flex flex-col items-center justify-center">
+                                            <ImageIcon className="w-12 h-12 text-gray-300 mx-auto mb-2 opacity-50" />
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-4">No Image Loaded</p>
+                                            <label className="px-6 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-bold cursor-pointer hover:bg-blue-700 transition-colors flex items-center gap-2">
+                                                <Upload className="w-4 h-4" /> Upload File
+                                                <input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} />
+                                            </label>
                                         </div>
                                     )}
                                 </div>
-                                <input value={form.image} onChange={e => setForm({ ...form, image: e.target.value })} className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl font-mono text-[10px]" placeholder="Thumbnail URL" />
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+                                        <Globe className="w-4 h-4 text-gray-400" />
+                                    </div>
+                                    <input value={form.image} onChange={e => setForm({ ...form, image: e.target.value })} className="w-full pl-11 pr-4 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-mono text-[10px] shadow-sm outline-none focus:ring-2 focus:ring-blue-500/20" placeholder="Or paste external URL here..." />
+                                </div>
                             </div>
 
-                            <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-blue-500 font-bold" placeholder="Batch Name" required />
+                            <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:border-blue-500 font-bold shadow-sm" placeholder="Course Title" required />
                             
                             <div className="grid grid-cols-2 gap-4">
-                                <input value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className="p-4 bg-gray-50 border border-gray-100 rounded-xl text-xs uppercase font-bold" placeholder="Category" required />
-                                <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl border border-gray-100">
-                                    <span className="text-xs font-bold text-gray-400 uppercase">New Badge?</span>
-                                    <input type="checkbox" checked={form.isNew} onChange={e => setForm({...form, isNew: e.target.checked})} className="w-5 h-5 accent-blue-600" />
+                                <input value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className="p-4 bg-gray-50 border border-gray-100 rounded-2xl text-xs uppercase font-bold shadow-sm" placeholder="Category" required />
+                                <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-2xl border border-gray-100 shadow-sm cursor-pointer" onClick={() => setForm({...form, isNew: !form.isNew})}>
+                                    <span className="text-xs font-bold text-gray-400 uppercase">New Badge</span>
+                                    <div className={`w-10 h-5 rounded-full relative transition-all ${form.isNew ? 'bg-blue-600' : 'bg-gray-300'}`}>
+                                        <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${form.isNew ? 'left-5.5' : 'left-0.5'}`} />
+                                    </div>
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1">
-                                    <label className="text-[10px] font-bold text-gray-400 ml-1">Starts On</label>
-                                    <input value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs" placeholder="Starts Date" />
+                                    <label className="text-[10px] font-bold text-gray-400 ml-1 uppercase">Node Active</label>
+                                    <input value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl text-xs shadow-sm" placeholder="Start Date" />
                                 </div>
                                 <div className="space-y-1">
-                                    <label className="text-[10px] font-bold text-gray-400 ml-1">Ends On</label>
-                                    <input value={form.endDate} onChange={e => setForm({ ...form, endDate: e.target.value })} className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs" placeholder="Ends Date" />
+                                    <label className="text-[10px] font-bold text-gray-400 ml-1 uppercase">Node Expiry</label>
+                                    <input value={form.endDate} onChange={e => setForm({ ...form, endDate: e.target.value })} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl text-xs shadow-sm" placeholder="End Date" />
                                 </div>
                             </div>
 
-                            <div className="pt-6">
-                                <button type="submit" className="w-full py-4 bg-[#0056d2] text-white font-bold rounded-xl shadow-lg active:scale-95 transition-all">COMMIT BATCH NODE</button>
+                            <div className="pt-4">
+                                <button type="submit" className="w-full py-5 bg-[#0056d2] text-white font-black rounded-3xl shadow-xl shadow-blue-100 active:scale-95 transition-all uppercase tracking-[0.2em] text-sm">Commit Sequence</button>
                             </div>
                         </form>
                     </div>
@@ -402,34 +436,41 @@ const CourseListing = () => {
     return (
         <div className="pb-24 pt-20 px-5 min-h-screen bg-[#f8fafc]">
             <div className="max-w-md mx-auto space-y-6">
-                <div className="bg-white p-1 rounded-2xl border border-gray-100 flex shadow-sm">
+                <div className="bg-white p-1 rounded-3xl border border-gray-100 flex shadow-sm">
                     {(['Paid', 'Free'] as const).map((t) => (
-                        <button key={t} onClick={() => setFilter(t)} className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all ${filter === t ? 'bg-blue-50 text-[#0056d2]' : 'text-gray-400'}`}>
+                        <button key={t} onClick={() => setFilter(t)} className={`flex-1 py-3 rounded-2xl font-bold text-sm transition-all ${filter === t ? 'bg-blue-50 text-[#0056d2] shadow-sm' : 'text-gray-400 hover:bg-gray-50'}`}>
                             {t}
                         </button>
                     ))}
                 </div>
 
-                <div className="space-y-6">
-                    {filteredCourses.map(c => (
-                        <div key={c.id} className="bg-white rounded-[32px] overflow-hidden border border-gray-100 shadow-sm">
-                            <div className="p-6 flex justify-between items-center">
-                                <div className="flex items-center gap-2">
-                                    <h3 className="text-base font-black text-gray-800">{c.title}</h3>
-                                    {c.isNew && <span className="bg-[#fff9e6] text-[#eab308] text-[9px] font-black px-2 py-0.5 rounded-md border border-yellow-200">New</span>}
+                <div className="space-y-8">
+                    {filteredCourses.length === 0 ? (
+                        <div className="text-center py-20 animate-fade-in">
+                            <Search className="w-12 h-12 text-gray-200 mx-auto mb-4" />
+                            <p className="text-gray-400 font-bold uppercase text-[10px] tracking-widest">No active nodes in this sector</p>
+                        </div>
+                    ) : filteredCourses.map(c => (
+                        <div key={c.id} className="bg-white rounded-[40px] overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-500 animate-slide-up">
+                            <div className="p-7 flex justify-between items-center">
+                                <div className="flex items-center gap-2.5">
+                                    <h3 className="text-lg font-black text-gray-800 tracking-tight">{c.title}</h3>
+                                    {c.isNew && <span className="bg-[#fff9e6] text-[#eab308] text-[9px] font-black px-2.5 py-1 rounded-lg border border-yellow-200 uppercase tracking-tighter shadow-sm">New</span>}
                                 </div>
                             </div>
-                            <div className="px-6">
-                                <img src={c.image} className="w-full aspect-[16/9] object-cover rounded-2xl" alt={c.title} />
+                            <div className="px-7 relative group">
+                                <img src={c.image} className="w-full aspect-[16/9] object-cover rounded-[30px] group-hover:scale-[1.02] transition-transform duration-700" alt={c.title} />
+                                {!c.isPaid && <div className="absolute top-4 left-11 bg-white/95 backdrop-blur-md px-3.5 py-1.5 rounded-xl text-[10px] font-black text-gray-800 shadow-xl ring-1 ring-black/5 uppercase tracking-widest">Free Node</div>}
                             </div>
-                            <div className="p-6 pt-4 space-y-5">
-                                <div className="flex items-center gap-4 text-[11px] font-bold text-gray-400">
-                                    <div className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /><span>Starts on {c.startDate}</span></div>
-                                    <div className="flex items-center gap-1.5"><span>Ends on {c.endDate}</span></div>
+                            <div className="p-7 pt-5 space-y-6">
+                                <div className="flex items-center gap-5 text-[11px] font-bold text-gray-400">
+                                    <div className="flex items-center gap-2"><Calendar className="w-4 h-4 text-brand/50" /><span>Starts {c.startDate}</span></div>
+                                    <div className="w-1.5 h-1.5 bg-gray-200 rounded-full"></div>
+                                    <div className="flex items-center gap-2"><span>Ends {c.endDate}</span></div>
                                 </div>
-                                <div className="flex gap-3">
-                                    <button className="flex-1 py-3 text-sm font-bold text-[#7c5cdb] border border-[#7c5cdb]/20 rounded-xl">Similar Batches</button>
-                                    <Link to={`/course/${c.id}`} className="flex-1 py-3 bg-[#7c5cdb] text-white text-center text-sm font-bold rounded-xl shadow-lg">Let's Study</Link>
+                                <div className="flex gap-4">
+                                    <button className="flex-1 py-4 text-sm font-black text-[#7c5cdb] border-2 border-[#7c5cdb]/10 rounded-2xl hover:bg-[#7c5cdb]/5 transition-all uppercase tracking-widest">Archive</button>
+                                    <Link to={`/course/${c.id}`} className="flex-[1.5] py-4 bg-[#7c5cdb] text-white text-center text-sm font-black rounded-2xl shadow-xl shadow-[#7c5cdb]/20 active:scale-95 transition-all uppercase tracking-widest">Let's Study</Link>
                                 </div>
                             </div>
                         </div>
@@ -451,45 +492,56 @@ const CourseDetail = () => {
 
     return (
         <div className="pb-24 pt-0 min-h-screen bg-white">
-            <div className="sticky top-0 z-50 bg-white border-b border-gray-100">
-                <div className="flex items-center justify-between p-4 px-5">
-                    <div className="flex items-center gap-4">
-                        <button onClick={() => navigate(-1)}><ArrowLeft className="w-6 h-6 text-gray-800" /></button>
-                        <h1 className="text-lg font-extrabold text-gray-800 truncate max-w-[160px]">{course.title}</h1>
+            <div className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
+                <div className="flex items-center justify-between p-4 px-6">
+                    <div className="flex items-center gap-5">
+                        <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-50 rounded-full transition-colors"><ArrowLeft className="w-6 h-6 text-gray-800" /></button>
+                        <h1 className="text-xl font-black text-gray-800 truncate max-w-[180px] tracking-tight">{course.title}</h1>
                     </div>
                     <div className="flex items-center gap-4">
                         <XPBadge />
-                        <MessageCircle className="w-5.5 h-5.5 text-gray-600" />
-                        <Bell className="w-5.5 h-5.5 text-gray-600" />
-                        <MoreVertical className="w-5.5 h-5.5 text-gray-600" />
+                        <Bell className="w-6 h-6 text-gray-600" />
+                        <MoreVertical className="w-6 h-6 text-gray-600" />
                     </div>
                 </div>
                 
-                <div className="flex px-5 gap-8 overflow-x-auto no-scrollbar">
+                <div className="flex px-6 gap-8 overflow-x-auto no-scrollbar">
                     {(['Description', 'Subjects', 'Resources', 'Tests', 'Community'] as const).map(tab => (
-                        <button key={tab} onClick={() => setActiveTab(tab)} className={`pb-3 text-sm font-bold whitespace-nowrap transition-all border-b-2 ${activeTab === tab ? 'text-[#7c5cdb] border-[#7c5cdb]' : 'text-gray-400 border-transparent'}`}>
+                        <button key={tab} onClick={() => setActiveTab(tab)} className={`pb-3 text-sm font-black whitespace-nowrap transition-all border-b-4 ${activeTab === tab ? 'text-brand border-brand' : 'text-gray-400 border-transparent'}`}>
                             {tab}
                         </button>
                     ))}
                 </div>
             </div>
             <Banner />
-            <div className="p-5">
+            <div className="p-6">
                 {activeTab === 'Subjects' && (
-                    <div className="space-y-4">
+                    <div className="space-y-5">
                         {(course.subjects || []).map((sub) => (
-                            <div key={sub.id} onClick={() => navigate(`/course/${course.id}/subject/${sub.id}`)} className="bg-white border border-gray-100 rounded-3xl p-5 flex items-center gap-5 shadow-sm active:scale-[0.98] transition-all">
-                                <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-[#0056d2] font-black text-lg">{sub.iconText}</div>
+                            <div key={sub.id} onClick={() => navigate(`/course/${course.id}/subject/${sub.id}`)} className="bg-white border border-gray-100 rounded-[35px] p-6 flex items-center gap-6 shadow-sm active:scale-[0.98] transition-all hover:border-brand/30 hover:shadow-md">
+                                <div className="w-16 h-16 bg-brand/5 rounded-2xl flex items-center justify-center text-brand font-black text-xl border border-brand/10 shadow-inner">{sub.iconText}</div>
                                 <div className="flex-1">
-                                    <h3 className="font-extrabold text-gray-800 text-base">{sub.title}</h3>
-                                    <div className="flex items-center gap-4 mt-2.5">
-                                        <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden"><div className="h-full bg-[#0056d2] w-[0%]"></div></div>
-                                        <span className="text-[11px] font-black text-gray-400">0%</span>
+                                    <h3 className="font-black text-gray-800 text-lg leading-tight mb-2">{sub.title}</h3>
+                                    <div className="flex items-center gap-5 mt-3">
+                                        <div className="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden shadow-inner"><div className="h-full bg-brand w-[0%]"></div></div>
+                                        <span className="text-[12px] font-black text-gray-400">0%</span>
                                     </div>
                                 </div>
                                 <ChevronRight className="w-5 h-5 text-gray-300" />
                             </div>
                         ))}
+                    </div>
+                )}
+                {activeTab === 'Description' && (
+                    <div className="space-y-8 animate-fade-in">
+                        <div className="relative group">
+                             <img src={course.image} className="w-full h-56 object-cover rounded-[50px] shadow-2xl" alt="" />
+                             <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent rounded-[50px]"></div>
+                        </div>
+                        <div>
+                            <h2 className="text-3xl font-black text-gray-800 mb-4 tracking-tight">{course.title}</h2>
+                            <p className="text-gray-500 text-base leading-relaxed font-medium">{course.description}</p>
+                        </div>
                     </div>
                 )}
             </div>
@@ -507,86 +559,92 @@ const SubjectDetail = () => {
     const [notes, setNotes] = useState<string | null>(null);
     
     const course = courses.find(c => c.id === courseId);
-    const subject = course?.subjects?.find(s => s.id === subjectId);
-    if (!subject) return <Navigate to="/" />;
+    const subject = course?.subjects.find(s => s.id === subjectId);
+    if (!subject || !courseId) return <Navigate to="/" />;
 
     const handleGenerateNotes = async () => {
         setGeneratingNotes(true);
         try {
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-            const prompt = `Generate concise study notes for "${subject.title}" chapters: ${subject.chapters.map(c => c.title).join(', ')}.`;
+            const prompt = `Generate highly concise educational summary for "${subject.title}" based on these chapter topics: ${subject.chapters.map(c => c.title).join(', ')}. Use professional teaching tone.`;
             const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: prompt });
-            setNotes(response.text || "Could not generate notes.");
-        } catch (e) { alert("AI sync failed."); } finally { setGeneratingNotes(false); }
+            setNotes(response.text || "Neural downlink failure. Could not synthesize data.");
+        } catch (e) { alert("AI sync failed. Check terminal."); } finally { setGeneratingNotes(false); }
     };
 
     return (
         <div className="pb-24 pt-0 min-h-screen bg-white">
-            <div className="sticky top-0 z-50 bg-white border-b border-gray-100">
-                <div className="flex items-center justify-between p-4 px-5">
-                    <div className="flex items-center gap-4">
-                        <button onClick={() => navigate(-1)}><ArrowLeft className="w-6 h-6 text-gray-800" /></button>
-                        <h1 className="text-lg font-extrabold text-gray-800">{subject.title}</h1>
+            <div className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
+                <div className="flex items-center justify-between p-4 px-6">
+                    <div className="flex items-center gap-5">
+                        <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-50 rounded-full transition-colors"><ArrowLeft className="w-6 h-6 text-gray-800" /></button>
+                        <h1 className="text-xl font-black text-gray-800 tracking-tight">{subject.title}</h1>
                     </div>
-                    <div className="flex items-center gap-3">
-                        <button onClick={handleGenerateNotes} className="text-blue-600 p-2 rounded-full hover:bg-blue-50">
-                          {generatingNotes ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
+                    <div className="flex items-center gap-4">
+                        <button onClick={handleGenerateNotes} className="text-brand p-2.5 rounded-2xl hover:bg-brand/5 border border-brand/10 transition-all active:scale-90">
+                          {generatingNotes ? <Loader2 className="w-6 h-6 animate-spin" /> : <Sparkles className="w-6 h-6" />}
                         </button>
                         <XPBadge />
                     </div>
                 </div>
-                <div className="flex px-5 gap-8">
-                    {['Chapters', 'Study Material'].map(t => (
-                        <button key={t} onClick={() => setTab(t === 'Chapters' ? 'Chapters' : 'Notes')} className={`pb-3 text-sm font-bold border-b-2 transition-all ${tab === (t === 'Chapters' ? 'Chapters' : 'Notes') ? 'text-[#7c5cdb] border-[#7c5cdb]' : 'text-gray-400 border-transparent'}`}>{t}</button>
+                <div className="flex px-6 gap-10">
+                    {(['Chapters', 'Study Material'] as const).map(t => (
+                        <button key={t} onClick={() => setTab(t === 'Chapters' ? 'Chapters' : 'Notes')} className={`pb-4 text-sm font-black border-b-4 transition-all ${tab === (t === 'Chapters' ? 'Chapters' : 'Notes') ? 'text-brand border-brand' : 'text-gray-400 border-transparent'}`}>{t}</button>
                     ))}
                 </div>
             </div>
 
-            <div className="p-5 space-y-6">
+            <div className="p-6 space-y-8 pb-32">
                 {tab === 'Chapters' ? (
-                  subject.chapters.map((chap, idx) => (
-                    <div key={chap.id} onClick={() => setTab('Notes')} className="bg-white border border-gray-100 rounded-[32px] p-6 shadow-sm flex justify-between items-center active:scale-[0.98] transition-all">
-                        <div>
-                            <span className="inline-block bg-blue-50 text-[#0056d2] text-[10px] font-bold px-2.5 py-1 rounded-lg mb-2 border border-blue-100 uppercase tracking-widest">CH - {String(idx+1).padStart(2, '0')}</span>
-                            <h3 className="font-extrabold text-gray-800 text-base">{chap.title}</h3>
-                            <p className="text-[11px] text-gray-400 font-bold uppercase mt-1 tracking-wider">Lectures : {chap.videos.filter(v => v.type === 'lecture').length}</p>
+                  subject.chapters.length === 0 ? (
+                    <div className="text-center py-32 opacity-30 italic font-black uppercase text-[10px] tracking-widest">No data sequences discovered</div>
+                  ) : (
+                    subject.chapters.map((chap, idx) => (
+                        <div key={chap.id} onClick={() => setTab('Notes')} className="bg-white border border-gray-100 rounded-[40px] p-8 shadow-sm flex justify-between items-center active:scale-[0.98] transition-all hover:border-brand/20">
+                            <div>
+                                <span className="inline-block bg-brand/5 text-brand text-[10px] font-black px-3 py-1.5 rounded-xl mb-3 border border-brand/10 uppercase tracking-[0.2em] shadow-sm">UNIT - {String(idx+1).padStart(2, '0')}</span>
+                                <h3 className="font-black text-gray-800 text-xl mb-2 tracking-tight leading-tight">{chap.title}</h3>
+                                <p className="text-[11px] text-gray-400 font-black uppercase tracking-[0.3em]">Module Stream : {chap.videos.filter(v => v.type === 'lecture').length} SEQUENCES</p>
+                            </div>
+                            <div className="w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-300 group-hover:text-brand transition-colors"><ChevronRight className="w-7 h-7" /></div>
                         </div>
-                        <ChevronRight className="w-5 h-5 text-gray-300" />
-                    </div>
-                  ))
+                    ))
+                  )
                 ) : (
-                  <div className="space-y-4">
-                    <div className="flex gap-2 overflow-x-auto no-scrollbar">
+                  <div className="space-y-6">
+                    <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
                       {(['All', 'Lectures', 'Notes', 'DPPs'] as const).map(f => (
-                        <button key={f} onClick={() => setFilter(f)} className={`px-5 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all ${filter === f ? 'bg-[#444] text-white' : 'bg-gray-100 text-gray-400'}`}>{f}</button>
+                        <button key={f} onClick={() => setFilter(f)} className={`px-6 py-2.5 rounded-full text-xs font-black whitespace-nowrap transition-all uppercase tracking-widest border-2 ${filter === f ? 'bg-[#333] border-[#333] text-white shadow-lg' : 'bg-white border-gray-100 text-gray-400 hover:border-gray-200'}`}>{f}</button>
                       ))}
                     </div>
-                    {subject.chapters.flatMap(c => c.videos).filter(v => filter === 'All' || (filter === 'Lectures' && v.type === 'lecture') || (filter === 'Notes' && v.type === 'note')).map(v => (
-                      <div key={v.id} className="bg-white border border-gray-100 rounded-3xl p-4 shadow-sm flex gap-4">
-                        <div className="w-24 aspect-video bg-gray-100 rounded-xl overflow-hidden shrink-0 flex items-center justify-center">
-                          <PlayCircle className="w-6 h-6 text-gray-300" />
+                    <div className="space-y-4">
+                    {subject.chapters.flatMap(c => c.videos).filter(v => filter === 'All' || (filter === 'Lectures' && v.type === 'lecture') || (filter === 'Notes' && v.type === 'note') || (filter === 'DPPs' && v.type === 'dpp')).map(v => (
+                      <div key={v.id} className="bg-white border border-gray-100 rounded-[35px] p-5 shadow-sm flex gap-5 animate-slide-up group">
+                        <div className="w-28 aspect-video bg-gray-50 rounded-2xl overflow-hidden shrink-0 flex items-center justify-center border border-gray-100 shadow-inner group-hover:border-brand/30 transition-colors">
+                          <PlayCircle className="w-8 h-8 text-brand/20 group-hover:text-brand transition-colors" />
                         </div>
-                        <div>
-                          <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">{v.type?.toUpperCase()} • {v.date}</p>
-                          <h4 className="text-xs font-extrabold text-gray-800 line-clamp-2">{v.title}</h4>
-                          <button onClick={() => navigate(`/watch/${courseId}`)} className="flex items-center gap-1.5 mt-2 px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-black hover:bg-blue-100 transition-colors">
-                            <PlayCircle className="w-3.5 h-3.5" /> Watch Now
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.3em] mb-1.5">{v.type?.toUpperCase()} • {v.date}</p>
+                          <h4 className="text-sm font-black text-gray-800 line-clamp-2 leading-tight tracking-tight mb-3 group-hover:text-brand transition-colors">{v.title}</h4>
+                          <button onClick={() => navigate(`/watch/${courseId}`)} className="flex items-center gap-2 px-4 py-2 bg-brand/5 text-brand rounded-xl text-[10px] font-black hover:bg-brand hover:text-white transition-all shadow-sm active:scale-95 uppercase tracking-widest border border-brand/5">
+                            <PlayCircle className="w-4 h-4" /> Initialize
                           </button>
                         </div>
                       </div>
                     ))}
+                    </div>
                   </div>
                 )}
             </div>
 
             {notes && (
-                <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setNotes(null)}>
-                    <div className="bg-white w-full max-w-lg max-h-[80vh] rounded-[30px] p-8 overflow-y-auto shadow-2xl animate-slide-up" onClick={e => e.stopPropagation()}>
-                        <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-xl font-bold flex items-center gap-2"><Sparkles className="w-5 h-5 text-blue-500" /> AI Notes</h2>
-                            <button onClick={() => setNotes(null)}><X className="text-gray-400" /></button>
+                <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-xl flex items-center justify-center p-4 animate-fade-in" onClick={() => setNotes(null)}>
+                    <div className="bg-white w-full max-w-lg max-h-[85vh] rounded-[50px] p-10 overflow-y-auto shadow-2xl animate-slide-up relative border border-white/20" onClick={e => e.stopPropagation()}>
+                        <div className="flex justify-between items-center mb-8 sticky top-0 bg-white/80 backdrop-blur pb-4">
+                            <h2 className="text-2xl font-black flex items-center gap-3 tracking-tight"><Sparkles className="w-7 h-7 text-brand" /> Neural Summary</h2>
+                            <button onClick={() => setNotes(null)} className="p-2 hover:bg-gray-50 rounded-full transition-colors"><X className="text-gray-400" /></button>
                         </div>
-                        <div className="prose prose-sm text-gray-600 leading-relaxed whitespace-pre-wrap font-medium">{notes}</div>
+                        <div className="prose prose-sm text-gray-600 leading-relaxed whitespace-pre-wrap font-medium text-lg selection:bg-brand/10">{notes}</div>
                     </div>
                 </div>
             )}
@@ -599,20 +657,21 @@ const Profile = () => {
     if (!currentUser) return <Navigate to="/login" />;
     return (
         <div className="pb-24 pt-24 px-6 min-h-screen bg-[#f8fafc]">
-            <div className="max-w-2xl mx-auto space-y-6">
-                <div className="bg-white rounded-[50px] p-12 shadow-sm border border-gray-100 relative overflow-hidden text-center">
-                    <div className="w-24 h-24 rounded-[32px] bg-[#0056d2] flex items-center justify-center text-white text-4xl font-black shadow-2xl mx-auto mb-6">
+            <div className="max-w-2xl mx-auto space-y-8">
+                <div className="bg-white rounded-[60px] p-12 shadow-sm border border-gray-100 relative overflow-hidden text-center">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-brand/5 rounded-full -mr-32 -mt-32 blur-3xl opacity-50"></div>
+                    <div className="w-32 h-32 rounded-[45px] bg-brand flex items-center justify-center text-white text-5xl font-black shadow-2xl mx-auto mb-8 border-4 border-white">
                         {currentUser.name.charAt(0)}
                     </div>
-                    <h2 className="text-3xl font-black text-gray-800 tracking-tighter uppercase">{currentUser.name}</h2>
-                    <p className="text-[#0056d2] font-black text-[11px] uppercase tracking-[0.4em] bg-blue-50 px-4 py-1 rounded-full inline-block mt-3">{currentUser.role} IDENTITY</p>
-                    <div className="mt-10 space-y-4">
-                        <div className="p-5 bg-gray-50 rounded-[28px] text-gray-500 font-bold">{currentUser.email}</div>
+                    <h2 className="text-4xl font-black text-gray-800 tracking-tighter uppercase mb-2">{currentUser.name}</h2>
+                    <p className="text-brand font-black text-xs uppercase tracking-[0.4em] bg-brand/5 px-6 py-2 rounded-full inline-block mb-10 shadow-inner">{currentUser.role} IDENTITY</p>
+                    <div className="mt-6 space-y-4">
+                        <div className="p-6 bg-gray-50 rounded-[35px] text-gray-500 font-bold border border-gray-100/50 shadow-inner">{currentUser.email}</div>
                     </div>
-                    <button onClick={logout} className="mt-12 w-full py-5 text-red-500 font-black bg-red-50 rounded-[24px] shadow-lg shadow-red-50 active:scale-95 transition-all">DISCONNECT IDENTITY</button>
+                    <button onClick={logout} className="mt-14 w-full py-6 text-red-500 font-black bg-red-50 rounded-[30px] shadow-xl shadow-red-100 active:scale-95 transition-all uppercase tracking-[0.4em] text-xs">DISCONNECT</button>
                 </div>
                 {currentUser.role === UserRole.ADMIN && (
-                    <Link to="/admin" className="block w-full py-7 bg-gradient-to-r from-[#0056d2] to-blue-800 text-white rounded-[40px] text-center font-black shadow-2xl uppercase tracking-[0.2em]">ADMIN COMMAND GRID</Link>
+                    <Link to="/admin" className="block w-full py-8 bg-gradient-to-r from-brand to-[#003ea1] text-white rounded-[50px] text-center font-black shadow-2xl uppercase tracking-[0.3em] text-xl active:scale-95 transition-transform">ADMIN COMMAND GRID</Link>
                 )}
             </div>
         </div>
@@ -628,20 +687,21 @@ const Login = () => {
     useEffect(() => { if (currentUser) navigate('/'); }, [currentUser, navigate]);
 
     return (
-        <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-[#7c5cdb] relative overflow-hidden">
-            <div className="text-center mb-12 relative z-10">
-              <div className="w-20 h-20 bg-white rounded-[28px] flex items-center justify-center mx-auto mb-4 text-[#7c5cdb] text-3xl font-black">S</div>
-              <h1 className="text-2xl font-black text-white italic tracking-tighter uppercase">Study Tool Hub</h1>
+        <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-[#7c5cdb] relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-full futuristic-grid opacity-10 pointer-events-none"></div>
+            <div className="text-center mb-14 relative z-10">
+              <div className="w-24 h-24 bg-white rounded-[40px] flex items-center justify-center mx-auto mb-6 text-[#7c5cdb] text-4xl font-black shadow-2xl">S</div>
+              <h1 className="text-3xl font-black text-white italic tracking-tighter uppercase drop-shadow-xl">Study Tool Hub</h1>
             </div>
-            <div className="bg-white p-10 rounded-[50px] w-full max-w-md shadow-2xl animate-fade-in relative z-10">
-                <h2 className="text-3xl font-black text-gray-800 mb-8 text-center italic uppercase tracking-tighter">Identity Sync</h2>
-                <form onSubmit={e => { e.preventDefault(); if(isS) signup(f.name, f.email, '', f.pass); else if (!login(f.email, f.pass)) alert('Login failed.'); }} className="space-y-4">
-                    {isS && <input className="w-full p-5 bg-gray-50 rounded-2xl outline-none font-bold border-2 border-transparent focus:border-blue-100" placeholder="Full Identity" value={f.name} onChange={e => setF({...f, name: e.target.value})} required />}
-                    <input className="w-full p-5 bg-gray-50 rounded-2xl outline-none font-bold border-2 border-transparent focus:border-blue-100" placeholder="Email/Terminal" value={f.email} onChange={e => setF({...f, email: e.target.value})} required />
-                    <input className="w-full p-5 bg-gray-50 rounded-2xl outline-none font-bold border-2 border-transparent focus:border-blue-100" type="password" placeholder="Pass-Sequence" value={f.pass} onChange={e => setF({...f, pass: e.target.value})} required />
-                    <button className="w-full py-6 bg-[#7c5cdb] text-white font-black rounded-3xl shadow-xl uppercase tracking-widest text-lg active:scale-95 transition-all mt-6">Initialize</button>
+            <div className="bg-white p-12 rounded-[70px] w-full max-w-md shadow-2xl animate-fade-in relative z-10 border border-white/20">
+                <h2 className="text-4xl font-black text-gray-800 mb-12 text-center uppercase tracking-tighter italic">Identity</h2>
+                <form onSubmit={e => { e.preventDefault(); if(isS) signup(f.name, f.email, '', f.pass); else if (!login(f.email, f.pass)) alert('Neural mismatch. Signal rejected.'); }} className="space-y-5">
+                    {isS && <input className="w-full p-6 bg-gray-50 rounded-3xl outline-none font-black border-2 border-transparent focus:border-brand/20 transition-all shadow-inner" placeholder="IDENTITY NAME" value={f.name} onChange={e => setF({...f, name: e.target.value})} required />}
+                    <input className="w-full p-6 bg-gray-50 rounded-3xl outline-none font-black border-2 border-transparent focus:border-brand/20 transition-all shadow-inner" placeholder="SIGNAL / EMAIL" value={f.email} onChange={e => setF({...f, email: e.target.value})} required />
+                    <input className="w-full p-6 bg-gray-50 rounded-3xl outline-none font-black border-2 border-transparent focus:border-brand/20 transition-all shadow-inner" type="password" placeholder="PASS-SEQUENCE" value={f.pass} onChange={e => setF({...f, pass: e.target.value})} required />
+                    <button className="w-full py-6 bg-[#7c5cdb] text-white font-black rounded-[35px] shadow-2xl shadow-indigo-200 uppercase tracking-[0.3em] text-xl active:scale-95 transition-all mt-8">Initialize</button>
                 </form>
-                <button onClick={() => setIsS(!isS)} className="w-full mt-10 text-[10px] text-[#7c5cdb] font-black uppercase tracking-[0.4em] text-center">{isS ? '< Revert to Login' : 'Construct New Node >'}</button>
+                <button onClick={() => setIsS(!isS)} className="w-full mt-12 text-[10px] text-[#7c5cdb] font-black uppercase tracking-[0.5em] text-center">{isS ? '< Revert Access' : 'Construct New Identity >'}</button>
             </div>
         </div>
     );

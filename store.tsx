@@ -27,37 +27,71 @@ const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
 const INITIAL_COURSES: Course[] = [
   {
-    id: 'batch-001',
-    title: 'Complete Full-Stack Roadmap 2025',
-    mrp: 3999,
+    id: 'batch-hope',
+    title: 'Hope (Backlog Series)',
+    mrp: 0,
     price: 0,
-    description: 'Learn everything from HTML/CSS to Advanced React and System Design. Includes 5 Major Projects.',
-    image: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&q=80&w=800',
-    category: 'Development',
+    description: 'Complete backlog cover for Class 10 students.',
+    image: 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&q=80&w=800',
+    category: 'Class 10',
     createdAt: new Date().toISOString(),
     isPaid: false,
-    chapters: [
+    isNew: true,
+    startDate: '07 Jul 2024',
+    endDate: '31 Mar 2026',
+    subjects: [
       {
-        id: 'c1',
-        title: 'Introduction to Web',
-        videos: [
-          { id: 'v1', title: 'How the internet works', filename: 'https://www.w3schools.com/html/mov_bbb.mp4', duration: '15:00' }
+        id: 'sub-chem',
+        title: 'Chemistry',
+        iconText: 'Ch',
+        chapters: [
+          {
+            id: 'ch-01',
+            title: 'Chemical Reaction and Equation',
+            videos: [
+              { id: 'v1', title: 'Lecture 01: Chemical Reaction and Equation : Live Experiments', filename: 'https://www.w3schools.com/html/mov_bbb.mp4', duration: '6:16:16', date: '7 JUL', type: 'lecture' },
+              { id: 'n1', title: 'Class Notes || Hope (Backlog Series)', filename: '#', duration: 'PDF', date: '7 JUL', type: 'note' }
+            ]
+          }
         ]
-      }
+      },
+      { id: 'sub-bio', title: 'Biology', iconText: 'Bi', chapters: [] },
+      { id: 'sub-eng', title: 'English', iconText: 'En', chapters: [] },
+      { id: 'sub-sst', title: 'SST', iconText: 'Ss', chapters: [] },
+      { id: 'sub-math', title: 'Mathematics', iconText: 'Ma', chapters: [] },
+      { id: 'sub-phy', title: 'Physics', iconText: 'Ph', chapters: [] }
     ]
   },
   {
-    id: 'batch-002',
-    title: 'Python for Data Science',
-    mrp: 4999,
-    price: 1499,
-    description: 'Master Python, Pandas, Numpy and Scikit-learn to build predictive models.',
+    id: 'batch-python',
+    title: 'Advanced Python Mastery',
+    mrp: 2999,
+    price: 999,
+    description: 'Master Python from Basics to Advanced concepts with Projects.',
     image: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&q=80&w=800',
-    category: 'Data Science',
+    category: 'Programming',
     createdAt: new Date().toISOString(),
     isPaid: true,
+    isNew: true,
+    startDate: '01 Jan 2025',
+    endDate: '31 Dec 2025',
     accessKey: 'PY_2025',
-    chapters: []
+    subjects: [
+      {
+        id: 'sub-py-core',
+        title: 'Core Python',
+        iconText: 'Py',
+        chapters: [
+          {
+            id: 'ch-intro',
+            title: 'Foundations of Programming',
+            videos: [
+              { id: 'v2', title: 'Python Installation & Setup', filename: 'https://www.w3schools.com/html/mov_bbb.mp4', duration: '12:45', date: '1 JAN', type: 'lecture' }
+            ]
+          }
+        ]
+      }
+    ]
   }
 ];
 

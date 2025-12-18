@@ -21,13 +21,6 @@ export interface ExamProgress {
   isAiGenerated: boolean;
 }
 
-export interface VideoProgress {
-  timestamp: number;
-  duration: number;
-  completed: boolean;
-  lastWatched: string;
-}
-
 export interface User {
   id: string;
   name: string;
@@ -38,9 +31,8 @@ export interface User {
   purchasedCourseIds: string[];
   lastLogin?: string;
   examResults?: ExamResult[];
-  tempAccess?: Record<string, string>; // courseId -> ISO Expiry Date
+  tempAccess?: Record<string, string>;
   savedExamProgress?: ExamProgress[];
-  videoProgress?: Record<string, VideoProgress>;
 }
 
 export interface Video {
@@ -48,12 +40,21 @@ export interface Video {
   title: string;
   filename: string;
   duration: string;
+  date?: string;
+  type?: 'lecture' | 'dpp' | 'note';
 }
 
 export interface Chapter {
   id: string;
   title: string;
   videos: Video[];
+}
+
+export interface Subject {
+  id: string;
+  title: string;
+  iconText: string;
+  chapters: Chapter[];
 }
 
 export interface Question {
@@ -77,13 +78,16 @@ export interface Course {
   description: string;
   image: string;
   category: string;
-  chapters: Chapter[];
+  subjects: Subject[]; // Core refactor: Course -> Subjects -> Chapters
   createdAt: string;
   isPaid?: boolean;
   accessKey?: string;
   shortenerLink?: string;
   telegramLink?: string;
   exams?: Exam[];
+  isNew?: boolean;
+  startDate?: string;
+  endDate?: string;
 }
 
 export interface AppSettings {

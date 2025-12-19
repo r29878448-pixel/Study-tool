@@ -52,7 +52,7 @@ const ExamMode = () => {
   }, [view, loading, isFinished, timeLeft]);
 
   useEffect(() => {
-    if (view === 'taking' && !loading && !isFinished && questions.length > 0) {
+    if (view === 'taking' && !loading && !isFinished && questions.length > 0 && course) {
       const timeout = setTimeout(() => {
         saveExamProgress({
           courseId: course.id,
@@ -65,9 +65,10 @@ const ExamMode = () => {
       }, 2000);
       return () => clearTimeout(timeout);
     }
-  }, [answers, currentQuestionIdx, timeLeft, questions, course.id, saveExamProgress]);
+  }, [answers, currentQuestionIdx, timeLeft, questions, course, saveExamProgress]);
 
   const startAiExam = async () => {
+    if (!course) return;
     setLoading(true);
     setView('taking');
     try {
@@ -120,6 +121,7 @@ const ExamMode = () => {
   };
 
   const finishExam = () => {
+    if (!course) return;
     let s = 0;
     questions.forEach((q, i) => { if (answers[i] === q.correctAnswer) s++; });
     setScore(s);

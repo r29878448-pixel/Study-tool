@@ -102,12 +102,12 @@ const TempAccessHandler = () => {
             return;
         }
 
-        // Simulate verification delay for UX
+        // Simulate verification delay for UX - mimicking the post-shortener handshake
         const timer = setTimeout(() => {
             grantTempAccess(id);
-            alert("✅ Verification Successful! 24-Hour Access Granted.");
+            alert("✅ Link Verified! 24-Hour Access Granted.");
             navigate(`/course/${id}`);
-        }, 1500);
+        }, 2000);
 
         return () => clearTimeout(timer);
     }, [id, currentUser, navigate, grantTempAccess, location]);
@@ -116,8 +116,8 @@ const TempAccessHandler = () => {
         <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-6 text-center">
             <div className="bg-white p-8 rounded-3xl shadow-xl border border-gray-100 max-w-sm w-full">
                 <Loader2 className="w-12 h-12 text-brand animate-spin mx-auto mb-6" />
-                <h2 className="text-xl font-bold text-gray-900 mb-2">Verifying Link...</h2>
-                <p className="text-gray-500 text-sm">Please wait while we validate your access token.</p>
+                <h2 className="text-xl font-bold text-gray-900 mb-2">Verifying Token...</h2>
+                <p className="text-gray-500 text-sm">Validating your short link session. Please wait...</p>
             </div>
         </div>
     );
@@ -147,6 +147,16 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
         title: '', iconText: '', image: '', filename: '', duration: '', type: 'lecture', thumbnail: ''
     });
 
+    // Auto-fetch thumbnail logic
+    useEffect(() => {
+        if (formData.filename && !formData.thumbnail) {
+            const ytMatch = formData.filename.match(/^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/);
+            if (ytMatch && ytMatch[7]?.length === 11) {
+                setFormData(prev => ({ ...prev, thumbnail: `https://img.youtube.com/vi/${ytMatch[7]}/maxresdefault.jpg` }));
+            }
+        }
+    }, [formData.filename]);
+
     const navigateToChapters = (sId: string) => { setActiveSubjectId(sId); setView('CHAPTERS'); };
     const navigateToVideos = (cId: string) => { setActiveChapterId(cId); setView('VIDEOS'); };
     const navigateUp = () => {
@@ -162,7 +172,9 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
                 setFormData(prev => ({ 
                     ...prev, 
                     filename: objectUrl,
-                    duration: 'Local File' 
+                    duration: 'Local File',
+                    // If uploading a PDF, set type to 'dpp' or 'note'
+                    type: file.type === 'application/pdf' ? 'dpp' : 'lecture'
                 }));
             } else {
                 const reader = new FileReader();
@@ -308,7 +320,7 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
 
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Duration</label><input className="w-full p-3 border rounded-lg bg-gray-50" value={formData.duration} onChange={e => setFormData({...formData, duration: e.target.value})} /></div>
-                                        <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Type</label><select className="w-full p-3 border rounded-lg bg-gray-50" value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})}><option value="lecture">Video</option><option value="note">PDF</option><option value="dpp">Quiz</option></select></div>
+                                        <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Type</label><select className="w-full p-3 border rounded-lg bg-gray-50" value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})}><option value="lecture">Video</option><option value="note">PDF Note</option><option value="dpp">DPP (Quiz/PDF)</option></select></div>
                                     </div>
                                     <div className="space-y-1">
                                         <label className="text-xs font-bold text-gray-500 uppercase">Thumbnail</label>
@@ -406,27 +418,17 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
 
 const CourseListing = () => {
     const { courses } = useStore();
-    const [filter, setFilter] = useState<'Paid' | 'Free'>('Free');
-    const filteredCourses = courses.filter(c => filter === 'Paid' ? c.isPaid : !c.isPaid);
 
     return (
         <div className="pb-24 pt-20 px-4 min-h-screen bg-gray-50">
             <div className="max-w-md mx-auto space-y-6">
-                <div className="bg-white p-1 rounded-xl border border-gray-200 flex shadow-sm">
-                    {(['Paid', 'Free'] as const).map((t) => (
-                        <button key={t} onClick={() => setFilter(t)} className={`flex-1 py-2.5 font-bold text-sm rounded-lg transition-all ${filter === t ? 'bg-brand text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>
-                            {t}
-                        </button>
-                    ))}
-                </div>
-
                 <div className="space-y-6">
-                    {filteredCourses.length === 0 ? (
+                    {courses.length === 0 ? (
                         <div className="text-center py-20 text-gray-400">
                             <Search className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                            <p className="font-bold text-sm">No courses found in this category</p>
+                            <p className="font-bold text-sm">No courses found</p>
                         </div>
-                    ) : filteredCourses.map(c => (
+                    ) : courses.map(c => (
                         <div key={c.id} className="bg-white rounded-2xl overflow-hidden border border-gray-200 shadow-sm hover:shadow-md transition-all group">
                             <div className="relative aspect-video">
                                 <img src={c.image} className="w-full h-full object-cover" alt={c.title} />
@@ -632,7 +634,7 @@ const SubjectDetail = () => {
         setGeneratingNotes(true);
         try {
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-            const prompt = `Provide a concise study summary for ${subject.title} covering: ${subject.chapters.map(c => c.title).join(', ')}.`;
+            const prompt = `Provide a concise study summary for ${subject.title} covering: ${subject.chapters.map(c => c.title).join(', ')}. Include descriptions of key diagrams (e.g., [DIAGRAM: Human Heart]) and a set of 5 Daily Practice Problems (DPP) at the end.`;
             const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: prompt });
             setNotes(response.text || "Could not generate summary.");
         } catch (e) { alert("AI Service Unavailable"); } finally { setGeneratingNotes(false); }
@@ -642,7 +644,14 @@ const SubjectDetail = () => {
         setGeneratingNoteId(video.id);
         try {
              const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-             const prompt = `Create study notes for '${video.title}' from '${subject.title}'. Output Markdown.`;
+             const prompt = `Create comprehensive study notes for the topic '${video.title}' in subject '${subject.title}'. 
+             Format: Markdown. 
+             Requirements: 
+             1. Key Concepts 
+             2. Important Formulas/Definitions 
+             3. Diagram Descriptions (e.g. [DIAGRAM: Flowchart of process]) 
+             4. A 'Daily Practice Problem (DPP)' section with 3 questions.`;
+             
              const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: prompt });
              if (response.text) {
                  const newNote: GeneratedNote = {
@@ -697,8 +706,12 @@ const SubjectDetail = () => {
                                 {chap.videos.map(v => (
                                     <div key={v.id} className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors group">
                                         <div onClick={() => setSelectedVideo(v)} className="flex items-center gap-4 cursor-pointer flex-1">
-                                            <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center group-hover:bg-blue-100 group-hover:text-brand transition-colors">
-                                                {v.type === 'note' ? <FileText className="w-5 h-5 text-gray-500" /> : <PlayCircle className="w-5 h-5 text-gray-500" />}
+                                            <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center group-hover:bg-blue-100 group-hover:text-brand transition-colors overflow-hidden">
+                                                {v.thumbnail ? (
+                                                    <img src={v.thumbnail} className="w-full h-full object-cover" alt="" />
+                                                ) : (
+                                                    v.type === 'note' || v.type === 'dpp' ? <FileText className="w-5 h-5 text-gray-500" /> : <PlayCircle className="w-5 h-5 text-gray-500" />
+                                                )}
                                             </div>
                                             <div className="flex-1">
                                                 <h4 className="text-sm font-bold text-gray-700">{v.title}</h4>
@@ -722,7 +735,7 @@ const SubjectDetail = () => {
                 <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => { setNotes(null); setViewingNote(null); }}>
                     <div className="bg-white w-full max-w-lg max-h-[80vh] rounded-2xl p-6 overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
                         <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-lg font-bold flex items-center gap-2"><Bot className="w-5 h-5 text-brand" /> {viewingNote ? 'Lecture Notes' : 'Subject Summary'}</h2>
+                            <h2 className="text-lg font-bold flex items-center gap-2"><Bot className="w-5 h-5 text-brand" /> {viewingNote ? 'Lecture Notes & DPP' : 'Subject Summary'}</h2>
                             <button onClick={() => { setNotes(null); setViewingNote(null); }}><X className="text-gray-400" /></button>
                         </div>
                         <div className="prose prose-sm text-gray-600 whitespace-pre-wrap">{notes || viewingNote?.content}</div>
@@ -747,7 +760,7 @@ const SubjectDetail = () => {
                             <VideoPlayer src={selectedVideo.filename} onBack={() => setSelectedVideo(null)} />
                         ) : (
                             <div className="flex-1 flex items-center justify-center text-white">
-                                {selectedVideo.filename.endsWith('.pdf') ? <iframe src={selectedVideo.filename} className="w-full h-full min-h-[500px]" /> : <p>Document View: {selectedVideo.filename}</p>}
+                                {selectedVideo.filename.endsWith('.pdf') || selectedVideo.filename.startsWith('blob:') ? <iframe src={selectedVideo.filename} className="w-full h-full min-h-[500px]" /> : <p className="text-center">Document View<br/><a href={selectedVideo.filename} target="_blank" rel="noreferrer" className="text-blue-400 underline">Open Link</a></p>}
                             </div>
                         )}
                     </div>

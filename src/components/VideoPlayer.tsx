@@ -29,9 +29,10 @@ const getEmbedUrl = (input: string) => {
   }
 
   // YouTube
+  // Added: modestbranding=1 (hides logo), iv_load_policy=3 (hides annotations), rel=0 (strict related), color=white (cleaner bar)
   const ytMatch = input.match(/^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/);
   if (ytMatch && ytMatch[7]?.length === 11) {
-    return `https://www.youtube.com/embed/${ytMatch[7]}?autoplay=0&controls=1&modestbranding=1&rel=0&playsinline=1&fs=1`;
+    return `https://www.youtube.com/embed/${ytMatch[7]}?autoplay=0&controls=1&modestbranding=1&rel=0&playsinline=1&fs=1&iv_load_policy=3&color=white`;
   }
 
   // Vimeo

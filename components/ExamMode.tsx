@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, Navigate } from 'react-router-dom';
 import { Timer, CheckCircle, AlertCircle, ArrowLeft, Loader2, List, PlayCircle, Bot, Save, LogOut, RotateCcw, Brain, Sparkles } from 'lucide-react';
@@ -109,8 +108,8 @@ const ExamMode = () => {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       
       // Build context for AI to generate highly relevant questions
-      const chapterContext = course.chapters?.map(c => 
-        `Chapter "${c.title}" covers topics like: ${c.videos?.map(v => v.title).join(', ')}`
+      const chapterContext = course.subjects?.flatMap(s => 
+        s.chapters.map(c => `Subject "${s.title}" - Chapter "${c.title}" covers: ${c.videos?.map(v => v.title).join(', ')}`)
       ).join('. ') || course.description;
 
       const prompt = `Act as an expert educational assessor for the course: "${course.title}".

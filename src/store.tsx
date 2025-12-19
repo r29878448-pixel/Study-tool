@@ -81,7 +81,18 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
 
   const [courses, setCourses] = useState<Course[]>(() => {
     const saved = localStorage.getItem('st_courses');
-    return saved ? JSON.parse(saved) : INITIAL_COURSES;
+    const parsed: Course[] = saved ? JSON.parse(saved) : INITIAL_COURSES;
+    // Data Integrity Check: Ensure nested arrays exist
+    return parsed.map(c => ({
+        ...c,
+        subjects: (c.subjects || []).map(s => ({
+            ...s,
+            chapters: (s.chapters || []).map(chap => ({
+                ...chap,
+                videos: chap.videos || []
+            }))
+        }))
+    }));
   });
 
   const [settings, setSettings] = useState<AppSettings>(() => {

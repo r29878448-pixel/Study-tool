@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, Navigate } from 'react-router-dom';
-import { CheckCircle, ArrowLeft, Loader2, Sparkles } from 'lucide-react';
+import { CheckCircle, ArrowLeft, Loader2, Sparkles, AlertCircle, Clock } from 'lucide-react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { Question, ExamProgress } from '../types';
 import { useStore } from '../store';
@@ -17,10 +17,7 @@ const cleanJson = (text: string) => {
       return JSON.parse(text.substring(firstBracket, lastBracket + 1));
     }
     return JSON.parse(text);
-  } catch (e) {
-    console.error("JSON Parse Error", e);
-    return null;
-  }
+  } catch (e) { return null; }
 };
 
 const ExamMode = () => {
@@ -54,7 +51,6 @@ const ExamMode = () => {
     return () => clearInterval(timer);
   }, [view, loading, isFinished, timeLeft]);
 
-  // Auto-save logic
   useEffect(() => {
     if (view === 'taking' && !loading && !isFinished && questions.length > 0) {
       const timeout = setTimeout(() => {
@@ -76,7 +72,7 @@ const ExamMode = () => {
     setView('taking');
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const prompt = `Generate a 10-question MCQ quiz for: "${course.title}". Subject content: ${course.description}. Output strictly as a JSON array.`;
+      const prompt = `Create a 10 question multiple choice test for ${course.title}. JSON array output.`;
 
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
@@ -106,7 +102,7 @@ const ExamMode = () => {
         setTimeLeft(data.length * 60);
       } else throw new Error("Format error");
     } catch (e) {
-      alert("AI Generation failed. Please try again.");
+      alert("Could not generate quiz. Please try again.");
       setView('selection');
     } finally {
       setLoading(false);
@@ -136,8 +132,9 @@ const ExamMode = () => {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
          <div className="bg-white p-8 rounded-2xl border border-gray-200 max-w-sm w-full text-center shadow-lg">
-            <h2 className="text-xl font-bold mb-4 text-gray-800">Resume Previous Quiz?</h2>
-            <p className="text-gray-500 mb-8 text-sm">You have an unfinished quiz saved.</p>
+            <Clock className="w-12 h-12 text-brand mx-auto mb-4" />
+            <h2 className="text-xl font-bold mb-2 text-gray-800">Unfinished Quiz Found</h2>
+            <p className="text-gray-500 mb-8 text-sm">Would you like to continue where you left off?</p>
             <div className="flex gap-4">
                <button onClick={() => { clearExamProgress(course.id); setResumePrompt(null); }} className="flex-1 py-3 text-red-500 font-bold border border-red-100 rounded-xl hover:bg-red-50">Discard</button>
                <button onClick={handleResume} className="flex-1 py-3 bg-brand text-white font-bold rounded-xl hover:bg-brand-dark">Resume</button>
@@ -151,13 +148,11 @@ const ExamMode = () => {
     return (
       <div className="min-h-screen bg-gray-50 p-6 flex items-center justify-center">
         <div className="max-w-md w-full bg-white p-8 rounded-2xl border border-gray-200 shadow-xl text-center">
-          <button onClick={() => navigate(-1)} className="mb-6 p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"><ArrowLeft /></button>
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Quiz Mode</h2>
-          <p className="text-gray-500 mb-8 text-sm">Generate a 10-question mock test based on this course's content using AI.</p>
-          <button onClick={startAiExam} className="w-full bg-brand p-5 rounded-xl text-white font-bold flex items-center justify-center gap-3 shadow-lg hover:bg-brand-dark transition-all">
-            <Sparkles className="w-5 h-5" />
-            Start AI Quiz
-          </button>
+          <button onClick={() => navigate(-1)} className="mb-6 p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"><ArrowLeft className="w-5 h-5" /></button>
+          <div className="w-16 h-16 bg-blue-50 text-brand rounded-2xl flex items-center justify-center mx-auto mb-6"><Sparkles className="w-8 h-8" /></div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">AI Assessment</h2>
+          <p className="text-gray-500 mb-8 text-sm">Generate a 10-question mock test based on this course using AI.</p>
+          <button onClick={startAiExam} className="w-full bg-brand py-4 rounded-xl text-white font-bold shadow-lg hover:bg-brand-dark transition-all">Start Quiz</button>
         </div>
       </div>
     );
@@ -165,21 +160,21 @@ const ExamMode = () => {
 
   if (loading) return (
     <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center bg-white">
-      <Loader2 className="w-12 h-12 text-brand animate-spin mb-4" />
-      <p className="font-bold text-gray-500">Preparing Questions...</p>
+      <Loader2 className="w-10 h-10 text-brand animate-spin mb-4" />
+      <p className="font-bold text-gray-600">Generating Questions...</p>
     </div>
   );
 
   if (isFinished) return (
     <div className="min-h-screen bg-white flex items-center justify-center p-6">
       <div className="text-center max-w-sm w-full">
-        <div className="w-20 h-20 bg-green-50 text-green-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
-          <CheckCircle className="w-12 h-12" />
+        <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
+          <CheckCircle className="w-10 h-10" />
         </div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Quiz Completed!</h2>
-        <div className="text-6xl font-bold text-brand mb-4">{score}<span className="text-2xl text-gray-400">/{questions.length}</span></div>
-        <p className="text-gray-500 mb-8 text-sm">Your result has been saved to your profile.</p>
-        <button onClick={() => navigate(-1)} className="w-full py-4 bg-brand text-white font-bold rounded-xl shadow-lg hover:bg-brand-dark transition-colors">Return to Course</button>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Quiz Complete</h2>
+        <div className="text-5xl font-bold text-brand mb-2">{score}<span className="text-2xl text-gray-400">/{questions.length}</span></div>
+        <p className="text-gray-500 mb-8 text-sm">Result saved to profile.</p>
+        <button onClick={() => navigate(-1)} className="w-full py-4 bg-brand text-white font-bold rounded-xl shadow-lg hover:bg-brand-dark">Back to Course</button>
       </div>
     </div>
   );
@@ -189,28 +184,29 @@ const ExamMode = () => {
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
-      <div className="p-4 border-b flex justify-between items-center sticky top-0 bg-white z-10 shadow-sm">
-        <div className="bg-gray-100 text-gray-700 px-4 py-1.5 rounded-lg font-bold text-sm">
+      <div className="p-4 border-b flex justify-between items-center sticky top-0 bg-white z-10">
+        <div className="flex items-center gap-2 text-gray-500 font-bold text-sm bg-gray-100 px-3 py-1 rounded-lg">
+          <Clock className="w-4 h-4" />
           {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, '0')}
         </div>
-        <div className="text-xs font-bold text-gray-400 uppercase">Question {currentQuestionIdx + 1}/{questions.length}</div>
+        <div className="text-xs font-bold text-gray-400">Q {currentQuestionIdx + 1} of {questions.length}</div>
       </div>
-      <div className="flex-1 p-6 pt-10 max-w-2xl mx-auto w-full">
-        <h2 className="text-lg font-bold text-gray-800 mb-10 leading-relaxed">{q.question}</h2>
-        <div className="space-y-4">
+      <div className="flex-1 p-6 max-w-2xl mx-auto w-full">
+        <h2 className="text-lg font-bold text-gray-800 mb-8 leading-relaxed">{q.question}</h2>
+        <div className="space-y-3">
           {q.options.map((opt, i) => (
-            <button key={i} onClick={() => { const na = [...answers]; na[currentQuestionIdx] = i; setAnswers(na); }} className={`w-full p-5 rounded-xl border-2 text-left transition-all font-semibold ${answers[currentQuestionIdx] === i ? 'bg-brand border-brand text-white' : 'border-gray-100 hover:border-gray-200 text-gray-700'}`}>
-              <span className="mr-3 opacity-50">{String.fromCharCode(65 + i)}.</span> {opt}
+            <button key={i} onClick={() => { const na = [...answers]; na[currentQuestionIdx] = i; setAnswers(na); }} className={`w-full p-4 rounded-xl border-2 text-left transition-all font-medium text-sm ${answers[currentQuestionIdx] === i ? 'bg-brand border-brand text-white' : 'border-gray-100 hover:border-gray-200 text-gray-600'}`}>
+              <span className="mr-3 font-bold opacity-60">{String.fromCharCode(65 + i)}</span> {opt}
             </button>
           ))}
         </div>
       </div>
-      <div className="p-4 border-t bg-white sticky bottom-0 flex gap-3 shadow-lg">
-        <button disabled={currentQuestionIdx === 0} onClick={() => setCurrentQuestionIdx(v => v - 1)} className="flex-1 py-4 bg-gray-50 text-gray-500 font-bold rounded-xl disabled:opacity-30">Back</button>
+      <div className="p-4 border-t bg-white sticky bottom-0 flex gap-3">
+        <button disabled={currentQuestionIdx === 0} onClick={() => setCurrentQuestionIdx(v => v - 1)} className="px-6 py-3 bg-gray-100 text-gray-600 font-bold rounded-xl disabled:opacity-50">Back</button>
         {currentQuestionIdx === questions.length - 1 ? (
-          <button onClick={finishExam} className="flex-[2] py-4 bg-brand text-white font-bold rounded-xl">Submit Quiz</button>
+          <button onClick={finishExam} className="flex-1 py-3 bg-brand text-white font-bold rounded-xl">Submit</button>
         ) : (
-          <button onClick={() => setCurrentQuestionIdx(v => v + 1)} className="flex-[2] py-4 bg-brand text-white font-bold rounded-xl">Next</button>
+          <button onClick={() => setCurrentQuestionIdx(v => v + 1)} className="flex-1 py-3 bg-brand text-white font-bold rounded-xl">Next Question</button>
         )}
       </div>
     </div>

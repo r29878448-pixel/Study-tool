@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, Navigate } from 'react-router-dom';
-import { CheckCircle, ArrowLeft, Loader2, Sparkles, Clock, Lock } from './Icons';
+import { CheckCircle, ArrowLeft, Loader2, Sparkles, Clock, AlertCircle } from './Icons';
 import { GoogleGenAI, Type } from "@google/genai";
 import { Question, ExamProgress, UserRole } from '../types';
 import { useStore } from '../store';
@@ -11,18 +11,14 @@ declare var process: { env: { API_KEY: string } };
 const cleanJson = (text: string | undefined | null) => {
   if (!text) return null;
   try {
-    // Handle markdown code blocks
     let cleaned = text.replace(/```json\s*|\s*```/g, '').trim();
-    // Attempt to extract JSON object/array if there is extra text
     const firstBracket = cleaned.search(/\[|\{/);
     const lastBracket = Math.max(cleaned.lastIndexOf(']'), cleaned.lastIndexOf('}'));
-    
     if (firstBracket !== -1 && lastBracket !== -1) {
        cleaned = cleaned.substring(firstBracket, lastBracket + 1);
     }
     return JSON.parse(cleaned);
   } catch (e) {
-    console.error("JSON Parse Error", e);
     return null; 
   }
 };
@@ -47,7 +43,6 @@ const ExamMode = () => {
 
   if (!course || !id) return <Navigate to="/" />;
 
-  // Access Check
   const hasAccess = !course.isPaid || 
     (currentUser && (
       currentUser.role === UserRole.ADMIN || 
@@ -59,7 +54,6 @@ const ExamMode = () => {
       return <Navigate to={`/course/${course.id}`} />;
   }
 
-  // Update ref when state changes
   useEffect(() => { timeLeftRef.current = timeLeft; }, [timeLeft]);
 
   useEffect(() => {
@@ -69,7 +63,6 @@ const ExamMode = () => {
     }
   }, [course, currentUser, view]);
 
-  // Timer
   useEffect(() => {
     if (view !== 'taking' || loading || isFinished || timeLeft <= 0) return;
     const timer = setInterval(() => {
@@ -82,9 +75,8 @@ const ExamMode = () => {
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [view, loading, isFinished]); // Removed timeLeft dependency to avoid re-creating interval
+  }, [view, loading, isFinished]);
 
-  // Auto-save
   useEffect(() => {
     if (view === 'taking' && !loading && !isFinished && questions.length > 0 && course) {
       const timeout = setTimeout(() => {
@@ -101,7 +93,7 @@ const ExamMode = () => {
       }, 2000);
       return () => clearTimeout(timeout);
     }
-  }, [answers, currentQuestionIdx, questions, course, saveExamProgress]); // Removed timeLeft dependency
+  }, [answers, currentQuestionIdx, questions, course, saveExamProgress]);
 
   const startAiExam = async () => {
     if (!course) return;
@@ -109,7 +101,6 @@ const ExamMode = () => {
     setView('taking');
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      // Enhance prompt with context
       const context = course.subjects?.flatMap(s => s.chapters.map(c => c.title)).join(', ') || course.description;
       const prompt = `Create a 10 question multiple choice test for "${course.title}". 
       Context: ${context}.
@@ -143,7 +134,6 @@ const ExamMode = () => {
         setTimeLeft(data.length * 60);
       } else throw new Error("Format error");
     } catch (e) {
-      console.error(e);
       alert("Could not generate quiz. Please check connection.");
       setView('selection');
     } finally {

@@ -24,8 +24,9 @@ const cleanJson = (text: string) => {
 };
 
 const ExamMode = () => {
-  const { id } = useParams<{ id: string }>();
-  const { courses, saveExamResult, currentUser } = useStore();
+  const params = useParams<{ id: string }>();
+  const id = params.id || "";
+  const { courses, saveExamResult } = useStore();
   const navigate = useNavigate();
   const course = courses.find(c => c.id === id);
   
@@ -51,7 +52,7 @@ const ExamMode = () => {
     setView('taking');
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const prompt = `Generate a 10-question MCQ quiz for: "${course.title}". Context: ${course.description}. Output strictly as JSON array of objects with fields: id, question, options (4 strings), correctAnswer (index 0-3).`;
+      const prompt = `Generate a 10-question MCQ quiz for: "${course.title}". Context: ${course.description}. Output strictly as JSON array.`;
 
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
@@ -67,18 +68,19 @@ const ExamMode = () => {
                 question: { type: Type.STRING },
                 options: { type: Type.ARRAY, items: { type: Type.STRING } },
                 correctAnswer: { type: Type.INTEGER }
-              }
+              },
+              required: ['id', 'question', 'options', 'correctAnswer']
             }
           }
         }
       });
 
       const data = cleanJson(response.text);
-      if (data) {
+      if (data && Array.isArray(data)) {
         setQuestions(data);
         setAnswers(new Array(data.length).fill(-1));
         setTimeLeft(data.length * 60);
-      } else throw new Error();
+      } else throw new Error("Invalid format");
     } catch (e) {
       alert("AI Sync Error. Please try again.");
       setView('selection');

@@ -76,7 +76,9 @@ const INITIAL_COURSES: Course[] = [
     isNew: false,
     startDate: '01 Nov 2024',
     endDate: '15 Mar 2025',
-    chapters: []
+    chapters: [],
+    // Fix: Added missing required subjects property
+    subjects: []
   }
 ];
 

@@ -78,9 +78,9 @@ export interface Course {
   description: string;
   image: string;
   category: string;
-  chapters: Chapter[];
-  subjects?: Subject[]; 
+  subjects: Subject[]; 
   createdAt: string;
+  chapters?: Chapter[]; // Keeping for backward compatibility during transitions
   isPaid?: boolean;
   accessKey?: string;
   shortenerLink?: string;

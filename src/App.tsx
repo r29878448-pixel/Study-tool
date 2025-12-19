@@ -102,12 +102,12 @@ const TempAccessHandler = () => {
             return;
         }
 
-        // Simulate verification delay for UX - mimicking the post-shortener handshake
+        // Simulate verification delay for UX
         const timer = setTimeout(() => {
             grantTempAccess(id);
-            alert("✅ Link Verified! 24-Hour Access Granted.");
+            alert("✅ Verification Successful! 24-Hour Access Granted.");
             navigate(`/course/${id}`);
-        }, 2000);
+        }, 1500);
 
         return () => clearTimeout(timer);
     }, [id, currentUser, navigate, grantTempAccess, location]);
@@ -116,8 +116,8 @@ const TempAccessHandler = () => {
         <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-6 text-center">
             <div className="bg-white p-8 rounded-3xl shadow-xl border border-gray-100 max-w-sm w-full">
                 <Loader2 className="w-12 h-12 text-brand animate-spin mx-auto mb-6" />
-                <h2 className="text-xl font-bold text-gray-900 mb-2">Verifying Token...</h2>
-                <p className="text-gray-500 text-sm">Validating your short link session. Please wait...</p>
+                <h2 className="text-xl font-bold text-gray-900 mb-2">Verifying Link...</h2>
+                <p className="text-gray-500 text-sm">Please wait while we validate your access token.</p>
             </div>
         </div>
     );
@@ -418,17 +418,27 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
 
 const CourseListing = () => {
     const { courses } = useStore();
+    const [filter, setFilter] = useState<'Paid' | 'Free'>('Free');
+    const filteredCourses = courses.filter(c => filter === 'Paid' ? c.isPaid : !c.isPaid);
 
     return (
         <div className="pb-24 pt-20 px-4 min-h-screen bg-gray-50">
             <div className="max-w-md mx-auto space-y-6">
+                <div className="bg-white p-1 rounded-xl border border-gray-200 flex shadow-sm">
+                    {(['Paid', 'Free'] as const).map((t) => (
+                        <button key={t} onClick={() => setFilter(t)} className={`flex-1 py-2.5 font-bold text-sm rounded-lg transition-all ${filter === t ? 'bg-brand text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>
+                            {t}
+                        </button>
+                    ))}
+                </div>
+
                 <div className="space-y-6">
-                    {courses.length === 0 ? (
+                    {filteredCourses.length === 0 ? (
                         <div className="text-center py-20 text-gray-400">
                             <Search className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                            <p className="font-bold text-sm">No courses found</p>
+                            <p className="font-bold text-sm">No courses found in this category</p>
                         </div>
-                    ) : courses.map(c => (
+                    ) : filteredCourses.map(c => (
                         <div key={c.id} className="bg-white rounded-2xl overflow-hidden border border-gray-200 shadow-sm hover:shadow-md transition-all group">
                             <div className="relative aspect-video">
                                 <img src={c.image} className="w-full h-full object-cover" alt={c.title} />

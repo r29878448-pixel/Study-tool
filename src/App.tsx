@@ -123,8 +123,6 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            // For videos/PDFs, use Blob URL for immediate playback in demo
-            // In a real app, you'd upload to S3/Cloudinary here
             if (file.type.startsWith('video/') || file.type === 'application/pdf') {
                 const objectUrl = URL.createObjectURL(file);
                 setFormData(prev => ({ 
@@ -133,7 +131,6 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
                     duration: 'Local File' 
                 }));
             } else {
-                // For images/thumbnails, use Base64
                 const reader = new FileReader();
                 reader.onloadend = () => setFormData(prev => ({ ...prev, thumbnail: reader.result as string }));
                 reader.readAsDataURL(file);
@@ -920,7 +917,26 @@ const Login = () => {
     const [isSignup, setIsSignup] = useState(false);
     const [form, setForm] = useState({ name: '', email: '', pass: '' });
 
-    useEffect(() => { if (currentUser) navigate('/'); }, [currentUser, navigate]);
+    useEffect(() => { 
+        if (currentUser) {
+            navigate('/', { replace: true });
+        }
+    }, [currentUser, navigate]);
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (isSignup) {
+            if (!form.name || !form.email || !form.pass) {
+                alert("Please fill in all fields.");
+                return;
+            }
+            signup(form.name, form.email, '', form.pass);
+        } else {
+            if (!login(form.email, form.pass)) {
+                alert('Invalid credentials');
+            }
+        }
+    };
 
     return (
         <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-gray-50">
@@ -932,14 +948,14 @@ const Login = () => {
                 </div>
                 
                 <div className="bg-white p-8 rounded-3xl shadow-xl border border-gray-100">
-                    <form onSubmit={e => { e.preventDefault(); if(isSignup) signup(form.name, form.email, '', form.pass); else if (!login(form.email, form.pass)) alert('Invalid credentials'); }} className="space-y-4">
+                    <form onSubmit={handleSubmit} className="space-y-4">
                         {isSignup && <input className="w-full p-4 bg-gray-50 rounded-xl border border-gray-200 focus:border-brand focus:ring-0 outline-none transition-colors" placeholder="Full Name" value={form.name} onChange={e => setForm({...form, name: e.target.value})} required />}
                         <input className="w-full p-4 bg-gray-50 rounded-xl border border-gray-200 focus:border-brand focus:ring-0 outline-none transition-colors" placeholder="Email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} required />
                         <input className="w-full p-4 bg-gray-50 rounded-xl border border-gray-200 focus:border-brand focus:ring-0 outline-none transition-colors" type="password" placeholder="Password" value={form.pass} onChange={e => setForm({...form, pass: e.target.value})} required />
-                        <button className="w-full py-4 bg-brand text-white font-bold rounded-xl shadow-lg shadow-blue-200 hover:bg-brand-dark transition-all mt-2">{isSignup ? 'Create Account' : 'Sign In'}</button>
+                        <button type="submit" className="w-full py-4 bg-brand text-white font-bold rounded-xl shadow-lg shadow-blue-200 hover:bg-brand-dark transition-all mt-2">{isSignup ? 'Create Account' : 'Sign In'}</button>
                     </form>
                     <div className="mt-6 text-center">
-                        <button onClick={() => setIsSignup(!isSignup)} className="text-sm font-bold text-brand hover:underline">{isSignup ? 'Already have an account? Sign In' : 'Create new account'}</button>
+                        <button type="button" onClick={() => setIsSignup(!isSignup)} className="text-sm font-bold text-brand hover:underline">{isSignup ? 'Already have an account? Sign In' : 'Create new account'}</button>
                     </div>
                 </div>
             </div>

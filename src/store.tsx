@@ -9,7 +9,7 @@ interface StoreContextType {
   settings: AppSettings;
   login: (email: string, pass: string) => boolean;
   signup: (name: string, email: string, phone: string, pass: string) => void;
-  createUser: (user: User) => void; // New function for Admins
+  createUser: (user: User) => void;
   logout: () => void;
   addCourse: (course: Course) => void;
   updateCourse: (course: Course) => void;
@@ -118,25 +118,38 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
   };
 
   const signup = (name: string, email: string, phone: string, pass: string) => {
-    const newUser: User = { id: Date.now().toString(), name, email, phone, password: pass, role: UserRole.USER, purchasedCourseIds: [], lastLogin: new Date().toISOString(), tempAccess: {} };
-    setUsers([...users, newUser]);
+    const newUser: User = { 
+        id: Date.now().toString(), 
+        name, 
+        email, 
+        phone, 
+        password: pass, 
+        role: UserRole.USER, 
+        purchasedCourseIds: [], 
+        lastLogin: new Date().toISOString(), 
+        tempAccess: {} 
+    };
+    setUsers(prev => [...prev, newUser]);
     setCurrentUser(newUser);
   };
 
   const createUser = (user: User) => {
-    setUsers([...users, user]);
+    setUsers(prev => [...prev, user]);
   };
 
   const logout = () => setCurrentUser(null);
-  const addCourse = (c: Course) => setCourses([...courses, c]);
-  const updateCourse = (uc: Course) => setCourses(courses.map(c => c.id === uc.id ? uc : c));
-  const deleteCourse = (id: string) => setCourses(courses.filter(c => c.id !== id));
+  
+  const addCourse = (c: Course) => setCourses(prev => [...prev, c]);
+  
+  const updateCourse = (uc: Course) => setCourses(prev => prev.map(c => c.id === uc.id ? uc : c));
+  
+  const deleteCourse = (id: string) => setCourses(prev => prev.filter(c => c.id !== id));
 
   const enrollCourse = (courseId: string) => {
     if (!currentUser) return;
     const updated = { ...currentUser, purchasedCourseIds: [...new Set([...currentUser.purchasedCourseIds, courseId])] };
     setCurrentUser(updated);
-    setUsers(users.map(u => u.id === currentUser.id ? updated : u));
+    setUsers(prev => prev.map(u => u.id === currentUser.id ? updated : u));
   };
 
   const grantTempAccess = (courseId: string) => {
@@ -144,21 +157,21 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
     const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
     const updated = { ...currentUser, tempAccess: { ...(currentUser.tempAccess || {}), [courseId]: expiry } };
     setCurrentUser(updated);
-    setUsers(users.map(u => u.id === currentUser.id ? updated : u));
+    setUsers(prev => prev.map(u => u.id === currentUser.id ? updated : u));
   };
 
   const updateSettings = (s: AppSettings) => setSettings(s);
-  const toggleTheme = () => setSettings({ ...settings, theme: settings.theme === 'dark' ? 'light' : 'dark' });
+  const toggleTheme = () => setSettings(prev => ({ ...prev, theme: prev.theme === 'dark' ? 'light' : 'dark' }));
 
   const updateUser = (data: Partial<User>) => {
     if (!currentUser) return;
     const updated = { ...currentUser, ...data };
     setCurrentUser(updated);
-    setUsers(users.map(u => u.id === currentUser.id ? updated : u));
+    setUsers(prev => prev.map(u => u.id === currentUser.id ? updated : u));
   };
 
   const manageUserRole = (userId: string, role: UserRole) => {
-    setUsers(users.map(u => u.id === userId ? { ...u, role } : u));
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, role } : u));
   };
 
   const saveExamResult = (cId: string, score: number, total: number) => {
@@ -166,7 +179,7 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
     const res: ExamResult = { courseId: cId, score, totalQuestions: total, date: new Date().toISOString() };
     const updated = { ...currentUser, examResults: [...(currentUser.examResults || []), res] };
     setCurrentUser(updated);
-    setUsers(users.map(u => u.id === currentUser.id ? updated : u));
+    setUsers(prev => prev.map(u => u.id === currentUser.id ? updated : u));
   };
 
   const saveExamProgress = (p: ExamProgress) => {
@@ -174,28 +187,28 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
     const filtered = (currentUser.savedExamProgress || []).filter(item => item.courseId !== p.courseId);
     const updated = { ...currentUser, savedExamProgress: [...filtered, p] };
     setCurrentUser(updated);
-    setUsers(users.map(u => u.id === currentUser.id ? updated : u));
+    setUsers(prev => prev.map(u => u.id === currentUser.id ? updated : u));
   };
 
   const clearExamProgress = (cId: string) => {
     if (!currentUser) return;
     const updated = { ...currentUser, savedExamProgress: (currentUser.savedExamProgress || []).filter(p => p.courseId !== cId) };
     setCurrentUser(updated);
-    setUsers(users.map(u => u.id === currentUser.id ? updated : u));
+    setUsers(prev => prev.map(u => u.id === currentUser.id ? updated : u));
   };
 
   const saveGeneratedNote = (note: GeneratedNote) => {
     if (!currentUser) return;
     const updated = { ...currentUser, generatedNotes: [...(currentUser.generatedNotes || []), note] };
     setCurrentUser(updated);
-    setUsers(users.map(u => u.id === currentUser.id ? updated : u));
+    setUsers(prev => prev.map(u => u.id === currentUser.id ? updated : u));
   };
 
   const deleteGeneratedNote = (id: string) => {
     if (!currentUser) return;
     const updated = { ...currentUser, generatedNotes: (currentUser.generatedNotes || []).filter(n => n.id !== id) };
     setCurrentUser(updated);
-    setUsers(users.map(u => u.id === currentUser.id ? updated : u));
+    setUsers(prev => prev.map(u => u.id === currentUser.id ? updated : u));
   };
 
   return (

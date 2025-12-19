@@ -17,6 +17,7 @@ interface StoreContextType {
   grantTempAccess: (courseId: string) => void;
   updateSettings: (settings: AppSettings) => void;
   updateUser: (data: Partial<User>) => void;
+  manageUserRole: (userId: string, role: UserRole) => void; // New function
   saveExamResult: (courseId: string, score: number, totalQuestions: number) => void;
   saveExamProgress: (progress: ExamProgress) => void;
   clearExamProgress: (courseId: string) => void;
@@ -39,7 +40,6 @@ const INITIAL_COURSES: Course[] = [
     isNew: true,
     startDate: '07 Jul 2024',
     endDate: '31 Mar 2026',
-    chapters: [],
     subjects: [
       {
         id: 'sub-chem',
@@ -50,40 +50,17 @@ const INITIAL_COURSES: Course[] = [
             id: 'ch-01',
             title: 'Chemical Reaction and Equation',
             videos: [
-              { id: 'v1', title: 'Lecture 01: Chemical Reaction and Equation : Live Experiments', filename: 'https://www.w3schools.com/html/mov_bbb.mp4', duration: '6:16:16', date: '7 JUL', type: 'lecture' },
-              { id: 'n1', title: 'Class Notes || Hope (Backlog Series)', filename: '#', duration: '', date: '7 JUL', type: 'note' }
+              { id: 'v1', title: 'Lecture 01: Chemical Reaction', filename: 'https://www.youtube.com/watch?v=k3rRrl9J2F4', duration: '50:00', date: '7 JUL', type: 'lecture' },
             ]
           }
         ]
-      },
-      { id: 'sub-bio', title: 'Biology', iconText: 'Bi', chapters: [] },
-      { id: 'sub-eng', title: 'English', iconText: 'En', chapters: [] },
-      { id: 'sub-sst', title: 'SST', iconText: 'Ss', chapters: [] },
-      { id: 'sub-math', title: 'Mathematics', iconText: 'Ma', chapters: [] },
-      { id: 'sub-phy', title: 'Physics', iconText: 'Ph', chapters: [] }
+      }
     ]
-  },
-  {
-    id: 'batch-aakhiri',
-    title: 'Aakhiri Daav - Class 10th',
-    mrp: 999,
-    price: 499,
-    description: 'The final push for your board exams.',
-    image: 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&q=80&w=800',
-    category: 'Board Exam',
-    createdAt: new Date().toISOString(),
-    isPaid: true,
-    isNew: false,
-    startDate: '01 Nov 2024',
-    endDate: '15 Mar 2025',
-    chapters: [],
-    // Fix: Added missing required subjects property
-    subjects: []
   }
 ];
 
 const INITIAL_SETTINGS: AppSettings = {
-  appName: 'Study Tool',
+  appName: 'Study Portal',
   adminEmail: 'admin@studytool.com',
   supportPhone: '+91 00000 00000',
   razorpayKey: 'rzp_test_study',
@@ -162,6 +139,10 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
     setUsers(users.map(u => u.id === currentUser.id ? updated : u));
   };
 
+  const manageUserRole = (userId: string, role: UserRole) => {
+    setUsers(users.map(u => u.id === userId ? { ...u, role } : u));
+  };
+
   const saveExamResult = (cId: string, score: number, total: number) => {
     if (!currentUser) return;
     const res: ExamResult = { courseId: cId, score, totalQuestions: total, date: new Date().toISOString() };
@@ -189,7 +170,7 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
     <StoreContext.Provider value={{
       currentUser, users, courses, settings, login, signup, logout,
       addCourse, updateCourse, deleteCourse, enrollCourse, grantTempAccess,
-      updateSettings, updateUser, saveExamResult, saveExamProgress, clearExamProgress, toggleTheme
+      updateSettings, updateUser, manageUserRole, saveExamResult, saveExamProgress, clearExamProgress, toggleTheme
     }}>
       {children}
     </StoreContext.Provider>

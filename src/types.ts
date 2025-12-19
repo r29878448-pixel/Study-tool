@@ -42,12 +42,14 @@ export interface Video {
   duration: string;
   date?: string;
   type?: 'lecture' | 'dpp' | 'note';
+  thumbnail?: string;
 }
 
 export interface Chapter {
   id: string;
   title: string;
   videos: Video[];
+  image?: string;
 }
 
 export interface Subject {
@@ -80,7 +82,7 @@ export interface Course {
   category: string;
   subjects: Subject[]; 
   createdAt: string;
-  chapters?: Chapter[]; // Keeping for backward compatibility during transitions
+  chapters?: Chapter[]; 
   isPaid?: boolean;
   accessKey?: string;
   shortenerLink?: string;

@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, Navigate } from 'react-router-dom';
 import { CheckCircle, ArrowLeft, Loader2, Sparkles, Clock, AlertCircle } from './Icons';
 import { GoogleGenAI, Type } from "@google/genai";
-import { Question, ExamProgress, UserRole } from '../types';
+import { Question, ExamProgress, UserRole, Exam } from '../types';
 import { useStore } from '../store';
 
 declare var process: { env: { API_KEY: string } };
@@ -39,6 +39,7 @@ const ExamMode = () => {
   const [answers, setAnswers] = useState<number[]>([]);
   const [isFinished, setIsFinished] = useState(false);
   const [score, setScore] = useState(0);
+  const [isAiGenerated, setIsAiGenerated] = useState(false);
   const [resumePrompt, setResumePrompt] = useState<ExamProgress | null>(null);
 
   if (!course || !id) return <Navigate to="/" />;
@@ -87,18 +88,19 @@ const ExamMode = () => {
             answers,
             timeLeft: timeLeftRef.current,
             lastSaved: new Date().toISOString(),
-            isAiGenerated: true
+            isAiGenerated: isAiGenerated
           });
         }
       }, 2000);
       return () => clearTimeout(timeout);
     }
-  }, [answers, currentQuestionIdx, questions, course, saveExamProgress]);
+  }, [answers, currentQuestionIdx, questions, course, saveExamProgress, isAiGenerated]);
 
   const startAiExam = async () => {
     if (!course) return;
     setLoading(true);
     setView('taking');
+    setIsAiGenerated(true);
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const context = course.subjects?.flatMap(s => s.chapters.map(c => c.title)).join(', ') || course.description;
@@ -141,11 +143,20 @@ const ExamMode = () => {
     }
   };
 
+  const startManualExam = (exam: Exam) => {
+    setQuestions(exam.questions);
+    setAnswers(new Array(exam.questions.length).fill(-1));
+    setTimeLeft(exam.questions.length * 60);
+    setIsAiGenerated(false);
+    setView('taking');
+  };
+
   const handleResume = () => {
     if (resumePrompt) {
       setQuestions(resumePrompt.questions);
       setAnswers(resumePrompt.answers);
       setTimeLeft(resumePrompt.timeLeft);
+      setIsAiGenerated(resumePrompt.isAiGenerated);
       setView('taking');
       setResumePrompt(null);
     }
@@ -185,7 +196,21 @@ const ExamMode = () => {
           <div className="w-16 h-16 bg-blue-50 text-brand rounded-2xl flex items-center justify-center mx-auto mb-6"><Sparkles className="w-8 h-8" /></div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">AI Assessment</h2>
           <p className="text-gray-500 mb-8 text-sm">Generate a 10-question mock test based on this course using AI.</p>
-          <button onClick={startAiExam} className="w-full bg-brand py-4 rounded-xl text-white font-bold shadow-lg hover:bg-brand-dark transition-all">Start Quiz</button>
+          <button onClick={startAiExam} className="w-full bg-brand py-4 rounded-xl text-white font-bold shadow-lg hover:bg-brand-dark transition-all">Start AI Quiz</button>
+          
+          {course.exams && course.exams.length > 0 && (
+            <div className="mt-8 pt-8 border-t border-gray-100">
+               <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Or Choose Preset</h3>
+               <div className="space-y-3">
+                 {course.exams.map(exam => (
+                   <button key={exam.id} onClick={() => startManualExam(exam)} className="w-full p-4 border border-gray-100 rounded-xl hover:bg-gray-50 text-left">
+                     <div className="font-bold text-gray-800">{exam.title}</div>
+                     <div className="text-xs text-gray-400">{exam.questions.length} Questions</div>
+                   </button>
+                 ))}
+               </div>
+            </div>
+          )}
         </div>
       </div>
     );

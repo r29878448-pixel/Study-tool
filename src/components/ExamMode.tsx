@@ -8,7 +8,7 @@ import { useStore } from '../store';
 
 declare var process: { env: { API_KEY: string } };
 
-const cleanJson = (text: string) => {
+const cleanJson = (text: string | undefined | null) => {
   if (!text) return null;
   try {
     const firstBracket = text.indexOf('[');

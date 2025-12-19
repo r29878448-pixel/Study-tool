@@ -351,12 +351,12 @@ const AdminPanel = () => {
     useEffect(() => {
         if (editing) {
             setForm({ 
-                title: editing.title, 
-                description: editing.description, 
-                image: editing.image, 
-                category: editing.category, 
-                price: editing.price, 
-                mrp: editing.mrp, 
+                title: editing.title || '', 
+                description: editing.description || '', 
+                image: editing.image || '', 
+                category: editing.category || '', 
+                price: editing.price || 0, 
+                mrp: editing.mrp || 0, 
                 isPaid: !!editing.isPaid, 
                 isNew: editing.isNew ?? true,
                 accessKey: editing.accessKey || '',

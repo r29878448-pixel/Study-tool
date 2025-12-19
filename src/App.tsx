@@ -345,21 +345,23 @@ const AdminPanel = () => {
     const [form, setForm] = useState({ title: '', description: '', image: '', category: '', price: 0, mrp: 0, isPaid: false, isNew: true, accessKey: '', shortenerLink: '', telegramLink: '', startDate: '', endDate: '' });
 
     useEffect(() => {
-        if (editing) setForm({ 
-            title: editing.title, 
-            description: editing.description, 
-            image: editing.image, 
-            category: editing.category, 
-            price: editing.price, 
-            mrp: editing.mrp, 
-            isPaid: !!editing.isPaid, 
-            isNew: editing.isNew ?? true,
-            accessKey: editing.accessKey || '',
-            shortenerLink: editing.shortenerLink || '',
-            telegramLink: editing.telegramLink || '',
-            startDate: editing.startDate || '',
-            endDate: editing.endDate || ''
-        });
+        if (editing) {
+            setForm({ 
+                title: editing.title, 
+                description: editing.description, 
+                image: editing.image, 
+                category: editing.category, 
+                price: editing.price, 
+                mrp: editing.mrp, 
+                isPaid: !!editing.isPaid, 
+                isNew: editing.isNew ?? true,
+                accessKey: editing.accessKey || '',
+                shortenerLink: editing.shortenerLink || '',
+                telegramLink: editing.telegramLink || '',
+                startDate: editing.startDate || '',
+                endDate: editing.endDate || ''
+            });
+        }
         else setForm({ title: '', description: '', image: '', category: '', price: 0, mrp: 0, isPaid: false, isNew: true, accessKey: '', shortenerLink: '', telegramLink: '', startDate: '', endDate: '' });
     }, [editing, showModal]);
 

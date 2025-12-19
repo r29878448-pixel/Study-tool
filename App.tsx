@@ -1,6 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate, useLocation, Link, useNavigate, useParams } from 'react-router-dom';
+import { Analytics } from '@vercel/analytics/react';
 import { StoreProvider, useStore } from './store';
 import { 
   Home, BookOpen, User, Search, PlayCircle, Lock, 
@@ -703,6 +704,7 @@ const MainContent = () => {
       </Routes>
       {!isWatch && <STBottomNav />}
       <ChatBot />
+      <Analytics />
     </div>
   );
 };

@@ -10,7 +10,7 @@ import {
   ChevronRight, MoreVertical, Calendar,
   ImageIcon, Upload, Settings, FileText, CheckCircle,
   Folder, FileVideo, Sparkles, LogOut, Shield,
-  Download, Link as LinkIcon, Save
+  Download, Link as LinkIcon, Save, Key, Clock
 } from './components/Icons';
 import VideoPlayer from './components/VideoPlayer';
 import ChatBot from './components/ChatBot';
@@ -459,9 +459,11 @@ const CourseListing = () => {
 
 const CourseDetail = () => {
     const { id } = useParams<{id: string}>();
-    const { courses, currentUser, grantTempAccess } = useStore();
+    const { courses, currentUser, grantTempAccess, enrollCourse } = useStore();
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState<'Subjects' | 'Description'>('Subjects');
+    const [accessKeyInput, setAccessKeyInput] = useState('');
+    const [showKeyInput, setShowKeyInput] = useState(false);
 
     const course = courses.find(c => c.id === id);
     if (!course) return <Navigate to="/" />;
@@ -472,6 +474,15 @@ const CourseDetail = () => {
         currentUser.purchasedCourseIds.includes(course.id) || 
         (currentUser.tempAccess?.[course.id] && new Date(currentUser.tempAccess[course.id]) > new Date())
       ));
+
+    const handleKeySubmit = () => {
+        if(course.accessKey && accessKeyInput === course.accessKey) {
+            enrollCourse(course.id);
+            alert("✅ Access Granted Successfully!");
+        } else {
+            alert("❌ Invalid Access Key");
+        }
+    };
 
     return (
         <div className="pb-24 pt-0 min-h-screen bg-white">
@@ -491,22 +502,70 @@ const CourseDetail = () => {
             <Banner />
             <div className="p-4 relative">
                 {!hasAccess && activeTab === 'Subjects' && (
-                    <div className="absolute inset-0 z-10 bg-white/80 backdrop-blur-[2px] flex flex-col items-center justify-center p-6 text-center">
-                        <Lock className="w-16 h-16 text-gray-400 mb-4" />
-                        <h3 className="text-xl font-bold text-gray-800 mb-2">Content Locked</h3>
-                        <p className="text-gray-500 mb-6 max-w-xs">This is a premium course. Unlock full access to continue learning.</p>
-                        <div className="flex flex-col gap-3 w-full max-w-xs">
-                             <button className="w-full py-3 bg-brand text-white font-bold rounded-xl shadow-lg hover:bg-brand-dark">
-                                Buy Now for ₹{course.price}
+                    <div className="absolute inset-0 z-10 bg-white/95 backdrop-blur-[2px] flex flex-col items-center justify-center p-6 text-center">
+                        <Lock className="w-16 h-16 text-gray-300 mb-4 animate-bounce" />
+                        <h3 className="text-2xl font-bold text-gray-900 mb-2">Content Locked</h3>
+                        <p className="text-gray-500 mb-8 max-w-xs text-sm">Access this premium batch using one of the options below.</p>
+                        
+                        <div className="flex flex-col gap-4 w-full max-w-xs animate-slide-up">
+                             {/* Option 1: Temporary Access */}
+                             <button 
+                                onClick={() => {
+                                    if(confirm("Activate your 24-hour trial access?")) {
+                                        grantTempAccess(course.id);
+                                    }
+                                }} 
+                                className="w-full py-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold rounded-2xl shadow-lg shadow-blue-200 active:scale-95 transition-all flex items-center justify-center gap-2"
+                             >
+                                <Clock className="w-5 h-5" /> 
+                                Get 24h Temporary Access
                              </button>
-                             <button onClick={() => grantTempAccess(course.id)} className="w-full py-3 bg-white border border-brand text-brand font-bold rounded-xl hover:bg-blue-50">
-                                Start 24h Free Trial
-                             </button>
+
+                             {/* Option 2: Permanent Access via Key */}
+                             {!showKeyInput ? (
+                                <button 
+                                    onClick={() => setShowKeyInput(true)} 
+                                    className="w-full py-4 bg-white border-2 border-gray-200 text-gray-700 font-bold rounded-2xl hover:bg-gray-50 hover:border-gray-300 active:scale-95 transition-all flex items-center justify-center gap-2"
+                                >
+                                    <Key className="w-5 h-5 text-gray-400" />
+                                    Have an Enrollment Key?
+                                </button>
+                             ) : (
+                                <div className="bg-white p-2 rounded-2xl border-2 border-brand shadow-sm animate-fade-in flex flex-col gap-2">
+                                    <div className="flex gap-2">
+                                        <input 
+                                            type="text" 
+                                            placeholder="Enter Key..." 
+                                            className="flex-1 p-2 text-sm font-bold text-gray-700 outline-none bg-transparent"
+                                            value={accessKeyInput}
+                                            onChange={e => setAccessKeyInput(e.target.value)}
+                                            autoFocus
+                                        />
+                                        <button 
+                                            onClick={handleKeySubmit}
+                                            className="bg-brand text-white px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-brand-dark shadow-md"
+                                        >
+                                            Unlock
+                                        </button>
+                                    </div>
+                                    <button onClick={() => setShowKeyInput(false)} className="text-[10px] text-gray-400 font-bold uppercase tracking-widest hover:text-red-500 self-center pb-1">Cancel</button>
+                                </div>
+                             )}
+
+                             {/* Price Display */}
+                             {course.price > 0 && (
+                                <div className="text-center mt-2">
+                                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">OR</p>
+                                    <button className="w-full py-3 bg-gray-900 text-white font-bold rounded-2xl shadow-lg hover:bg-black transition-all">
+                                        Purchase for ₹{course.price}
+                                    </button>
+                                </div>
+                             )}
                         </div>
                     </div>
                 )}
                 {activeTab === 'Subjects' && (
-                    <div className={`space-y-3 ${!hasAccess ? 'blur-sm select-none' : ''}`}>
+                    <div className={`space-y-3 ${!hasAccess ? 'blur-md select-none pointer-events-none opacity-50' : ''}`}>
                         {(course.subjects || []).map((sub) => (
                             <div key={sub.id} onClick={() => hasAccess && navigate(`/course/${course.id}/subject/${sub.id}`)} className="bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-4 hover:border-brand cursor-pointer shadow-sm">
                                 <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center text-brand font-bold text-lg">{sub.iconText}</div>
@@ -868,6 +927,16 @@ const AdminPanel = () => {
                                         {generatingLink ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Auto Generate'}
                                     </button>
                                 </div>
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-gray-500 uppercase">Enrollment / Access Key</label>
+                                <input 
+                                    value={form.accessKey} 
+                                    onChange={e => setForm({ ...form, accessKey: e.target.value })} 
+                                    className="w-full p-3 border rounded-lg bg-gray-50" 
+                                    placeholder="e.g. BATCH2025 (Optional)" 
+                                />
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">

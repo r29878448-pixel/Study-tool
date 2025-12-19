@@ -29,13 +29,6 @@ const Banner = () => (
   </div>
 );
 
-const XPBadge = ({ xp = 0 }: { xp?: number }) => (
-  <div className="flex items-center gap-1.5 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-200">
-    <div className="w-5 h-5 bg-yellow-100 text-yellow-700 rounded-full flex items-center justify-center text-[10px] font-bold">XP</div>
-    <span className="text-xs font-bold text-gray-700">{xp}</span>
-  </div>
-);
-
 const STHeader = () => {
   const { currentUser, settings } = useStore();
   const location = useLocation();
@@ -827,7 +820,7 @@ const AdminPanel = () => {
 };
 
 const Profile = () => {
-    const { currentUser, logout, deleteGeneratedNote } = useStore();
+    const { currentUser, logout, deleteGeneratedNote, manageUserRole } = useStore();
     const [viewNote, setViewNote] = useState<GeneratedNote | null>(null);
 
     if (!currentUser) return <Navigate to="/login" />;
@@ -852,9 +845,16 @@ const Profile = () => {
                     <p className="text-gray-500 text-sm mb-6">{currentUser.email}</p>
                     <div className="inline-block px-4 py-1.5 bg-gray-100 rounded-full text-xs font-bold text-gray-600 uppercase mb-8">{currentUser.role}</div>
                     
-                    <button onClick={logout} className="w-full py-3 text-red-500 font-bold bg-red-50 rounded-xl hover:bg-red-100 flex items-center justify-center gap-2">
-                        <LogOut className="w-4 h-4" /> Sign Out
-                    </button>
+                    <div className="flex gap-3">
+                        <button onClick={logout} className="flex-1 py-3 text-red-500 font-bold bg-red-50 rounded-xl hover:bg-red-100 flex items-center justify-center gap-2">
+                            <LogOut className="w-4 h-4" /> Sign Out
+                        </button>
+                        {currentUser.role !== UserRole.ADMIN && (
+                            <button onClick={() => manageUserRole(currentUser.id, UserRole.ADMIN)} className="flex-1 py-3 text-brand font-bold bg-blue-50 rounded-xl hover:bg-blue-100 flex items-center justify-center gap-2 text-xs">
+                                <Shield className="w-4 h-4" /> Demo: Switch to Admin
+                            </button>
+                        )}
+                    </div>
                 </div>
 
                 <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
@@ -915,6 +915,7 @@ const Login = () => {
     const { login, signup, currentUser } = useStore();
     const navigate = useNavigate();
     const [isSignup, setIsSignup] = useState(false);
+    const [loading, setLoading] = useState(false);
     const [form, setForm] = useState({ name: '', email: '', pass: '' });
 
     useEffect(() => { 
@@ -923,11 +924,16 @@ const Login = () => {
         }
     }, [currentUser, navigate]);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setLoading(true);
+        // Simulate network delay for better UX
+        await new Promise(resolve => setTimeout(resolve, 800));
+        
         if (isSignup) {
             if (!form.name || !form.email || !form.pass) {
                 alert("Please fill in all fields.");
+                setLoading(false);
                 return;
             }
             signup(form.name, form.email, '', form.pass);
@@ -936,6 +942,7 @@ const Login = () => {
                 alert('Invalid credentials');
             }
         }
+        setLoading(false);
     };
 
     return (
@@ -952,7 +959,10 @@ const Login = () => {
                         {isSignup && <input className="w-full p-4 bg-gray-50 rounded-xl border border-gray-200 focus:border-brand focus:ring-0 outline-none transition-colors" placeholder="Full Name" value={form.name} onChange={e => setForm({...form, name: e.target.value})} required />}
                         <input className="w-full p-4 bg-gray-50 rounded-xl border border-gray-200 focus:border-brand focus:ring-0 outline-none transition-colors" placeholder="Email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} required />
                         <input className="w-full p-4 bg-gray-50 rounded-xl border border-gray-200 focus:border-brand focus:ring-0 outline-none transition-colors" type="password" placeholder="Password" value={form.pass} onChange={e => setForm({...form, pass: e.target.value})} required />
-                        <button type="submit" className="w-full py-4 bg-brand text-white font-bold rounded-xl shadow-lg shadow-blue-200 hover:bg-brand-dark transition-all mt-2">{isSignup ? 'Create Account' : 'Sign In'}</button>
+                        <button type="submit" disabled={loading} className="w-full py-4 bg-brand text-white font-bold rounded-xl shadow-lg shadow-blue-200 hover:bg-brand-dark transition-all mt-2 flex items-center justify-center gap-2">
+                            {loading && <Loader2 className="w-5 h-5 animate-spin" />}
+                            {isSignup ? 'Create Account' : 'Sign In'}
+                        </button>
                     </form>
                     <div className="mt-6 text-center">
                         <button type="button" onClick={() => setIsSignup(!isSignup)} className="text-sm font-bold text-brand hover:underline">{isSignup ? 'Already have an account? Sign In' : 'Create new account'}</button>

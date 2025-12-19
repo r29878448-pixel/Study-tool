@@ -82,6 +82,8 @@ const STBottomNav = () => {
   );
 };
 
+// ... TempAccessHandler, ContentManager ...
+
 // --- TEMP ACCESS HANDLER ---
 
 const TempAccessHandler = () => {
@@ -612,6 +614,7 @@ const SubjectDetail = () => {
     const [generatingNoteId, setGeneratingNoteId] = useState<string | null>(null);
     const [viewingNote, setViewingNote] = useState<GeneratedNote | null>(null);
     const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
+    const [filter, setFilter] = useState<'All' | 'Lectures' | 'DPPs' | 'Notes'>('All');
     
     // Topic Selection State
     const [showTopicModal, setShowTopicModal] = useState(false);
@@ -660,16 +663,21 @@ const SubjectDetail = () => {
         try {
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             
-            // Refined Prompt for Easy Language + Diagrams + DPP
-            const prompt = `Generate comprehensive study notes for the topic: "${topic}".
-            Target Audience: School Students (Use very easy, clear language).
-            Structure requirements:
-            1. Introduction
-            2. Key Concepts & Definitions
-            3. Detailed Explanation (Use simple analogies)
-            4. Visual Aids: Include 2-3 text-based diagram descriptions. Format them strictly as: [DIAGRAM: Description of visual]
-            5. Daily Practice Problems (DPP): 5 multiple-choice or short answer questions with answers at the very end.
-            Output Format: Clean Markdown.`;
+            // Professional Prompt
+            const prompt = `
+            Act as a professional academic content creator. Generate high-quality, comprehensive study notes for the topic: "${topic}".
+            
+            **Format:** Clean, professional Markdown.
+            **Tone:** Educational, clear, concise, and professional (Easy to understand English).
+
+            **Structure Requirement:**
+            1. **Topic Overview**: A professional summary of the topic.
+            2. **Important Definitions & Key Concepts**: List 5-7 key terms with precise definitions.
+            3. **Visual Learning (Diagrams)**: Provide 2-3 detailed text-based descriptions of diagrams relevant to this topic. Format as: "> **[DIAGRAM: ...Description...]**".
+            4. **Detailed Explanations**: Explain the core concepts in depth using bullet points.
+            5. **Previous Year Questions (PYQs)**: List 3-5 important questions often asked in exams regarding this topic.
+            6. **Daily Practice Problems (DPP)**: 3 high-quality MCQs with answers at the very end.
+            `;
 
             const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: prompt });
             const content = response.text || "Could not generate content.";
@@ -707,30 +715,33 @@ const SubjectDetail = () => {
             const formattedContent = content
                 .replace(/\n/g, '<br/>')
                 .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                .replace(/\[DIAGRAM: (.*?)\]/g, '<div style="border:2px dashed #0056d2; background:#f0f7ff; padding:15px; margin:10px 0; border-radius:10px; text-align:center; font-style:italic; color:#0056d2;">📷 DIAGRAM: $1</div>')
-                .replace(/# (.*?)(<br\/>|$)/g, '<h1 style="color:#0056d2; font-size:24px; margin-top:20px;">$1</h1>')
-                .replace(/## (.*?)(<br\/>|$)/g, '<h2 style="color:#333; font-size:20px; margin-top:15px; border-bottom:1px solid #eee; padding-bottom:5px;">$1</h2>');
+                .replace(/> \*\*\[DIAGRAM: (.*?)\]\*\*/g, '<div style="border:2px dashed #0056d2; background:#f0f7ff; padding:20px; margin:20px 0; border-radius:12px; text-align:center; color:#0056d2; font-weight:bold;">🖼️ DIAGRAM: $1</div>')
+                .replace(/### (.*?)(<br\/>|$)/g, '<h3 style="color:#444; font-size:18px; margin-top:15px; font-weight:bold;">$1</h3>')
+                .replace(/## (.*?)(<br\/>|$)/g, '<h2 style="color:#0056d2; font-size:22px; margin-top:25px; border-bottom:2px solid #eee; padding-bottom:8px;">$1</h2>')
+                .replace(/# (.*?)(<br\/>|$)/g, '<h1 style="color:#0056d2; font-size:28px; margin-top:20px; text-align:center;">$1</h1>');
 
             const html = `
                 <html>
                 <head>
                     <title>${title}</title>
                     <style>
-                        body { font-family: sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; line-height: 1.6; color: #333; }
+                        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 50px; max-width: 900px; margin: 0 auto; line-height: 1.7; color: #333; background-color: #fff; }
                         h1, h2, h3 { color: #0056d2; }
-                        .header { text-align: center; margin-bottom: 40px; border-bottom: 2px solid #0056d2; padding-bottom: 20px; }
-                        .footer { margin-top: 50px; text-align: center; font-size: 12px; color: #999; border-top: 1px solid #eee; padding-top: 20px; }
-                        .btn { display: none; } 
+                        strong { color: #222; }
+                        .header { text-align: center; margin-bottom: 50px; border-bottom: 3px solid #0056d2; padding-bottom: 30px; background-color: #f8fafc; padding: 30px; border-radius: 12px; }
+                        .footer { margin-top: 60px; text-align: center; font-size: 12px; color: #999; border-top: 1px solid #eee; padding-top: 20px; }
+                        .tag { display: inline-block; padding: 4px 12px; border-radius: 20px; background: #e0f2fe; color: #0369a1; font-size: 12px; font-weight: bold; margin-top: 10px; }
                     </style>
                 </head>
                 <body>
                     <div class="header">
                         <h1>${title}</h1>
-                        <p>Subject: ${subject.title} | Generated by AI Study Portal</p>
+                        <p style="margin:0; font-size:16px; color:#666;">Subject: ${subject.title}</p>
+                        <span class="tag">AI Generated Professional Notes</span>
                     </div>
                     ${formattedContent}
                     <div class="footer">
-                        &copy; ${new Date().getFullYear()} Study Portal. generated via Gemini AI.
+                        &copy; ${new Date().getFullYear()} Study Portal. Generated via Gemini AI.
                     </div>
                 </body>
                 </html>
@@ -740,22 +751,48 @@ const SubjectDetail = () => {
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `${title.replace(/[^a-z0-9]/gi, '_')}.html`; // Saving as HTML so it opens nicely in browser/word
+            a.download = `${title.replace(/[^a-z0-9]/gi, '_')}.html`;
             a.click();
         }
     };
 
     return (
-        <div className="pb-24 min-h-screen bg-white">
+        <div className="pb-24 min-h-screen bg-gray-50">
+            {/* Header */}
             <div className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
                 <div className="flex items-center justify-between p-4">
                     <div className="flex items-center gap-3">
                         <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-full"><ArrowLeft className="w-6 h-6 text-gray-700" /></button>
-                        <h1 className="text-lg font-bold text-gray-800">{subject.title}</h1>
+                        <h1 className="text-lg font-bold text-gray-800 truncate max-w-[200px]">{subject.title}</h1>
                     </div>
-                    <button onClick={() => initiateNoteGeneration()} className="text-brand p-2 hover:bg-blue-50 rounded-full" title="Generate AI Summary">
-                        {generatingNotes ? <Loader2 className="w-6 h-6 animate-spin" /> : <Sparkles className="w-6 h-6" />}
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1 bg-gray-100 px-3 py-1 rounded-full border border-gray-200">
+                             <div className="w-4 h-4 bg-blue-200 rounded-md flex items-center justify-center text-[8px] font-bold text-blue-700">XP</div>
+                             <span className="text-xs font-bold text-gray-600">0</span>
+                        </div>
+                    </div>
+                </div>
+                
+                {/* Info Banner */}
+                <div className="bg-blue-50 px-4 py-3 flex items-center justify-between text-xs text-blue-800 border-b border-blue-100">
+                    <div className="flex items-center gap-2">
+                         <div className="w-4 h-4 bg-blue-600 rounded-full text-white flex items-center justify-center font-bold">i</div>
+                         <span>Don't worry if there's a small error, missing XP points will be added soon!</span>
+                    </div>
+                    <X className="w-4 h-4 text-blue-400" />
+                </div>
+
+                {/* Filters */}
+                <div className="flex px-4 py-3 gap-3 overflow-x-auto no-scrollbar">
+                    {(['All', 'Lectures', 'DPPs', 'Notes'] as const).map(f => (
+                        <button 
+                            key={f} 
+                            onClick={() => setFilter(f)} 
+                            className={`px-5 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all border ${filter === f ? 'bg-gray-700 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                        >
+                            {f}
+                        </button>
+                    ))}
                 </div>
             </div>
 
@@ -763,34 +800,58 @@ const SubjectDetail = () => {
                 {subject.chapters.length === 0 ? (
                     <div className="text-center py-20 text-gray-400 text-sm">No chapters available yet.</div>
                 ) : subject.chapters.map((chap, idx) => (
-                    <div key={chap.id} className="space-y-3">
-                        <h3 className="font-bold text-gray-400 text-xs uppercase tracking-wider pl-1">Chapter {idx + 1}</h3>
-                        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-                            <div className="p-4 bg-gray-50 border-b border-gray-200 font-bold text-gray-800">{chap.title}</div>
-                            <div className="divide-y divide-gray-100">
-                                {chap.videos.map(v => (
-                                    <div key={v.id} className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors group">
-                                        <div onClick={() => setSelectedVideo(v)} className="flex items-center gap-4 cursor-pointer flex-1">
-                                            <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center group-hover:bg-blue-100 group-hover:text-brand transition-colors overflow-hidden">
-                                                {v.thumbnail ? (
-                                                    <img src={v.thumbnail} className="w-full h-full object-cover" alt="" />
-                                                ) : (
-                                                    v.type === 'note' || v.type === 'dpp' ? <FileText className="w-5 h-5 text-gray-500" /> : <PlayCircle className="w-5 h-5 text-gray-500" />
-                                                )}
+                    <div key={chap.id} className="space-y-4">
+                        <div className="space-y-3">
+                            {chap.videos.filter(v => filter === 'All' || (filter === 'Lectures' && v.type === 'lecture') || (filter === 'DPPs' && v.type === 'dpp') || (filter === 'Notes' && v.type === 'note')).map(v => (
+                                <div key={v.id} className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex gap-4 items-start active:scale-[0.99] transition-transform">
+                                    <div className="w-24 h-24 bg-gray-100 rounded-xl overflow-hidden shrink-0 relative group">
+                                         {v.thumbnail ? (
+                                             <img src={v.thumbnail} className="w-full h-full object-cover" alt="" />
+                                         ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-gray-400">
+                                                {v.type === 'note' ? <FileText className="w-8 h-8" /> : <VideoIcon className="w-8 h-8" />}
                                             </div>
-                                            <div className="flex-1">
-                                                <h4 className="text-sm font-bold text-gray-700">{v.title}</h4>
-                                                <p className="text-xs text-gray-400 mt-0.5">{v.type?.toUpperCase()} • {v.duration}</p>
+                                         )}
+                                         <div className="absolute bottom-1 right-1 bg-black/60 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-md backdrop-blur-sm">
+                                             {v.duration}
+                                         </div>
+                                         <div className="absolute inset-0 bg-black/10 hidden group-hover:flex items-center justify-center">
+                                             <PlayCircle className="w-8 h-8 text-white opacity-80" />
+                                         </div>
+                                    </div>
+                                    <div className="flex-1 min-w-0 flex flex-col justify-between h-24 py-1">
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{v.type?.toUpperCase()}</span>
+                                                <span className="text-[10px] font-bold text-gray-300">•</span>
+                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{v.date || '7 JUL'}</span>
+                                            </div>
+                                            <h4 className="text-sm font-bold text-gray-800 line-clamp-2 leading-tight">{v.title}</h4>
+                                        </div>
+                                        
+                                        <div className="flex items-center gap-2 mt-2">
+                                            {v.type === 'lecture' ? (
+                                                <button onClick={() => setSelectedVideo(v)} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-brand rounded-lg text-xs font-bold hover:bg-blue-100 transition-colors">
+                                                    <PlayCircle className="w-3.5 h-3.5" /> Watch Lecture
+                                                </button>
+                                            ) : (
+                                                <button onClick={() => setSelectedVideo(v)} className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-xs font-bold hover:bg-gray-200 transition-colors">
+                                                    <FileText className="w-3.5 h-3.5" /> View Material
+                                                </button>
+                                            )}
+                                            
+                                            {v.type === 'lecture' && (
+                                                <button onClick={() => initiateNoteGeneration(v)} className="p-1.5 text-gray-400 hover:text-brand bg-white border border-gray-100 rounded-lg" title="AI Notes">
+                                                    {generatingNoteId === v.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bot className="w-4 h-4" />}
+                                                </button>
+                                            )}
+                                            <div className="ml-auto">
+                                                 <CheckCircle className="w-5 h-5 text-gray-300" />
                                             </div>
                                         </div>
-                                        {v.type === 'lecture' && (
-                                            <button onClick={() => initiateNoteGeneration(v)} className="ml-2 p-2 text-brand bg-blue-50 hover:bg-blue-100 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors" disabled={generatingNoteId === v.id}>
-                                                {generatingNoteId === v.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bot className="w-4 h-4" />}
-                                            </button>
-                                        )}
                                     </div>
-                                ))}
-                            </div>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 ))}
@@ -802,20 +863,20 @@ const SubjectDetail = () => {
                     <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl animate-slide-up">
                         <div className="flex items-center gap-3 mb-4 text-brand">
                             <Sparkles className="w-6 h-6" />
-                            <h3 className="font-bold text-lg text-gray-900">AI Note Generator</h3>
+                            <h3 className="font-bold text-lg text-gray-900">Professional AI Note Generator</h3>
                         </div>
                         <form onSubmit={handleGenerateConfirmed}>
-                            <p className="text-sm text-gray-500 mb-2 font-medium">Enter topic for notes:</p>
+                            <p className="text-sm text-gray-500 mb-2 font-medium">Enter topic for comprehensive notes:</p>
                             <input 
                                 className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 mb-4 font-bold text-gray-700 focus:border-brand outline-none" 
                                 value={noteTopic} 
                                 onChange={e => setNoteTopic(e.target.value)} 
-                                placeholder="e.g., Heart Structure, Thermodynamics..." 
+                                placeholder="e.g., Chemical Reactions, Optics..." 
                                 autoFocus
                             />
                             <div className="flex gap-3">
                                 <button type="button" onClick={() => setShowTopicModal(false)} className="flex-1 py-3 bg-gray-100 text-gray-600 font-bold rounded-xl hover:bg-gray-200">Cancel</button>
-                                <button type="submit" className="flex-1 py-3 bg-brand text-white font-bold rounded-xl hover:bg-brand-dark">Generate PDF</button>
+                                <button type="submit" className="flex-1 py-3 bg-brand text-white font-bold rounded-xl hover:bg-brand-dark shadow-md">Generate Notes</button>
                             </div>
                         </form>
                     </div>
@@ -827,7 +888,7 @@ const SubjectDetail = () => {
                 <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => { setNotes(null); setViewingNote(null); }}>
                     <div className="bg-white w-full max-w-lg max-h-[85vh] rounded-2xl p-6 overflow-y-auto shadow-2xl flex flex-col" onClick={e => e.stopPropagation()}>
                         <div className="flex justify-between items-center mb-4 border-b pb-4">
-                            <h2 className="text-lg font-bold flex items-center gap-2 text-gray-800"><Bot className="w-5 h-5 text-brand" /> {viewingNote ? 'Lecture Notes & DPP' : 'Subject Summary'}</h2>
+                            <h2 className="text-lg font-bold flex items-center gap-2 text-gray-800"><Bot className="w-5 h-5 text-brand" /> {viewingNote ? 'Professional Notes' : 'Subject Summary'}</h2>
                             <button onClick={() => { setNotes(null); setViewingNote(null); }}><X className="text-gray-400" /></button>
                         </div>
                         <div className="flex-1 overflow-y-auto">
@@ -872,6 +933,8 @@ const SubjectDetail = () => {
         </div>
     );
 };
+
+// ... AdminPanel, Profile, Login ...
 
 const AdminPanel = () => {
     const { currentUser, courses, addCourse, updateCourse, deleteCourse, users, manageUserRole, createUser } = useStore();
@@ -1115,25 +1178,27 @@ const Profile = () => {
         const formattedContent = note.content
             .replace(/\n/g, '<br/>')
             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-            .replace(/\[DIAGRAM: (.*?)\]/g, '<div style="border:2px dashed #0056d2; background:#f0f7ff; padding:15px; margin:10px 0; border-radius:10px; text-align:center; font-style:italic; color:#0056d2;">📷 DIAGRAM: $1</div>')
-            .replace(/# (.*?)(<br\/>|$)/g, '<h1 style="color:#0056d2; font-size:24px; margin-top:20px;">$1</h1>')
-            .replace(/## (.*?)(<br\/>|$)/g, '<h2 style="color:#333; font-size:20px; margin-top:15px; border-bottom:1px solid #eee; padding-bottom:5px;">$1</h2>');
+            .replace(/> \*\*\[DIAGRAM: (.*?)\]\*\*/g, '<div style="border:2px dashed #0056d2; background:#f0f7ff; padding:20px; margin:20px 0; border-radius:12px; text-align:center; color:#0056d2; font-weight:bold;">🖼️ DIAGRAM: $1</div>')
+            .replace(/### (.*?)(<br\/>|$)/g, '<h3 style="color:#444; font-size:18px; margin-top:15px; font-weight:bold;">$1</h3>')
+            .replace(/## (.*?)(<br\/>|$)/g, '<h2 style="color:#0056d2; font-size:22px; margin-top:25px; border-bottom:2px solid #eee; padding-bottom:8px;">$1</h2>')
+            .replace(/# (.*?)(<br\/>|$)/g, '<h1 style="color:#0056d2; font-size:28px; margin-top:20px; text-align:center;">$1</h1>');
 
         const html = `
             <html>
             <head>
                 <title>${note.videoTitle}</title>
                 <style>
-                    body { font-family: sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; line-height: 1.6; color: #333; }
+                    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 50px; max-width: 900px; margin: 0 auto; line-height: 1.7; color: #333; background-color: #fff; }
                     h1, h2, h3 { color: #0056d2; }
-                    .header { text-align: center; margin-bottom: 40px; border-bottom: 2px solid #0056d2; padding-bottom: 20px; }
-                    .footer { margin-top: 50px; text-align: center; font-size: 12px; color: #999; border-top: 1px solid #eee; padding-top: 20px; }
+                    strong { color: #222; }
+                    .header { text-align: center; margin-bottom: 50px; border-bottom: 3px solid #0056d2; padding-bottom: 30px; background-color: #f8fafc; padding: 30px; border-radius: 12px; }
+                    .footer { margin-top: 60px; text-align: center; font-size: 12px; color: #999; border-top: 1px solid #eee; padding-top: 20px; }
                 </style>
             </head>
             <body>
                 <div class="header">
                     <h1>${note.videoTitle}</h1>
-                    <p>Subject: ${note.subjectName}</p>
+                    <p style="margin:0; font-size:16px; color:#666;">Subject: ${note.subjectName}</p>
                 </div>
                 ${formattedContent}
                 <div class="footer">

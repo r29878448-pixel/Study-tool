@@ -390,6 +390,12 @@ const AdminPanel = () => {
 
     const handleCreateUser = (e: React.FormEvent) => {
         e.preventDefault();
+        // Duplicate check
+        if (users.some(u => u.email.toLowerCase() === userForm.email.toLowerCase())) {
+            alert("A user with this email already exists.");
+            return;
+        }
+
         createUser({
             id: Date.now().toString(),
             name: userForm.name,
@@ -403,6 +409,7 @@ const AdminPanel = () => {
         });
         setShowUserModal(false);
         setUserForm({ name: '', email: '', password: '', role: UserRole.USER });
+        alert("User created successfully.");
     };
 
     return (
@@ -445,9 +452,18 @@ const AdminPanel = () => {
                         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                             {users.map(u => (
                                 <div key={u.id} className="p-4 border-b last:border-0 flex justify-between items-center hover:bg-gray-50">
-                                    <div><p className="font-bold text-gray-800">{u.name}</p><p className="text-xs text-gray-500">{u.email}</p></div>
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <p className="font-bold text-gray-800">{u.name}</p>
+                                            {u.role === UserRole.ADMIN && <span className="text-[10px] font-bold px-2 py-0.5 bg-red-100 text-red-600 rounded">ADMIN</span>}
+                                            {u.role === UserRole.EDITOR && <span className="text-[10px] font-bold px-2 py-0.5 bg-blue-100 text-blue-600 rounded">MANAGER</span>}
+                                        </div>
+                                        <p className="text-xs text-gray-500">{u.email}</p>
+                                    </div>
                                     <select value={u.role} onChange={(e) => manageUserRole(u.id, e.target.value as UserRole)} disabled={u.id === currentUser.id} className="text-xs font-bold px-3 py-1 bg-gray-100 rounded-lg border-none outline-none">
-                                        <option value={UserRole.USER}>User</option><option value={UserRole.EDITOR}>Manager</option><option value={UserRole.ADMIN}>Admin</option>
+                                        <option value={UserRole.USER}>User</option>
+                                        <option value={UserRole.EDITOR}>Manager</option>
+                                        <option value={UserRole.ADMIN}>Admin</option>
                                     </select>
                                 </div>
                             ))}

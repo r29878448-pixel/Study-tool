@@ -613,6 +613,11 @@ const SubjectDetail = () => {
     const [viewingNote, setViewingNote] = useState<GeneratedNote | null>(null);
     const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
     
+    // Topic Selection State
+    const [showTopicModal, setShowTopicModal] = useState(false);
+    const [noteTopic, setNoteTopic] = useState('');
+    const [targetVideoForNote, setTargetVideoForNote] = useState<Video | null>(null);
+
     const course = courses.find(c => c.id === courseId);
     const subject = course?.subjects.find(s => s.id === subjectId);
     
@@ -627,52 +632,115 @@ const SubjectDetail = () => {
 
     if (!hasAccess) return <Navigate to={`/course/${courseId}`} />;
 
-    const handleGenerateNotes = async () => {
-        setGeneratingNotes(true);
+    // Step 1: User clicks generate (General or Video specific)
+    const initiateNoteGeneration = (video?: Video) => {
+        if (video) {
+            setTargetVideoForNote(video);
+            setNoteTopic(video.title);
+        } else {
+            setTargetVideoForNote(null);
+            setNoteTopic(subject.title + " Summary");
+        }
+        setShowTopicModal(true);
+    };
+
+    // Step 2: User confirms topic -> Call AI
+    const handleGenerateConfirmed = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setShowTopicModal(false);
+        const topic = noteTopic;
+        const isVideoSpecific = !!targetVideoForNote;
+
+        if (isVideoSpecific && targetVideoForNote) {
+            setGeneratingNoteId(targetVideoForNote.id);
+        } else {
+            setGeneratingNotes(true);
+        }
+
         try {
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-            const prompt = `Provide a concise study summary for ${subject.title} covering: ${subject.chapters.map(c => c.title).join(', ')}. Include descriptions of key diagrams (e.g., [DIAGRAM: Human Heart]) and a set of 5 Daily Practice Problems (DPP) at the end.`;
+            
+            // Refined Prompt for Easy Language + Diagrams + DPP
+            const prompt = `Generate comprehensive study notes for the topic: "${topic}".
+            Target Audience: School Students (Use very easy, clear language).
+            Structure requirements:
+            1. Introduction
+            2. Key Concepts & Definitions
+            3. Detailed Explanation (Use simple analogies)
+            4. Visual Aids: Include 2-3 text-based diagram descriptions. Format them strictly as: [DIAGRAM: Description of visual]
+            5. Daily Practice Problems (DPP): 5 multiple-choice or short answer questions with answers at the very end.
+            Output Format: Clean Markdown.`;
+
             const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: prompt });
-            setNotes(response.text || "Could not generate summary.");
-        } catch (e) { alert("AI Service Unavailable"); } finally { setGeneratingNotes(false); }
+            const content = response.text || "Could not generate content.";
+
+            if (isVideoSpecific && targetVideoForNote) {
+                const newNote: GeneratedNote = {
+                    id: Date.now().toString(),
+                    videoId: targetVideoForNote.id,
+                    videoTitle: topic, // Use the user-defined topic as title
+                    subjectName: subject.title,
+                    content: content,
+                    createdAt: new Date().toISOString(),
+                    syllabusYear: '2025-26'
+                };
+                setViewingNote(newNote);
+            } else {
+                setNotes(content);
+            }
+        } catch (e) { 
+            alert("AI Service Unavailable. Please check your connection."); 
+        } finally { 
+            setGeneratingNotes(false);
+            setGeneratingNoteId(null);
+        }
     };
 
-    const handleGenerateVideoNotes = async (video: Video) => {
-        setGeneratingNoteId(video.id);
-        try {
-             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-             const prompt = `Create comprehensive study notes for the topic '${video.title}' in subject '${subject.title}'. 
-             Format: Markdown. 
-             Requirements: 
-             1. Key Concepts 
-             2. Important Formulas/Definitions 
-             3. Diagram Descriptions (e.g. [DIAGRAM: Flowchart of process]) 
-             4. A 'Daily Practice Problem (DPP)' section with 3 questions.`;
-             
-             const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: prompt });
-             if (response.text) {
-                 const newNote: GeneratedNote = {
-                     id: Date.now().toString(),
-                     videoId: video.id,
-                     videoTitle: video.title,
-                     subjectName: subject.title,
-                     content: response.text,
-                     createdAt: new Date().toISOString(),
-                     syllabusYear: '2025-26'
-                 };
-                 setViewingNote(newNote);
-             }
-        } catch (e) { alert("Failed to generate notes."); } finally { setGeneratingNoteId(null); }
-    };
-
-    const saveCurrentNote = () => { if(viewingNote) { saveGeneratedNote(viewingNote); alert("Note saved!"); setViewingNote(null); } };
+    const saveCurrentNote = () => { if(viewingNote) { saveGeneratedNote(viewingNote); alert("Note saved to profile!"); setViewingNote(null); } };
+    
+    // Improved Download: HTML/PDF style
     const downloadCurrentNote = () => {
-        if(viewingNote) {
-            const blob = new Blob([viewingNote.content], { type: 'text/plain' });
+        const content = viewingNote ? viewingNote.content : notes;
+        const title = viewingNote ? viewingNote.videoTitle : "Subject_Summary";
+        if(content) {
+            // Convert markdown-ish diagram tags to visual boxes for the "PDF" view
+            const formattedContent = content
+                .replace(/\n/g, '<br/>')
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\[DIAGRAM: (.*?)\]/g, '<div style="border:2px dashed #0056d2; background:#f0f7ff; padding:15px; margin:10px 0; border-radius:10px; text-align:center; font-style:italic; color:#0056d2;">📷 DIAGRAM: $1</div>')
+                .replace(/# (.*?)(<br\/>|$)/g, '<h1 style="color:#0056d2; font-size:24px; margin-top:20px;">$1</h1>')
+                .replace(/## (.*?)(<br\/>|$)/g, '<h2 style="color:#333; font-size:20px; margin-top:15px; border-bottom:1px solid #eee; padding-bottom:5px;">$1</h2>');
+
+            const html = `
+                <html>
+                <head>
+                    <title>${title}</title>
+                    <style>
+                        body { font-family: sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; line-height: 1.6; color: #333; }
+                        h1, h2, h3 { color: #0056d2; }
+                        .header { text-align: center; margin-bottom: 40px; border-bottom: 2px solid #0056d2; padding-bottom: 20px; }
+                        .footer { margin-top: 50px; text-align: center; font-size: 12px; color: #999; border-top: 1px solid #eee; padding-top: 20px; }
+                        .btn { display: none; } 
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <h1>${title}</h1>
+                        <p>Subject: ${subject.title} | Generated by AI Study Portal</p>
+                    </div>
+                    ${formattedContent}
+                    <div class="footer">
+                        &copy; ${new Date().getFullYear()} Study Portal. generated via Gemini AI.
+                    </div>
+                </body>
+                </html>
+            `;
+            
+            const blob = new Blob([html], { type: 'text/html' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `${viewingNote.videoTitle.replace(/[^a-z0-9]/gi, '_')}.txt`;
+            a.download = `${title.replace(/[^a-z0-9]/gi, '_')}.html`; // Saving as HTML so it opens nicely in browser/word
             a.click();
         }
     };
@@ -685,7 +753,7 @@ const SubjectDetail = () => {
                         <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-full"><ArrowLeft className="w-6 h-6 text-gray-700" /></button>
                         <h1 className="text-lg font-bold text-gray-800">{subject.title}</h1>
                     </div>
-                    <button onClick={handleGenerateNotes} className="text-brand p-2 hover:bg-blue-50 rounded-full" title="Generate AI Summary">
+                    <button onClick={() => initiateNoteGeneration()} className="text-brand p-2 hover:bg-blue-50 rounded-full" title="Generate AI Summary">
                         {generatingNotes ? <Loader2 className="w-6 h-6 animate-spin" /> : <Sparkles className="w-6 h-6" />}
                     </button>
                 </div>
@@ -716,7 +784,7 @@ const SubjectDetail = () => {
                                             </div>
                                         </div>
                                         {v.type === 'lecture' && (
-                                            <button onClick={() => handleGenerateVideoNotes(v)} className="ml-2 p-2 text-brand bg-blue-50 hover:bg-blue-100 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors" disabled={generatingNoteId === v.id}>
+                                            <button onClick={() => initiateNoteGeneration(v)} className="ml-2 p-2 text-brand bg-blue-50 hover:bg-blue-100 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors" disabled={generatingNoteId === v.id}>
                                                 {generatingNoteId === v.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bot className="w-4 h-4" />}
                                             </button>
                                         )}
@@ -727,21 +795,54 @@ const SubjectDetail = () => {
                     </div>
                 ))}
             </div>
+
+            {/* Topic Input Modal */}
+            {showTopicModal && (
+                <div className="fixed inset-0 z-[110] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl animate-slide-up">
+                        <div className="flex items-center gap-3 mb-4 text-brand">
+                            <Sparkles className="w-6 h-6" />
+                            <h3 className="font-bold text-lg text-gray-900">AI Note Generator</h3>
+                        </div>
+                        <form onSubmit={handleGenerateConfirmed}>
+                            <p className="text-sm text-gray-500 mb-2 font-medium">Enter topic for notes:</p>
+                            <input 
+                                className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 mb-4 font-bold text-gray-700 focus:border-brand outline-none" 
+                                value={noteTopic} 
+                                onChange={e => setNoteTopic(e.target.value)} 
+                                placeholder="e.g., Heart Structure, Thermodynamics..." 
+                                autoFocus
+                            />
+                            <div className="flex gap-3">
+                                <button type="button" onClick={() => setShowTopicModal(false)} className="flex-1 py-3 bg-gray-100 text-gray-600 font-bold rounded-xl hover:bg-gray-200">Cancel</button>
+                                <button type="submit" className="flex-1 py-3 bg-brand text-white font-bold rounded-xl hover:bg-brand-dark">Generate PDF</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
             
+            {/* Note View / PDF Preview Modal */}
             {(notes || viewingNote) && (
                 <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => { setNotes(null); setViewingNote(null); }}>
-                    <div className="bg-white w-full max-w-lg max-h-[80vh] rounded-2xl p-6 overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
-                        <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-lg font-bold flex items-center gap-2"><Bot className="w-5 h-5 text-brand" /> {viewingNote ? 'Lecture Notes & DPP' : 'Subject Summary'}</h2>
+                    <div className="bg-white w-full max-w-lg max-h-[85vh] rounded-2xl p-6 overflow-y-auto shadow-2xl flex flex-col" onClick={e => e.stopPropagation()}>
+                        <div className="flex justify-between items-center mb-4 border-b pb-4">
+                            <h2 className="text-lg font-bold flex items-center gap-2 text-gray-800"><Bot className="w-5 h-5 text-brand" /> {viewingNote ? 'Lecture Notes & DPP' : 'Subject Summary'}</h2>
                             <button onClick={() => { setNotes(null); setViewingNote(null); }}><X className="text-gray-400" /></button>
                         </div>
-                        <div className="prose prose-sm text-gray-600 whitespace-pre-wrap">{notes || viewingNote?.content}</div>
-                        {viewingNote && (
-                            <div className="mt-6 flex gap-3">
-                                <button onClick={downloadCurrentNote} className="flex-1 py-3 bg-gray-100 font-bold rounded-xl">Download</button>
-                                <button onClick={saveCurrentNote} className="flex-1 py-3 bg-brand text-white font-bold rounded-xl">Save</button>
-                            </div>
-                        )}
+                        <div className="flex-1 overflow-y-auto">
+                             <div className="prose prose-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{notes || viewingNote?.content}</div>
+                        </div>
+                        <div className="mt-4 pt-4 border-t flex gap-3">
+                            <button onClick={downloadCurrentNote} className="flex-1 py-3 bg-gray-100 font-bold rounded-xl text-gray-700 hover:bg-gray-200 flex items-center justify-center gap-2">
+                                <Download className="w-4 h-4" /> Download PDF
+                            </button>
+                            {viewingNote && (
+                                <button onClick={saveCurrentNote} className="flex-1 py-3 bg-brand text-white font-bold rounded-xl hover:bg-brand-dark flex items-center justify-center gap-2">
+                                    <Save className="w-4 h-4" /> Save to Profile
+                                </button>
+                            )}
+                        </div>
                     </div>
                 </div>
             )}
@@ -1011,11 +1112,42 @@ const Profile = () => {
     if (!currentUser) return <Navigate to="/login" />;
 
     const downloadNote = (note: GeneratedNote) => {
-        const blob = new Blob([note.content], { type: 'text/plain' });
+        const formattedContent = note.content
+            .replace(/\n/g, '<br/>')
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\[DIAGRAM: (.*?)\]/g, '<div style="border:2px dashed #0056d2; background:#f0f7ff; padding:15px; margin:10px 0; border-radius:10px; text-align:center; font-style:italic; color:#0056d2;">📷 DIAGRAM: $1</div>')
+            .replace(/# (.*?)(<br\/>|$)/g, '<h1 style="color:#0056d2; font-size:24px; margin-top:20px;">$1</h1>')
+            .replace(/## (.*?)(<br\/>|$)/g, '<h2 style="color:#333; font-size:20px; margin-top:15px; border-bottom:1px solid #eee; padding-bottom:5px;">$1</h2>');
+
+        const html = `
+            <html>
+            <head>
+                <title>${note.videoTitle}</title>
+                <style>
+                    body { font-family: sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; line-height: 1.6; color: #333; }
+                    h1, h2, h3 { color: #0056d2; }
+                    .header { text-align: center; margin-bottom: 40px; border-bottom: 2px solid #0056d2; padding-bottom: 20px; }
+                    .footer { margin-top: 50px; text-align: center; font-size: 12px; color: #999; border-top: 1px solid #eee; padding-top: 20px; }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <h1>${note.videoTitle}</h1>
+                    <p>Subject: ${note.subjectName}</p>
+                </div>
+                ${formattedContent}
+                <div class="footer">
+                    &copy; Study Portal AI Notes
+                </div>
+            </body>
+            </html>
+        `;
+
+        const blob = new Blob([html], { type: 'text/html' });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${note.videoTitle.replace(/[^a-z0-9]/gi, '_')}.txt`;
+        a.download = `${note.videoTitle.replace(/[^a-z0-9]/gi, '_')}.html`;
         a.click();
     };
 

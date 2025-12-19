@@ -1,9 +1,9 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, Navigate } from 'react-router-dom';
-import { CheckCircle, ArrowLeft, Loader2, Sparkles, Clock } from 'lucide-react';
+import { CheckCircle, ArrowLeft, Loader2, Sparkles, Clock, Lock } from './Icons';
 import { GoogleGenAI, Type } from "@google/genai";
-import { Question, ExamProgress } from '../types';
+import { Question, ExamProgress, UserRole } from '../types';
 import { useStore } from '../store';
 
 declare var process: { env: { API_KEY: string } };
@@ -11,13 +11,20 @@ declare var process: { env: { API_KEY: string } };
 const cleanJson = (text: string | undefined | null) => {
   if (!text) return null;
   try {
-    const firstBracket = text.indexOf('[');
-    const lastBracket = text.lastIndexOf(']');
+    // Handle markdown code blocks
+    let cleaned = text.replace(/```json\s*|\s*```/g, '').trim();
+    // Attempt to extract JSON object/array if there is extra text
+    const firstBracket = cleaned.search(/\[|\{/);
+    const lastBracket = Math.max(cleaned.lastIndexOf(']'), cleaned.lastIndexOf('}'));
+    
     if (firstBracket !== -1 && lastBracket !== -1) {
-      return JSON.parse(text.substring(firstBracket, lastBracket + 1));
+       cleaned = cleaned.substring(firstBracket, lastBracket + 1);
     }
-    return JSON.parse(text);
-  } catch (e) { return null; }
+    return JSON.parse(cleaned);
+  } catch (e) {
+    console.error("JSON Parse Error", e);
+    return null; 
+  }
 };
 
 const ExamMode = () => {
@@ -30,6 +37,8 @@ const ExamMode = () => {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(false);
   const [timeLeft, setTimeLeft] = useState(600);
+  const timeLeftRef = useRef(600);
+
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
   const [answers, setAnswers] = useState<number[]>([]);
   const [isFinished, setIsFinished] = useState(false);
@@ -38,6 +47,21 @@ const ExamMode = () => {
 
   if (!course || !id) return <Navigate to="/" />;
 
+  // Access Check
+  const hasAccess = !course.isPaid || 
+    (currentUser && (
+      currentUser.role === UserRole.ADMIN || 
+      currentUser.purchasedCourseIds.includes(course.id) || 
+      (currentUser.tempAccess?.[course.id] && new Date(currentUser.tempAccess[course.id]) > new Date())
+    ));
+
+  if (!hasAccess) {
+      return <Navigate to={`/course/${course.id}`} />;
+  }
+
+  // Update ref when state changes
+  useEffect(() => { timeLeftRef.current = timeLeft; }, [timeLeft]);
+
   useEffect(() => {
     if (view === 'selection' && currentUser?.savedExamProgress) {
       const saved = currentUser.savedExamProgress.find(p => p.courseId === course.id);
@@ -45,27 +69,39 @@ const ExamMode = () => {
     }
   }, [course, currentUser, view]);
 
+  // Timer
   useEffect(() => {
     if (view !== 'taking' || loading || isFinished || timeLeft <= 0) return;
-    const timer = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
+    const timer = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          finishExam();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
     return () => clearInterval(timer);
-  }, [view, loading, isFinished, timeLeft]);
+  }, [view, loading, isFinished]); // Removed timeLeft dependency to avoid re-creating interval
 
+  // Auto-save
   useEffect(() => {
     if (view === 'taking' && !loading && !isFinished && questions.length > 0 && course) {
       const timeout = setTimeout(() => {
-        saveExamProgress({
-          courseId: course.id,
-          questions,
-          answers,
-          timeLeft,
-          lastSaved: new Date().toISOString(),
-          isAiGenerated: true
-        });
+        if (timeLeftRef.current > 0) {
+          saveExamProgress({
+            courseId: course.id,
+            questions,
+            answers,
+            timeLeft: timeLeftRef.current,
+            lastSaved: new Date().toISOString(),
+            isAiGenerated: true
+          });
+        }
       }, 2000);
       return () => clearTimeout(timeout);
     }
-  }, [answers, currentQuestionIdx, timeLeft, questions, course, saveExamProgress]);
+  }, [answers, currentQuestionIdx, questions, course, saveExamProgress]); // Removed timeLeft dependency
 
   const startAiExam = async () => {
     if (!course) return;
@@ -73,7 +109,11 @@ const ExamMode = () => {
     setView('taking');
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const prompt = `Create a 10 question multiple choice test for ${course.title}. JSON array output.`;
+      // Enhance prompt with context
+      const context = course.subjects?.flatMap(s => s.chapters.map(c => c.title)).join(', ') || course.description;
+      const prompt = `Create a 10 question multiple choice test for "${course.title}". 
+      Context: ${context}.
+      Output strict JSON array: [{id, question, options: [4 strings], correctAnswer: int index}].`;
 
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
@@ -97,13 +137,14 @@ const ExamMode = () => {
       });
 
       const data = cleanJson(response.text);
-      if (data && Array.isArray(data)) {
+      if (data && Array.isArray(data) && data.length > 0) {
         setQuestions(data);
         setAnswers(new Array(data.length).fill(-1));
         setTimeLeft(data.length * 60);
       } else throw new Error("Format error");
     } catch (e) {
-      alert("Could not generate quiz. Please try again.");
+      console.error(e);
+      alert("Could not generate quiz. Please check connection.");
       setView('selection');
     } finally {
       setLoading(false);
@@ -186,7 +227,7 @@ const ExamMode = () => {
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
-      <div className="p-4 border-b flex justify-between items-center sticky top-0 bg-white z-10">
+      <div className="p-4 border-b flex justify-between items-center sticky top-0 bg-white z-10 shadow-sm">
         <div className="flex items-center gap-2 text-gray-500 font-bold text-sm bg-gray-100 px-3 py-1 rounded-lg">
           <Clock className="w-4 h-4" />
           {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, '0')}

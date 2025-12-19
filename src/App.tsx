@@ -8,9 +8,9 @@ import {
   Bot, Loader2, ArrowLeft, 
   Video as VideoIcon, Bell, 
   ChevronRight, MoreVertical, Calendar,
-  ImageIcon, Upload, Globe, Settings, FileText, CheckCircle,
-  Folder, FileVideo, ChevronDown, Sparkles, LogOut, Shield,
-  Save, Download, Copy
+  ImageIcon, Upload, Settings, FileText, CheckCircle,
+  Folder, FileVideo, Sparkles, LogOut, Shield,
+  Download, Link as LinkIcon
 } from './components/Icons';
 import VideoPlayer from './components/VideoPlayer';
 import ChatBot from './components/ChatBot';
@@ -123,9 +123,21 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => setFormData(prev => ({ ...prev, thumbnail: reader.result as string }));
-            reader.readAsDataURL(file);
+            // For videos/PDFs, use Blob URL for immediate playback in demo
+            // In a real app, you'd upload to S3/Cloudinary here
+            if (file.type.startsWith('video/') || file.type === 'application/pdf') {
+                const objectUrl = URL.createObjectURL(file);
+                setFormData(prev => ({ 
+                    ...prev, 
+                    filename: objectUrl,
+                    duration: 'Local File' 
+                }));
+            } else {
+                // For images/thumbnails, use Base64
+                const reader = new FileReader();
+                reader.onloadend = () => setFormData(prev => ({ ...prev, thumbnail: reader.result as string }));
+                reader.readAsDataURL(file);
+            }
         }
     };
 
@@ -247,7 +259,22 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
 
                             {view === 'VIDEOS' && (
                                 <>
-                                    <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">URL</label><input className="w-full p-3 border rounded-lg bg-gray-50" value={formData.filename} onChange={e => setFormData({...formData, filename: e.target.value})} required /></div>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-gray-500 uppercase">Content Source</label>
+                                        <div className="flex gap-2 mb-2">
+                                            <div className="relative flex-1">
+                                                <input className="w-full p-3 pl-10 border rounded-lg bg-gray-50" value={formData.filename} onChange={e => setFormData({...formData, filename: e.target.value})} placeholder="Paste URL (YouTube/Vimeo)" required />
+                                                <LinkIcon className="w-4 h-4 absolute left-3 top-3.5 text-gray-400" />
+                                            </div>
+                                            <label className="flex items-center gap-2 px-4 py-3 bg-gray-100 rounded-lg cursor-pointer hover:bg-gray-200 border border-gray-200">
+                                                <Upload className="w-4 h-4 text-gray-600" />
+                                                <span className="text-sm font-bold text-gray-600">Upload</span>
+                                                <input type="file" className="hidden" accept="video/*,application/pdf" onChange={handleFileUpload} />
+                                            </label>
+                                        </div>
+                                        {formData.filename.startsWith('blob:') && <p className="text-xs text-orange-500 font-bold">⚠️ Using local device file (Temporary session only)</p>}
+                                    </div>
+
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Duration</label><input className="w-full p-3 border rounded-lg bg-gray-50" value={formData.duration} onChange={e => setFormData({...formData, duration: e.target.value})} /></div>
                                         <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Type</label><select className="w-full p-3 border rounded-lg bg-gray-50" value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})}><option value="lecture">Video</option><option value="note">PDF</option><option value="dpp">Quiz</option></select></div>
@@ -258,7 +285,14 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
                                             <input value={formData.thumbnail} onChange={e => setFormData({...formData, thumbnail: e.target.value})} className="flex-1 p-3 border rounded-lg bg-gray-50 text-xs" placeholder="https://... or upload" />
                                             <label className="p-3 bg-gray-100 rounded-lg cursor-pointer hover:bg-gray-200 border border-gray-200">
                                                 <Upload className="w-5 h-5 text-gray-600" />
-                                                <input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} />
+                                                <input type="file" className="hidden" accept="image/*" onChange={(e) => {
+                                                    const file = e.target.files?.[0];
+                                                    if(file) {
+                                                        const reader = new FileReader();
+                                                        reader.onloadend = () => setFormData(prev => ({ ...prev, thumbnail: reader.result as string }));
+                                                        reader.readAsDataURL(file);
+                                                    }
+                                                }} />
                                             </label>
                                         </div>
                                         {formData.thumbnail && (
@@ -313,7 +347,10 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
                                         ) : (
                                             <div className="w-10 h-10 bg-gray-100 text-gray-500 rounded-lg flex items-center justify-center"><FileVideo className="w-5 h-5" /></div>
                                         )}
-                                        <div><h4 className="font-bold text-gray-800 text-sm">{vid.title}</h4><p className="text-xs text-gray-500 uppercase">{vid.type}</p></div>
+                                        <div className="overflow-hidden">
+                                            <h4 className="font-bold text-gray-800 text-sm truncate">{vid.title}</h4>
+                                            <p className="text-xs text-gray-500 uppercase">{vid.type} • {vid.duration}</p>
+                                        </div>
                                     </div>
                                     <div className="flex gap-2">
                                         <button onClick={() => openEditForm(vid)} className="p-2 text-gray-400 hover:text-brand"><Edit className="w-4 h-4" /></button>
@@ -334,7 +371,301 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
     );
 };
 
-// --- ADMIN PANEL ---
+// ... CourseListing, AdminPanel, Profile, Login ...
+
+const CourseListing = () => {
+    const { courses } = useStore();
+    const [filter, setFilter] = useState<'Paid' | 'Free'>('Free');
+    const filteredCourses = courses.filter(c => filter === 'Paid' ? c.isPaid : !c.isPaid);
+
+    return (
+        <div className="pb-24 pt-20 px-4 min-h-screen bg-gray-50">
+            <div className="max-w-md mx-auto space-y-6">
+                <div className="bg-white p-1 rounded-xl border border-gray-200 flex shadow-sm">
+                    {(['Paid', 'Free'] as const).map((t) => (
+                        <button key={t} onClick={() => setFilter(t)} className={`flex-1 py-2.5 font-bold text-sm rounded-lg transition-all ${filter === t ? 'bg-brand text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>
+                            {t}
+                        </button>
+                    ))}
+                </div>
+
+                <div className="space-y-6">
+                    {filteredCourses.length === 0 ? (
+                        <div className="text-center py-20 text-gray-400">
+                            <Search className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                            <p className="font-bold text-sm">No courses found in this category</p>
+                        </div>
+                    ) : filteredCourses.map(c => (
+                        <div key={c.id} className="bg-white rounded-2xl overflow-hidden border border-gray-200 shadow-sm hover:shadow-md transition-all group">
+                            <div className="relative aspect-video">
+                                <img src={c.image} className="w-full h-full object-cover" alt={c.title} />
+                                <div className="absolute top-3 left-3">
+                                    {c.isNew && <span className="bg-yellow-400 text-yellow-900 text-[10px] font-bold px-2 py-1 rounded-lg uppercase shadow-sm">New Batch</span>}
+                                </div>
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-60"></div>
+                                <div className="absolute bottom-4 left-4 right-4">
+                                    <h3 className="text-white font-bold text-lg leading-tight shadow-black drop-shadow-md">{c.title}</h3>
+                                    <p className="text-white/80 text-xs font-medium mt-1">{c.category}</p>
+                                </div>
+                            </div>
+                            <div className="p-5">
+                                <div className="flex items-center gap-4 text-xs font-bold text-gray-500 mb-6">
+                                    <div className="flex items-center gap-1.5"><Calendar className="w-4 h-4" /> Starts {c.startDate}</div>
+                                </div>
+                                <div className="flex gap-3">
+                                    <Link to={`/course/${c.id}`} className="flex-1 py-3 bg-brand text-white text-center font-bold rounded-xl shadow-lg hover:bg-brand-dark transition-all">
+                                        View Details
+                                    </Link>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const CourseDetail = () => {
+    const { id } = useParams<{id: string}>();
+    const { courses, currentUser, grantTempAccess } = useStore();
+    const navigate = useNavigate();
+    const [activeTab, setActiveTab] = useState<'Subjects' | 'Description'>('Subjects');
+
+    const course = courses.find(c => c.id === id);
+    if (!course) return <Navigate to="/" />;
+
+    const hasAccess = !course.isPaid || 
+      (currentUser && (
+        currentUser.role === UserRole.ADMIN || 
+        currentUser.purchasedCourseIds.includes(course.id) || 
+        (currentUser.tempAccess?.[course.id] && new Date(currentUser.tempAccess[course.id]) > new Date())
+      ));
+
+    return (
+        <div className="pb-24 pt-0 min-h-screen bg-white">
+            <div className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
+                <div className="flex items-center gap-4 p-4">
+                    <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-full"><ArrowLeft className="w-6 h-6 text-gray-700" /></button>
+                    <h1 className="text-lg font-bold text-gray-900 truncate flex-1">{course.title}</h1>
+                </div>
+                <div className="flex px-4 gap-6">
+                    {(['Subjects', 'Description'] as const).map(tab => (
+                        <button key={tab} onClick={() => setActiveTab(tab)} className={`pb-3 text-sm font-bold border-b-2 transition-all ${activeTab === tab ? 'text-brand border-brand' : 'text-gray-400 border-transparent'}`}>
+                            {tab}
+                        </button>
+                    ))}
+                </div>
+            </div>
+            <Banner />
+            <div className="p-4 relative">
+                {!hasAccess && activeTab === 'Subjects' && (
+                    <div className="absolute inset-0 z-10 bg-white/80 backdrop-blur-[2px] flex flex-col items-center justify-center p-6 text-center">
+                        <Lock className="w-16 h-16 text-gray-400 mb-4" />
+                        <h3 className="text-xl font-bold text-gray-800 mb-2">Content Locked</h3>
+                        <p className="text-gray-500 mb-6 max-w-xs">This is a premium course. Unlock full access to continue learning.</p>
+                        <div className="flex flex-col gap-3 w-full max-w-xs">
+                             <button className="w-full py-3 bg-brand text-white font-bold rounded-xl shadow-lg hover:bg-brand-dark">
+                                Buy Now for ₹{course.price}
+                             </button>
+                             <button onClick={() => grantTempAccess(course.id)} className="w-full py-3 bg-white border border-brand text-brand font-bold rounded-xl hover:bg-blue-50">
+                                Start 24h Free Trial
+                             </button>
+                        </div>
+                    </div>
+                )}
+                {activeTab === 'Subjects' && (
+                    <div className={`space-y-3 ${!hasAccess ? 'blur-sm select-none' : ''}`}>
+                        {(course.subjects || []).map((sub) => (
+                            <div key={sub.id} onClick={() => hasAccess && navigate(`/course/${course.id}/subject/${sub.id}`)} className="bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-4 hover:border-brand cursor-pointer shadow-sm">
+                                <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center text-brand font-bold text-lg">{sub.iconText}</div>
+                                <div className="flex-1">
+                                    <h3 className="font-bold text-gray-800">{sub.title}</h3>
+                                    <p className="text-xs text-gray-500">{sub.chapters.length} Chapters</p>
+                                </div>
+                                {hasAccess ? <ChevronRight className="w-5 h-5 text-gray-400" /> : <Lock className="w-4 h-4 text-gray-400" />}
+                            </div>
+                        ))}
+                    </div>
+                )}
+                {activeTab === 'Description' && (
+                    <div className="space-y-6">
+                        <img src={course.image} className="w-full rounded-2xl shadow-sm" alt="" />
+                        <div>
+                            <h2 className="text-xl font-bold text-gray-900 mb-2">About this Batch</h2>
+                            <p className="text-gray-600 leading-relaxed text-sm">{course.description}</p>
+                        </div>
+                    </div>
+                )}
+            </div>
+            
+            <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100 flex justify-center pb-safe">
+                {hasAccess ? (
+                    <Link to={`/exam/${course.id}`} className="flex items-center gap-2 px-6 py-3 bg-brand text-white font-bold rounded-full shadow-lg hover:bg-brand-dark transition-transform active:scale-95">
+                        <Bot className="w-5 h-5" /> Take AI Assessment
+                    </Link>
+                ) : (
+                    <div className="text-xs font-bold text-gray-500 flex items-center gap-2">
+                        <Lock className="w-4 h-4" /> Assessment Locked
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+const SubjectDetail = () => {
+    const { courseId, subjectId } = useParams<{courseId: string, subjectId: string}>();
+    const { courses, saveGeneratedNote, currentUser } = useStore();
+    const navigate = useNavigate();
+    const [generatingNotes, setGeneratingNotes] = useState(false);
+    const [notes, setNotes] = useState<string | null>(null);
+    const [generatingNoteId, setGeneratingNoteId] = useState<string | null>(null);
+    const [viewingNote, setViewingNote] = useState<GeneratedNote | null>(null);
+    const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
+    
+    const course = courses.find(c => c.id === courseId);
+    const subject = course?.subjects.find(s => s.id === subjectId);
+    
+    if (!subject || !courseId) return <Navigate to="/" />;
+
+    const hasAccess = !course?.isPaid || 
+    (currentUser && (
+      currentUser.role === UserRole.ADMIN || 
+      currentUser.purchasedCourseIds.includes(courseId) || 
+      (currentUser.tempAccess?.[courseId] && new Date(currentUser.tempAccess[courseId]) > new Date())
+    ));
+
+    if (!hasAccess) return <Navigate to={`/course/${courseId}`} />;
+
+    const handleGenerateNotes = async () => {
+        setGeneratingNotes(true);
+        try {
+            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            const prompt = `Provide a concise study summary for ${subject.title} covering: ${subject.chapters.map(c => c.title).join(', ')}.`;
+            const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: prompt });
+            setNotes(response.text || "Could not generate summary.");
+        } catch (e) { alert("AI Service Unavailable"); } finally { setGeneratingNotes(false); }
+    };
+
+    const handleGenerateVideoNotes = async (video: Video) => {
+        setGeneratingNoteId(video.id);
+        try {
+             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+             const prompt = `Create study notes for '${video.title}' from '${subject.title}'. Output Markdown.`;
+             const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: prompt });
+             if (response.text) {
+                 const newNote: GeneratedNote = {
+                     id: Date.now().toString(),
+                     videoId: video.id,
+                     videoTitle: video.title,
+                     subjectName: subject.title,
+                     content: response.text,
+                     createdAt: new Date().toISOString(),
+                     syllabusYear: '2025-26'
+                 };
+                 setViewingNote(newNote);
+             }
+        } catch (e) { alert("Failed to generate notes."); } finally { setGeneratingNoteId(null); }
+    };
+
+    const saveCurrentNote = () => { if(viewingNote) { saveGeneratedNote(viewingNote); alert("Note saved!"); setViewingNote(null); } };
+    const downloadCurrentNote = () => {
+        if(viewingNote) {
+            const blob = new Blob([viewingNote.content], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${viewingNote.videoTitle.replace(/[^a-z0-9]/gi, '_')}.txt`;
+            a.click();
+        }
+    };
+
+    return (
+        <div className="pb-24 min-h-screen bg-white">
+            <div className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
+                <div className="flex items-center justify-between p-4">
+                    <div className="flex items-center gap-3">
+                        <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-full"><ArrowLeft className="w-6 h-6 text-gray-700" /></button>
+                        <h1 className="text-lg font-bold text-gray-800">{subject.title}</h1>
+                    </div>
+                    <button onClick={handleGenerateNotes} className="text-brand p-2 hover:bg-blue-50 rounded-full" title="Generate AI Summary">
+                        {generatingNotes ? <Loader2 className="w-6 h-6 animate-spin" /> : <Sparkles className="w-6 h-6" />}
+                    </button>
+                </div>
+            </div>
+
+            <div className="p-4 space-y-6">
+                {subject.chapters.length === 0 ? (
+                    <div className="text-center py-20 text-gray-400 text-sm">No chapters available yet.</div>
+                ) : subject.chapters.map((chap, idx) => (
+                    <div key={chap.id} className="space-y-3">
+                        <h3 className="font-bold text-gray-400 text-xs uppercase tracking-wider pl-1">Chapter {idx + 1}</h3>
+                        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                            <div className="p-4 bg-gray-50 border-b border-gray-200 font-bold text-gray-800">{chap.title}</div>
+                            <div className="divide-y divide-gray-100">
+                                {chap.videos.map(v => (
+                                    <div key={v.id} className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors group">
+                                        <div onClick={() => setSelectedVideo(v)} className="flex items-center gap-4 cursor-pointer flex-1">
+                                            <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center group-hover:bg-blue-100 group-hover:text-brand transition-colors">
+                                                {v.type === 'note' ? <FileText className="w-5 h-5 text-gray-500" /> : <PlayCircle className="w-5 h-5 text-gray-500" />}
+                                            </div>
+                                            <div className="flex-1">
+                                                <h4 className="text-sm font-bold text-gray-700">{v.title}</h4>
+                                                <p className="text-xs text-gray-400 mt-0.5">{v.type?.toUpperCase()} • {v.duration}</p>
+                                            </div>
+                                        </div>
+                                        {v.type === 'lecture' && (
+                                            <button onClick={() => handleGenerateVideoNotes(v)} className="ml-2 p-2 text-brand bg-blue-50 hover:bg-blue-100 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors" disabled={generatingNoteId === v.id}>
+                                                {generatingNoteId === v.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bot className="w-4 h-4" />}
+                                            </button>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+            
+            {(notes || viewingNote) && (
+                <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => { setNotes(null); setViewingNote(null); }}>
+                    <div className="bg-white w-full max-w-lg max-h-[80vh] rounded-2xl p-6 overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-lg font-bold flex items-center gap-2"><Bot className="w-5 h-5 text-brand" /> {viewingNote ? 'Lecture Notes' : 'Subject Summary'}</h2>
+                            <button onClick={() => { setNotes(null); setViewingNote(null); }}><X className="text-gray-400" /></button>
+                        </div>
+                        <div className="prose prose-sm text-gray-600 whitespace-pre-wrap">{notes || viewingNote?.content}</div>
+                        {viewingNote && (
+                            <div className="mt-6 flex gap-3">
+                                <button onClick={downloadCurrentNote} className="flex-1 py-3 bg-gray-100 font-bold rounded-xl">Download</button>
+                                <button onClick={saveCurrentNote} className="flex-1 py-3 bg-brand text-white font-bold rounded-xl">Save</button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {selectedVideo && (
+                <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center">
+                    <div className="w-full max-w-4xl max-h-screen overflow-hidden flex flex-col">
+                        <div className="p-4 flex justify-between items-center text-white">
+                            <h3 className="font-bold truncate">{selectedVideo.title}</h3>
+                            <button onClick={() => setSelectedVideo(null)} className="p-2 hover:bg-white/10 rounded-full"><X className="w-6 h-6" /></button>
+                        </div>
+                        {selectedVideo.type === 'lecture' ? (
+                            <VideoPlayer src={selectedVideo.filename} onBack={() => setSelectedVideo(null)} />
+                        ) : (
+                            <div className="flex-1 flex items-center justify-center text-white">
+                                {selectedVideo.filename.endsWith('.pdf') ? <iframe src={selectedVideo.filename} className="w-full h-full min-h-[500px]" /> : <p>Document View: {selectedVideo.filename}</p>}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
 
 const AdminPanel = () => {
     const { currentUser, courses, addCourse, updateCourse, deleteCourse, users, manageUserRole, createUser } = useStore();
@@ -342,29 +673,15 @@ const AdminPanel = () => {
     const [showModal, setShowModal] = useState(false);
     const [editing, setEditing] = useState<Course | null>(null);
     const [contentTarget, setContentTarget] = useState<Course | null>(null);
-    
-    // User Creation State
     const [showUserModal, setShowUserModal] = useState(false);
     const [userForm, setUserForm] = useState({ name: '', email: '', password: '', role: UserRole.USER });
-
     const [form, setForm] = useState({ title: '', description: '', image: '', category: '', price: 0, mrp: 0, isPaid: false, isNew: true, accessKey: '', shortenerLink: '', telegramLink: '', startDate: '', endDate: '' });
 
     useEffect(() => {
         if (editing) {
             setForm({ 
-                title: editing.title || '', 
-                description: editing.description || '', 
-                image: editing.image || '', 
-                category: editing.category || '', 
-                price: editing.price || 0, 
-                mrp: editing.mrp || 0, 
-                isPaid: !!editing.isPaid, 
-                isNew: editing.isNew ?? true,
-                accessKey: editing.accessKey || '',
-                shortenerLink: editing.shortenerLink || '',
-                telegramLink: editing.telegramLink || '',
-                startDate: editing.startDate || '',
-                endDate: editing.endDate || ''
+                title: editing.title || '', description: editing.description || '', image: editing.image || '', category: editing.category || '', price: editing.price || 0, mrp: editing.mrp || 0, isPaid: !!editing.isPaid, isNew: editing.isNew ?? true,
+                accessKey: editing.accessKey || '', shortenerLink: editing.shortenerLink || '', telegramLink: editing.telegramLink || '', startDate: editing.startDate || '', endDate: editing.endDate || ''
             });
         }
         else setForm({ title: '', description: '', image: '', category: '', price: 0, mrp: 0, isPaid: false, isNew: true, accessKey: '', shortenerLink: '', telegramLink: '', startDate: '', endDate: '' });
@@ -390,26 +707,9 @@ const AdminPanel = () => {
 
     const handleCreateUser = (e: React.FormEvent) => {
         e.preventDefault();
-        // Duplicate check
-        if (users.some(u => u.email.toLowerCase() === userForm.email.toLowerCase())) {
-            alert("A user with this email already exists.");
-            return;
-        }
-
-        createUser({
-            id: Date.now().toString(),
-            name: userForm.name,
-            email: userForm.email,
-            phone: '',
-            password: userForm.password,
-            role: userForm.role,
-            purchasedCourseIds: [],
-            lastLogin: new Date().toISOString(),
-            tempAccess: {}
-        });
-        setShowUserModal(false);
-        setUserForm({ name: '', email: '', password: '', role: UserRole.USER });
-        alert("User created successfully.");
+        if (users.some(u => u.email.toLowerCase() === userForm.email.toLowerCase())) { alert("User exists."); return; }
+        createUser({ id: Date.now().toString(), name: userForm.name, email: userForm.email, phone: '', password: userForm.password, role: userForm.role, purchasedCourseIds: [], lastLogin: new Date().toISOString(), tempAccess: {} });
+        setShowUserModal(false); setUserForm({ name: '', email: '', password: '', role: UserRole.USER });
     };
 
     return (
@@ -471,8 +771,6 @@ const AdminPanel = () => {
                     </div>
                 )}
              </div>
-
-             {/* Batch Modal */}
              {showModal && (
                  <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
                     <div className="bg-white w-full max-w-lg rounded-2xl p-6 shadow-2xl overflow-y-auto max-h-[90vh]">
@@ -482,11 +780,15 @@ const AdminPanel = () => {
                         </div>
                         <form onSubmit={handleSaveCourse} className="space-y-4">
                             <div className="space-y-1">
-                                <label className="text-xs font-bold text-gray-500 uppercase">Image URL</label>
+                                <label className="text-xs font-bold text-gray-500 uppercase">Image URL or Upload</label>
                                 <div className="flex gap-2">
                                     <input value={form.image} onChange={e => setForm({ ...form, image: e.target.value })} className="flex-1 p-3 border rounded-lg bg-gray-50" placeholder="https://..." />
-                                    <label className="p-3 bg-gray-100 rounded-lg cursor-pointer hover:bg-gray-200"><Upload className="w-5 h-5 text-gray-600" /><input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} /></label>
+                                    <label className="p-3 bg-gray-100 rounded-lg cursor-pointer hover:bg-gray-200">
+                                        <Upload className="w-5 h-5 text-gray-600" />
+                                        <input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} />
+                                    </label>
                                 </div>
+                                {form.image && <img src={form.image} className="w-full h-32 object-cover rounded-lg mt-2 border" alt="Preview" />}
                             </div>
                             <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Title</label><input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className="w-full p-3 border rounded-lg bg-gray-50" required /></div>
                             <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Description</label><textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="w-full p-3 border rounded-lg bg-gray-50 h-24 resize-none" required /></div>
@@ -496,13 +798,15 @@ const AdminPanel = () => {
                                     <div className={`w-4 h-4 rounded border ${form.isPaid ? 'bg-brand border-brand' : 'bg-white border-gray-300'}`}></div><span className="text-sm font-bold text-gray-600">Paid Course</span>
                                 </div>
                             </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Price</label><input type="number" value={form.price} onChange={e => setForm({ ...form, price: Number(e.target.value) })} className="w-full p-3 border rounded-lg bg-gray-50" /></div>
+                                <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">MRP</label><input type="number" value={form.mrp} onChange={e => setForm({ ...form, mrp: Number(e.target.value) })} className="w-full p-3 border rounded-lg bg-gray-50" /></div>
+                            </div>
                             <button type="submit" className="w-full py-3 bg-brand text-white font-bold rounded-lg hover:bg-brand-dark shadow-md mt-4">Save Batch</button>
                         </form>
                     </div>
                  </div>
              )}
-
-             {/* Create User Modal */}
              {showUserModal && (
                  <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
                     <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl">
@@ -514,300 +818,13 @@ const AdminPanel = () => {
                             <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Full Name</label><input value={userForm.name} onChange={e => setUserForm({ ...userForm, name: e.target.value })} className="w-full p-3 border rounded-lg bg-gray-50" required /></div>
                             <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Email</label><input type="email" value={userForm.email} onChange={e => setUserForm({ ...userForm, email: e.target.value })} className="w-full p-3 border rounded-lg bg-gray-50" required /></div>
                             <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Password</label><input type="password" value={userForm.password} onChange={e => setUserForm({ ...userForm, password: e.target.value })} className="w-full p-3 border rounded-lg bg-gray-50" required /></div>
-                            <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Role</label>
-                                <select value={userForm.role} onChange={e => setUserForm({ ...userForm, role: e.target.value as UserRole })} className="w-full p-3 border rounded-lg bg-gray-50">
-                                    <option value={UserRole.USER}>User</option>
-                                    <option value={UserRole.EDITOR}>Manager</option>
-                                    <option value={UserRole.ADMIN}>Admin</option>
-                                </select>
-                            </div>
+                            <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Role</label><select value={userForm.role} onChange={e => setUserForm({ ...userForm, role: e.target.value as UserRole })} className="w-full p-3 border rounded-lg bg-gray-50"><option value={UserRole.USER}>User</option><option value={UserRole.EDITOR}>Manager</option><option value={UserRole.ADMIN}>Admin</option></select></div>
                             <button type="submit" className="w-full py-3 bg-brand text-white font-bold rounded-lg hover:bg-brand-dark shadow-md mt-4">Create User</button>
                         </form>
                     </div>
                  </div>
              )}
-
              {contentTarget && <ContentManager course={contentTarget} onClose={() => setContentTarget(null)} />}
-        </div>
-    );
-};
-
-// --- CORE USER VIEWS ---
-
-const CourseListing = () => {
-    const { courses } = useStore();
-    const [filter, setFilter] = useState<'Paid' | 'Free'>('Free');
-    const filteredCourses = courses.filter(c => filter === 'Paid' ? c.isPaid : !c.isPaid);
-
-    return (
-        <div className="pb-24 pt-20 px-4 min-h-screen bg-gray-50">
-            <div className="max-w-2xl mx-auto space-y-6">
-                <div className="bg-white p-1 rounded-xl border border-gray-200 flex shadow-sm">
-                    {(['Paid', 'Free'] as const).map((t) => (
-                        <button key={t} onClick={() => setFilter(t)} className={`flex-1 py-2 rounded-lg font-bold text-sm transition-all ${filter === t ? 'bg-gray-100 text-brand' : 'text-gray-400 hover:bg-gray-50'}`}>
-                            {t} Courses
-                        </button>
-                    ))}
-                </div>
-
-                <div className="space-y-6">
-                    {filteredCourses.length === 0 ? (
-                        <div className="text-center py-20 text-gray-400">
-                            <Search className="w-12 h-12 mx-auto mb-2 opacity-20" />
-                            <p className="font-medium text-sm">No batches found.</p>
-                        </div>
-                    ) : filteredCourses.map(c => (
-                        <Link key={c.id} to={`/course/${c.id}`} className="block bg-white rounded-2xl overflow-hidden border border-gray-200 shadow-sm hover:shadow-md transition-all">
-                            <div className="relative">
-                                <img src={c.image} className="w-full aspect-video object-cover" alt={c.title} />
-                                {c.isNew && <span className="absolute top-3 right-3 bg-green-500 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm">NEW</span>}
-                            </div>
-                            <div className="p-5">
-                                <h3 className="text-lg font-bold text-gray-900 mb-1">{c.title}</h3>
-                                <p className="text-sm text-gray-500 line-clamp-2 mb-4">{c.description}</p>
-                                <div className="flex items-center justify-between pt-4 border-t border-gray-50">
-                                    <span className="text-xs font-bold text-gray-400 uppercase">{c.category}</span>
-                                    <span className="text-brand text-sm font-bold flex items-center gap-1">View Details <ChevronRight className="w-4 h-4" /></span>
-                                </div>
-                            </div>
-                        </Link>
-                    ))}
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const CourseDetail = () => {
-    const { id } = useParams<{id: string}>();
-    const { courses } = useStore();
-    const navigate = useNavigate();
-    const [activeTab, setActiveTab] = useState<'Subjects' | 'Description'>('Subjects');
-
-    const course = courses.find(c => c.id === id);
-    if (!course) return <Navigate to="/" />;
-
-    return (
-        <div className="pb-24 pt-0 min-h-screen bg-white">
-            <div className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
-                <div className="flex items-center gap-4 p-4">
-                    <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-full"><ArrowLeft className="w-6 h-6 text-gray-700" /></button>
-                    <h1 className="text-lg font-bold text-gray-900 truncate flex-1">{course.title}</h1>
-                </div>
-                <div className="flex px-4 gap-6">
-                    {(['Subjects', 'Description'] as const).map(tab => (
-                        <button key={tab} onClick={() => setActiveTab(tab)} className={`pb-3 text-sm font-bold border-b-2 transition-all ${activeTab === tab ? 'text-brand border-brand' : 'text-gray-400 border-transparent'}`}>
-                            {tab}
-                        </button>
-                    ))}
-                </div>
-            </div>
-            <Banner />
-            <div className="p-4">
-                {activeTab === 'Subjects' && (
-                    <div className="space-y-3">
-                        {(course.subjects || []).map((sub) => (
-                            <div key={sub.id} onClick={() => navigate(`/course/${course.id}/subject/${sub.id}`)} className="bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-4 hover:border-brand cursor-pointer shadow-sm">
-                                <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center text-brand font-bold text-lg">{sub.iconText}</div>
-                                <div className="flex-1">
-                                    <h3 className="font-bold text-gray-800">{sub.title}</h3>
-                                    <p className="text-xs text-gray-500">{sub.chapters.length} Chapters</p>
-                                </div>
-                                <ChevronRight className="w-5 h-5 text-gray-400" />
-                            </div>
-                        ))}
-                    </div>
-                )}
-                {activeTab === 'Description' && (
-                    <div className="space-y-6">
-                        <img src={course.image} className="w-full rounded-2xl shadow-sm" alt="" />
-                        <div>
-                            <h2 className="text-xl font-bold text-gray-900 mb-2">About this Batch</h2>
-                            <p className="text-gray-600 leading-relaxed text-sm">{course.description}</p>
-                        </div>
-                    </div>
-                )}
-            </div>
-            
-            <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100 flex justify-center pb-safe">
-                <Link to={`/exam/${course.id}`} className="flex items-center gap-2 px-6 py-3 bg-brand text-white font-bold rounded-full shadow-lg hover:bg-brand-dark transition-transform active:scale-95">
-                    <Bot className="w-5 h-5" /> Take AI Assessment
-                </Link>
-            </div>
-        </div>
-    );
-};
-
-const SubjectDetail = () => {
-    const { courseId, subjectId } = useParams<{courseId: string, subjectId: string}>();
-    const { courses, saveGeneratedNote } = useStore();
-    const navigate = useNavigate();
-    const [generatingNotes, setGeneratingNotes] = useState(false);
-    const [notes, setNotes] = useState<string | null>(null);
-    const [generatingNoteId, setGeneratingNoteId] = useState<string | null>(null);
-    const [viewingNote, setViewingNote] = useState<GeneratedNote | null>(null);
-    
-    const course = courses.find(c => c.id === courseId);
-    const subject = course?.subjects.find(s => s.id === subjectId);
-    if (!subject || !courseId) return <Navigate to="/" />;
-
-    const handleGenerateNotes = async () => {
-        setGeneratingNotes(true);
-        try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-            const prompt = `Provide a concise study summary for ${subject.title} covering: ${subject.chapters.map(c => c.title).join(', ')}.`;
-            const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: prompt });
-            setNotes(response.text || "Could not generate summary.");
-        } catch (e) { alert("AI Service Unavailable"); } finally { setGeneratingNotes(false); }
-    };
-
-    const handleGenerateVideoNotes = async (video: Video) => {
-        setGeneratingNoteId(video.id);
-        try {
-             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-             const prompt = `Create detailed study notes for a video lecture titled '${video.title}' from the chapter in subject '${subject.title}' for the Class 10 CBSE 2025-26 syllabus. 
-             Requirements:
-             1. Concise summaries of key concepts.
-             2. Bullet points for important facts.
-             3. Key formulas or dates if applicable.
-             4. Text descriptions of 2 relevant diagrams or images to visualize the concepts.
-             Output in clean Markdown format.`;
- 
-             const response = await ai.models.generateContent({
-                 model: 'gemini-3-flash-preview',
-                 contents: prompt,
-             });
- 
-             if (response.text) {
-                 const newNote: GeneratedNote = {
-                     id: Date.now().toString(),
-                     videoId: video.id,
-                     videoTitle: video.title,
-                     subjectName: subject.title,
-                     content: response.text,
-                     createdAt: new Date().toISOString(),
-                     syllabusYear: '2025-26'
-                 };
-                 setViewingNote(newNote);
-             }
-        } catch (e) {
-             alert("Failed to generate notes. Please try again.");
-        } finally {
-             setGeneratingNoteId(null);
-        }
-    };
-
-    const saveCurrentNote = () => {
-        if(viewingNote) {
-            saveGeneratedNote(viewingNote);
-            alert("Note saved to profile!");
-            setViewingNote(null);
-        }
-    };
-
-    const downloadCurrentNote = () => {
-        if(viewingNote) {
-            const blob = new Blob([viewingNote.content], { type: 'text/plain' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${viewingNote.videoTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_notes.txt`;
-            a.click();
-        }
-    };
-
-    return (
-        <div className="pb-24 min-h-screen bg-white">
-            <div className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
-                <div className="flex items-center justify-between p-4">
-                    <div className="flex items-center gap-3">
-                        <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-full"><ArrowLeft className="w-6 h-6 text-gray-700" /></button>
-                        <h1 className="text-lg font-bold text-gray-800">{subject.title}</h1>
-                    </div>
-                    <button onClick={handleGenerateNotes} className="text-brand p-2 hover:bg-blue-50 rounded-full" title="Generate AI Summary">
-                        {generatingNotes ? <Loader2 className="w-6 h-6 animate-spin" /> : <Sparkles className="w-6 h-6" />}
-                    </button>
-                </div>
-            </div>
-
-            <div className="p-4 space-y-6">
-                {subject.chapters.length === 0 ? (
-                    <div className="text-center py-20 text-gray-400 text-sm">No chapters available yet.</div>
-                ) : subject.chapters.map((chap, idx) => (
-                    <div key={chap.id} className="space-y-3">
-                        <h3 className="font-bold text-gray-400 text-xs uppercase tracking-wider pl-1">Chapter {idx + 1}</h3>
-                        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-                            <div className="p-4 bg-gray-50 border-b border-gray-200 font-bold text-gray-800">{chap.title}</div>
-                            <div className="divide-y divide-gray-100">
-                                {chap.videos.map(v => (
-                                    <div key={v.id} className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors group">
-                                        <div onClick={() => navigate(`/watch/${courseId}`)} className="flex items-center gap-4 cursor-pointer flex-1">
-                                            <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center group-hover:bg-blue-100 group-hover:text-brand transition-colors">
-                                                {v.type === 'note' ? <FileText className="w-5 h-5 text-gray-500" /> : <PlayCircle className="w-5 h-5 text-gray-500" />}
-                                            </div>
-                                            <div className="flex-1">
-                                                <h4 className="text-sm font-bold text-gray-700">{v.title}</h4>
-                                                <p className="text-xs text-gray-400 mt-0.5">{v.type?.toUpperCase()} • {v.duration}</p>
-                                            </div>
-                                        </div>
-                                        {v.type === 'lecture' && (
-                                            <button 
-                                                onClick={() => handleGenerateVideoNotes(v)} 
-                                                className="ml-2 p-2 text-brand bg-blue-50 hover:bg-blue-100 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors"
-                                                disabled={generatingNoteId === v.id}
-                                            >
-                                                {generatingNoteId === v.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bot className="w-4 h-4" />}
-                                                <span className="hidden sm:inline">Create Notes</span>
-                                            </button>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                ))}
-            </div>
-
-            {/* General Subject Summary Modal */}
-            {notes && (
-                <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setNotes(null)}>
-                    <div className="bg-white w-full max-w-lg max-h-[80vh] rounded-2xl p-6 overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
-                        <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-lg font-bold flex items-center gap-2"><Sparkles className="w-5 h-5 text-brand" /> AI Summary</h2>
-                            <button onClick={() => setNotes(null)}><X className="text-gray-400" /></button>
-                        </div>
-                        <div className="prose prose-sm text-gray-600 whitespace-pre-wrap">{notes}</div>
-                    </div>
-                </div>
-            )}
-
-            {/* Video Generated Note Modal */}
-            {viewingNote && (
-                <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setViewingNote(null)}>
-                    <div className="bg-white w-full max-w-2xl max-h-[85vh] rounded-2xl flex flex-col shadow-2xl overflow-hidden animate-slide-up" onClick={e => e.stopPropagation()}>
-                        <div className="p-4 border-b flex justify-between items-center bg-gray-50">
-                            <div>
-                                <h2 className="font-bold text-gray-800 flex items-center gap-2"><Bot className="w-5 h-5 text-brand" /> AI Study Notes</h2>
-                                <p className="text-xs text-gray-500">{viewingNote.videoTitle} • CBSE {viewingNote.syllabusYear}</p>
-                            </div>
-                            <button onClick={() => setViewingNote(null)} className="p-2 hover:bg-gray-200 rounded-full"><X className="w-5 h-5 text-gray-600" /></button>
-                        </div>
-                        <div className="flex-1 overflow-y-auto p-6 bg-white">
-                            <div className="prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap font-medium">
-                                {viewingNote.content}
-                            </div>
-                        </div>
-                        <div className="p-4 border-t bg-gray-50 flex gap-3">
-                            <button onClick={downloadCurrentNote} className="flex-1 py-3 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 flex items-center justify-center gap-2">
-                                <Download className="w-4 h-4" /> Download Text
-                            </button>
-                            <button onClick={saveCurrentNote} className="flex-1 py-3 bg-brand text-white font-bold rounded-xl hover:bg-brand-dark flex items-center justify-center gap-2 shadow-md">
-                                <Save className="w-4 h-4" /> Save to Profile
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };
@@ -823,7 +840,7 @@ const Profile = () => {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${note.videoTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_notes.txt`;
+        a.download = `${note.videoTitle.replace(/[^a-z0-9]/gi, '_')}.txt`;
         a.click();
     };
 
@@ -843,7 +860,6 @@ const Profile = () => {
                     </button>
                 </div>
 
-                {/* Generated Notes Section */}
                 <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
                     <div className="p-4 bg-gray-50 border-b border-gray-200 font-bold text-gray-800 flex items-center gap-2">
                         <FileText className="w-5 h-5 text-brand" /> My AI Notes
@@ -859,12 +875,8 @@ const Profile = () => {
                                         <p className="text-xs text-gray-500">{note.subjectName} • {new Date(note.createdAt).toLocaleDateString()}</p>
                                     </div>
                                     <div className="flex gap-1">
-                                         <button onClick={() => downloadNote(note)} className="p-2 text-gray-400 hover:text-brand" title="Download">
-                                            <Download className="w-4 h-4" />
-                                         </button>
-                                         <button onClick={() => { if(confirm('Delete note?')) deleteGeneratedNote(note.id); }} className="p-2 text-gray-400 hover:text-red-500" title="Delete">
-                                            <Trash2 className="w-4 h-4" />
-                                         </button>
+                                         <button onClick={() => downloadNote(note)} className="p-2 text-gray-400 hover:text-brand" title="Download"><Download className="w-4 h-4" /></button>
+                                         <button onClick={() => { if(confirm('Delete note?')) deleteGeneratedNote(note.id); }} className="p-2 text-gray-400 hover:text-red-500" title="Delete"><Trash2 className="w-4 h-4" /></button>
                                     </div>
                                 </div>
                             ))
@@ -879,7 +891,6 @@ const Profile = () => {
                 )}
             </div>
 
-            {/* Note Viewer Modal */}
             {viewNote && (
                 <div className="fixed inset-0 z-[150] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setViewNote(null)}>
                     <div className="bg-white w-full max-w-2xl max-h-[85vh] rounded-2xl flex flex-col shadow-2xl animate-slide-up" onClick={e => e.stopPropagation()}>
@@ -891,14 +902,10 @@ const Profile = () => {
                              <button onClick={() => setViewNote(null)} className="p-2 hover:bg-gray-200 rounded-full"><X className="w-5 h-5 text-gray-600" /></button>
                         </div>
                         <div className="flex-1 overflow-y-auto p-6">
-                            <div className="prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap font-medium">
-                                {viewNote.content}
-                            </div>
+                            <div className="prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap font-medium">{viewNote.content}</div>
                         </div>
                         <div className="p-4 border-t bg-gray-50">
-                            <button onClick={() => downloadNote(viewNote)} className="w-full py-3 bg-brand text-white font-bold rounded-xl hover:bg-brand-dark flex items-center justify-center gap-2">
-                                <Download className="w-4 h-4" /> Download Note
-                            </button>
+                            <button onClick={() => downloadNote(viewNote)} className="w-full py-3 bg-brand text-white font-bold rounded-xl hover:bg-brand-dark flex items-center justify-center gap-2"><Download className="w-4 h-4" /> Download Note</button>
                         </div>
                     </div>
                 </div>

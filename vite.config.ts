@@ -6,8 +6,8 @@ declare var process: { env: { API_KEY: string } };
 
 export default defineConfig({
   plugins: [react()],
-  // 'base' config is crucial for hosting in subdirectories (like /wp-content/uploads/app)
-  base: './', 
+  // Use root base path for Netlify hosting to ensure assets load correctly on nested routes
+  base: '/', 
   define: {
     'process.env.API_KEY': JSON.stringify(process.env.API_KEY)
   }

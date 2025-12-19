@@ -28,7 +28,7 @@ const Banner = () => (
   </div>
 );
 
-const XPBadge = ({ xp = 0 }) => (
+const XPBadge = ({ xp = 0 }: { xp?: number }) => (
   <div className="flex items-center gap-1.5 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-200">
     <div className="w-5 h-5 bg-yellow-100 text-yellow-700 rounded-full flex items-center justify-center text-[10px] font-bold">XP</div>
     <span className="text-xs font-bold text-gray-700">{xp}</span>
@@ -117,6 +117,15 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
     const navigateUp = () => {
         if (view === 'VIDEOS') { setView('CHAPTERS'); setActiveChapterId(null); }
         else if (view === 'CHAPTERS') { setView('SUBJECTS'); setActiveSubjectId(null); }
+    };
+
+    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => setFormData(prev => ({ ...prev, thumbnail: reader.result as string }));
+            reader.readAsDataURL(file);
+        }
     };
 
     const openAddForm = () => {
@@ -212,7 +221,7 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
 
     return (
         <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-2xl h-[85vh] rounded-2xl shadow-xl flex flex-col overflow-hidden">
+            <div className="bg-white w-full max-w-2xl h-[85vh] rounded-2xl shadow-xl flex flex-col overflow-hidden animate-slide-up">
                 <div className="p-4 border-b flex justify-between items-center bg-gray-50">
                     <div>
                         <h2 className="font-bold text-gray-800">Content Manager</h2>
@@ -241,6 +250,19 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Duration</label><input className="w-full p-3 border rounded-lg bg-gray-50" value={formData.duration} onChange={e => setFormData({...formData, duration: e.target.value})} /></div>
                                         <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Type</label><select className="w-full p-3 border rounded-lg bg-gray-50" value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})}><option value="lecture">Video</option><option value="note">PDF</option><option value="dpp">Quiz</option></select></div>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-gray-500 uppercase">Thumbnail</label>
+                                        <div className="flex gap-2">
+                                            <input value={formData.thumbnail} onChange={e => setFormData({...formData, thumbnail: e.target.value})} className="flex-1 p-3 border rounded-lg bg-gray-50 text-xs" placeholder="https://... or upload" />
+                                            <label className="p-3 bg-gray-100 rounded-lg cursor-pointer hover:bg-gray-200 border border-gray-200">
+                                                <Upload className="w-5 h-5 text-gray-600" />
+                                                <input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} />
+                                            </label>
+                                        </div>
+                                        {formData.thumbnail && (
+                                            <img src={formData.thumbnail} className="mt-2 w-24 h-14 object-cover rounded-lg border border-gray-200" alt="Preview" />
+                                        )}
                                     </div>
                                 </>
                             )}
@@ -285,7 +307,11 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
                             {view === 'VIDEOS' && activeChapter?.videos.map(vid => (
                                 <div key={vid.id} className="bg-white p-4 rounded-xl border border-gray-200 flex justify-between items-center hover:border-brand hover:shadow-sm">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 bg-gray-100 text-gray-500 rounded-lg flex items-center justify-center"><FileVideo className="w-5 h-5" /></div>
+                                        {vid.thumbnail ? (
+                                            <img src={vid.thumbnail} className="w-10 h-10 object-cover rounded-lg" alt="" />
+                                        ) : (
+                                            <div className="w-10 h-10 bg-gray-100 text-gray-500 rounded-lg flex items-center justify-center"><FileVideo className="w-5 h-5" /></div>
+                                        )}
                                         <div><h4 className="font-bold text-gray-800 text-sm">{vid.title}</h4><p className="text-xs text-gray-500 uppercase">{vid.type}</p></div>
                                     </div>
                                     <div className="flex gap-2">

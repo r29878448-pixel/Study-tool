@@ -10,7 +10,7 @@ import {
   ChevronRight, MoreVertical, Calendar,
   ImageIcon, Upload, Settings, FileText, CheckCircle,
   Folder, FileVideo, Sparkles, LogOut, Shield,
-  Download, Link as LinkIcon
+  Download, Link as LinkIcon, Save
 } from './components/Icons';
 import VideoPlayer from './components/VideoPlayer';
 import ChatBot from './components/ChatBot';
@@ -80,6 +80,47 @@ const STBottomNav = () => {
       })}
     </nav>
   );
+};
+
+// --- TEMP ACCESS HANDLER ---
+
+const TempAccessHandler = () => {
+    const { id } = useParams<{id: string}>();
+    const { currentUser, grantTempAccess } = useStore();
+    const navigate = useNavigate();
+    const location = useLocation();
+
+    useEffect(() => {
+        if (!id) {
+            navigate('/');
+            return;
+        }
+
+        // If not logged in, redirect to login but save where they wanted to go
+        if (!currentUser) {
+            navigate('/login', { state: { from: location } });
+            return;
+        }
+
+        // Simulate verification delay for UX
+        const timer = setTimeout(() => {
+            grantTempAccess(id);
+            alert("✅ Verification Successful! 24-Hour Access Granted.");
+            navigate(`/course/${id}`);
+        }, 1500);
+
+        return () => clearTimeout(timer);
+    }, [id, currentUser, navigate, grantTempAccess, location]);
+
+    return (
+        <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-6 text-center">
+            <div className="bg-white p-8 rounded-3xl shadow-xl border border-gray-100 max-w-sm w-full">
+                <Loader2 className="w-12 h-12 text-brand animate-spin mx-auto mb-6" />
+                <h2 className="text-xl font-bold text-gray-900 mb-2">Verifying Link...</h2>
+                <p className="text-gray-500 text-sm">Please wait while we validate your access token.</p>
+            </div>
+        </div>
+    );
 };
 
 // --- CONTENT MANAGEMENT SYSTEM ---
@@ -666,6 +707,7 @@ const AdminPanel = () => {
     const [showUserModal, setShowUserModal] = useState(false);
     const [userForm, setUserForm] = useState({ name: '', email: '', password: '', role: UserRole.USER });
     const [form, setForm] = useState({ title: '', description: '', image: '', category: '', price: 0, mrp: 0, isPaid: false, isNew: true, accessKey: '', shortenerLink: '', telegramLink: '', startDate: '', endDate: '' });
+    const [generatingLink, setGeneratingLink] = useState(false);
 
     useEffect(() => {
         if (editing) {
@@ -700,6 +742,41 @@ const AdminPanel = () => {
         if (users.some(u => u.email.toLowerCase() === userForm.email.toLowerCase())) { alert("User exists."); return; }
         createUser({ id: Date.now().toString(), name: userForm.name, email: userForm.email, phone: '', password: userForm.password, role: userForm.role, purchasedCourseIds: [], lastLogin: new Date().toISOString(), tempAccess: {} });
         setShowUserModal(false); setUserForm({ name: '', email: '', password: '', role: UserRole.USER });
+    };
+
+    const generateShortLink = async () => {
+        if(!editing) {
+            alert("Please save the batch first to generate a link.");
+            return;
+        }
+        setGeneratingLink(true);
+        const targetId = editing.id;
+        const longUrl = `${window.location.origin}/#/temp-access/${targetId}`;
+        const apiUrl = `https://vplink.in/api?api=320f263d298979dc11826b8e2574610ba0cc5d6b&url=${encodeURIComponent(longUrl)}`;
+
+        try {
+            const res = await fetch(apiUrl);
+            // Some APIs return plain text, others JSON. Handling safely.
+            const text = await res.text();
+            let shortUrl = text;
+            try {
+                const json = JSON.parse(text);
+                if(json.shortenedUrl) shortUrl = json.shortenedUrl;
+                else if(json.link) shortUrl = json.link;
+            } catch(e) {} // It was plain text
+
+            if (shortUrl && shortUrl.startsWith('http')) {
+                setForm(prev => ({ ...prev, shortenerLink: shortUrl }));
+            } else {
+                setForm(prev => ({ ...prev, shortenerLink: longUrl }));
+                alert("Could not shorten link automatically. Using long URL.");
+            }
+        } catch (e) {
+            setForm(prev => ({ ...prev, shortenerLink: longUrl }));
+            alert("Network error. Using long URL.");
+        } finally {
+            setGeneratingLink(false);
+        }
     };
 
     return (
@@ -782,6 +859,17 @@ const AdminPanel = () => {
                             </div>
                             <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Title</label><input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className="w-full p-3 border rounded-lg bg-gray-50" required /></div>
                             <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Description</label><textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="w-full p-3 border rounded-lg bg-gray-50 h-24 resize-none" required /></div>
+                            
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-gray-500 uppercase">24h Access Link</label>
+                                <div className="flex gap-2">
+                                    <input value={form.shortenerLink} onChange={e => setForm({...form, shortenerLink: e.target.value})} className="flex-1 p-3 border rounded-lg bg-gray-50 text-xs" placeholder="Generate link ->" />
+                                    <button type="button" onClick={generateShortLink} disabled={generatingLink} className="px-4 py-2 bg-brand/10 text-brand font-bold rounded-lg text-xs hover:bg-brand/20 disabled:opacity-50">
+                                        {generatingLink ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Auto Generate'}
+                                    </button>
+                                </div>
+                            </div>
+
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Category</label><input value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className="w-full p-3 border rounded-lg bg-gray-50" required /></div>
                                 <div className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50" onClick={() => setForm({...form, isPaid: !form.isPaid})}>
@@ -820,8 +908,21 @@ const AdminPanel = () => {
 };
 
 const Profile = () => {
-    const { currentUser, logout, deleteGeneratedNote, manageUserRole } = useStore();
+    const { currentUser, logout, deleteGeneratedNote, manageUserRole, updateUser } = useStore();
     const [viewNote, setViewNote] = useState<GeneratedNote | null>(null);
+    const [isEditing, setIsEditing] = useState(false);
+    const [editForm, setEditForm] = useState({ name: '', email: '', phone: '', password: '' });
+
+    useEffect(() => {
+        if (currentUser) {
+            setEditForm({
+                name: currentUser.name || '',
+                email: currentUser.email || '',
+                phone: currentUser.phone || '',
+                password: currentUser.password || ''
+            });
+        }
+    }, [currentUser]);
 
     if (!currentUser) return <Navigate to="/login" />;
 
@@ -834,27 +935,52 @@ const Profile = () => {
         a.click();
     };
 
+    const handleUpdateProfile = (e: React.FormEvent) => {
+        e.preventDefault();
+        updateUser(editForm);
+        setIsEditing(false);
+        alert("Profile Updated Successfully!");
+    };
+
     return (
         <div className="pb-24 pt-20 px-4 min-h-screen bg-gray-50">
             <div className="max-w-md mx-auto space-y-6">
-                <div className="bg-white rounded-2xl p-8 border border-gray-200 shadow-sm text-center">
+                <div className="bg-white rounded-2xl p-8 border border-gray-200 shadow-sm text-center relative overflow-hidden">
                     <div className="w-20 h-20 bg-brand rounded-full flex items-center justify-center text-white text-3xl font-bold mx-auto mb-4">
                         {currentUser.name.charAt(0)}
                     </div>
-                    <h2 className="text-xl font-bold text-gray-800">{currentUser.name}</h2>
-                    <p className="text-gray-500 text-sm mb-6">{currentUser.email}</p>
-                    <div className="inline-block px-4 py-1.5 bg-gray-100 rounded-full text-xs font-bold text-gray-600 uppercase mb-8">{currentUser.role}</div>
                     
-                    <div className="flex gap-3">
-                        <button onClick={logout} className="flex-1 py-3 text-red-500 font-bold bg-red-50 rounded-xl hover:bg-red-100 flex items-center justify-center gap-2">
-                            <LogOut className="w-4 h-4" /> Sign Out
-                        </button>
-                        {currentUser.role !== UserRole.ADMIN && (
-                            <button onClick={() => manageUserRole(currentUser.id, UserRole.ADMIN)} className="flex-1 py-3 text-brand font-bold bg-blue-50 rounded-xl hover:bg-blue-100 flex items-center justify-center gap-2 text-xs">
-                                <Shield className="w-4 h-4" /> Demo: Switch to Admin
-                            </button>
-                        )}
-                    </div>
+                    {isEditing ? (
+                        <form onSubmit={handleUpdateProfile} className="space-y-3 text-left">
+                            <div><label className="text-xs font-bold text-gray-400">Name</label><input className="w-full p-2 border rounded-lg" value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} required /></div>
+                            <div><label className="text-xs font-bold text-gray-400">Email</label><input className="w-full p-2 border rounded-lg" value={editForm.email} onChange={e => setEditForm({...editForm, email: e.target.value})} required /></div>
+                            <div><label className="text-xs font-bold text-gray-400">Phone</label><input className="w-full p-2 border rounded-lg" value={editForm.phone} onChange={e => setEditForm({...editForm, phone: e.target.value})} placeholder="Phone number" /></div>
+                            <div><label className="text-xs font-bold text-gray-400">Password</label><input className="w-full p-2 border rounded-lg" type="text" value={editForm.password} onChange={e => setEditForm({...editForm, password: e.target.value})} placeholder="New Password" /></div>
+                            <div className="flex gap-2 pt-2">
+                                <button type="button" onClick={() => setIsEditing(false)} className="flex-1 py-2 bg-gray-100 font-bold rounded-lg text-sm">Cancel</button>
+                                <button type="submit" className="flex-1 py-2 bg-brand text-white font-bold rounded-lg text-sm">Save</button>
+                            </div>
+                        </form>
+                    ) : (
+                        <>
+                            <h2 className="text-xl font-bold text-gray-800">{currentUser.name}</h2>
+                            <p className="text-gray-500 text-sm mb-6">{currentUser.email}</p>
+                            <div className="inline-block px-4 py-1.5 bg-gray-100 rounded-full text-xs font-bold text-gray-600 uppercase mb-8">{currentUser.role}</div>
+                            
+                            <button onClick={() => setIsEditing(true)} className="absolute top-4 right-4 p-2 text-gray-400 hover:text-brand"><Edit className="w-5 h-5" /></button>
+
+                            <div className="flex gap-3">
+                                <button onClick={logout} className="flex-1 py-3 text-red-500 font-bold bg-red-50 rounded-xl hover:bg-red-100 flex items-center justify-center gap-2">
+                                    <LogOut className="w-4 h-4" /> Sign Out
+                                </button>
+                                {currentUser.role !== UserRole.ADMIN && (
+                                    <button onClick={() => manageUserRole(currentUser.id, UserRole.ADMIN)} className="flex-1 py-3 text-brand font-bold bg-blue-50 rounded-xl hover:bg-blue-100 flex items-center justify-center gap-2 text-xs">
+                                        <Shield className="w-4 h-4" /> Demo: Switch to Admin
+                                    </button>
+                                )}
+                            </div>
+                        </>
+                    )}
                 </div>
 
                 <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
@@ -914,15 +1040,19 @@ const Profile = () => {
 const Login = () => {
     const { login, signup, currentUser } = useStore();
     const navigate = useNavigate();
+    const location = useLocation();
     const [isSignup, setIsSignup] = useState(false);
     const [loading, setLoading] = useState(false);
     const [form, setForm] = useState({ name: '', email: '', pass: '' });
 
+    // Use location state to redirect back to where user came from, or home
+    const from = location.state?.from?.pathname || "/";
+
     useEffect(() => { 
         if (currentUser) {
-            navigate('/', { replace: true });
+            navigate(from, { replace: true });
         }
-    }, [currentUser, navigate]);
+    }, [currentUser, navigate, from]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -989,6 +1119,7 @@ const MainContent = () => {
         <Route path="/exam/:id" element={<ExamMode />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/admin" element={<AdminPanel />} />
+        <Route path="/temp-access/:id" element={<TempAccessHandler />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
       {!isWatch && <STBottomNav />}

@@ -21,6 +21,16 @@ export interface ExamProgress {
   isAiGenerated: boolean;
 }
 
+export interface GeneratedNote {
+  id: string;
+  videoId: string;
+  videoTitle: string;
+  subjectName: string;
+  content: string;
+  createdAt: string;
+  syllabusYear: string;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -33,6 +43,7 @@ export interface User {
   examResults?: ExamResult[];
   tempAccess?: Record<string, string>;
   savedExamProgress?: ExamProgress[];
+  generatedNotes?: GeneratedNote[];
 }
 
 export interface Video {

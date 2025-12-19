@@ -9,13 +9,14 @@ import {
   Video as VideoIcon, Bell, 
   ChevronRight, MoreVertical, Calendar,
   ImageIcon, Upload, Globe, Settings, FileText, CheckCircle,
-  Folder, FileVideo, ChevronDown, Sparkles, LogOut, Shield
+  Folder, FileVideo, ChevronDown, Sparkles, LogOut, Shield,
+  Save, Download, Copy
 } from './components/Icons';
 import VideoPlayer from './components/VideoPlayer';
 import ChatBot from './components/ChatBot';
 import ExamMode from './components/ExamMode';
 import { GoogleGenAI } from "@google/genai";
-import { Course, Chapter, Video, UserRole, Subject } from './types';
+import { Course, Chapter, Video, UserRole, Subject, GeneratedNote } from './types';
 
 declare var process: { env: { API_KEY: string } };
 
@@ -623,10 +624,12 @@ const CourseDetail = () => {
 
 const SubjectDetail = () => {
     const { courseId, subjectId } = useParams<{courseId: string, subjectId: string}>();
-    const { courses } = useStore();
+    const { courses, saveGeneratedNote } = useStore();
     const navigate = useNavigate();
     const [generatingNotes, setGeneratingNotes] = useState(false);
     const [notes, setNotes] = useState<string | null>(null);
+    const [generatingNoteId, setGeneratingNoteId] = useState<string | null>(null);
+    const [viewingNote, setViewingNote] = useState<GeneratedNote | null>(null);
     
     const course = courses.find(c => c.id === courseId);
     const subject = course?.subjects.find(s => s.id === subjectId);
@@ -640,6 +643,61 @@ const SubjectDetail = () => {
             const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: prompt });
             setNotes(response.text || "Could not generate summary.");
         } catch (e) { alert("AI Service Unavailable"); } finally { setGeneratingNotes(false); }
+    };
+
+    const handleGenerateVideoNotes = async (video: Video) => {
+        setGeneratingNoteId(video.id);
+        try {
+             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+             const prompt = `Create detailed study notes for a video lecture titled '${video.title}' from the chapter in subject '${subject.title}' for the Class 10 CBSE 2025-26 syllabus. 
+             Requirements:
+             1. Concise summaries of key concepts.
+             2. Bullet points for important facts.
+             3. Key formulas or dates if applicable.
+             4. Text descriptions of 2 relevant diagrams or images to visualize the concepts.
+             Output in clean Markdown format.`;
+ 
+             const response = await ai.models.generateContent({
+                 model: 'gemini-3-flash-preview',
+                 contents: prompt,
+             });
+ 
+             if (response.text) {
+                 const newNote: GeneratedNote = {
+                     id: Date.now().toString(),
+                     videoId: video.id,
+                     videoTitle: video.title,
+                     subjectName: subject.title,
+                     content: response.text,
+                     createdAt: new Date().toISOString(),
+                     syllabusYear: '2025-26'
+                 };
+                 setViewingNote(newNote);
+             }
+        } catch (e) {
+             alert("Failed to generate notes. Please try again.");
+        } finally {
+             setGeneratingNoteId(null);
+        }
+    };
+
+    const saveCurrentNote = () => {
+        if(viewingNote) {
+            saveGeneratedNote(viewingNote);
+            alert("Note saved to profile!");
+            setViewingNote(null);
+        }
+    };
+
+    const downloadCurrentNote = () => {
+        if(viewingNote) {
+            const blob = new Blob([viewingNote.content], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${viewingNote.videoTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_notes.txt`;
+            a.click();
+        }
     };
 
     return (
@@ -666,14 +724,26 @@ const SubjectDetail = () => {
                             <div className="p-4 bg-gray-50 border-b border-gray-200 font-bold text-gray-800">{chap.title}</div>
                             <div className="divide-y divide-gray-100">
                                 {chap.videos.map(v => (
-                                    <div key={v.id} onClick={() => navigate(`/watch/${courseId}`)} className="p-4 flex items-center gap-4 hover:bg-gray-50 cursor-pointer transition-colors group">
-                                        <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center group-hover:bg-blue-100 group-hover:text-brand transition-colors">
-                                            {v.type === 'note' ? <FileText className="w-5 h-5 text-gray-500" /> : <PlayCircle className="w-5 h-5 text-gray-500" />}
+                                    <div key={v.id} className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors group">
+                                        <div onClick={() => navigate(`/watch/${courseId}`)} className="flex items-center gap-4 cursor-pointer flex-1">
+                                            <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center group-hover:bg-blue-100 group-hover:text-brand transition-colors">
+                                                {v.type === 'note' ? <FileText className="w-5 h-5 text-gray-500" /> : <PlayCircle className="w-5 h-5 text-gray-500" />}
+                                            </div>
+                                            <div className="flex-1">
+                                                <h4 className="text-sm font-bold text-gray-700">{v.title}</h4>
+                                                <p className="text-xs text-gray-400 mt-0.5">{v.type?.toUpperCase()} • {v.duration}</p>
+                                            </div>
                                         </div>
-                                        <div className="flex-1">
-                                            <h4 className="text-sm font-bold text-gray-700">{v.title}</h4>
-                                            <p className="text-xs text-gray-400 mt-0.5">{v.type?.toUpperCase()} • {v.duration}</p>
-                                        </div>
+                                        {v.type === 'lecture' && (
+                                            <button 
+                                                onClick={() => handleGenerateVideoNotes(v)} 
+                                                className="ml-2 p-2 text-brand bg-blue-50 hover:bg-blue-100 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors"
+                                                disabled={generatingNoteId === v.id}
+                                            >
+                                                {generatingNoteId === v.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bot className="w-4 h-4" />}
+                                                <span className="hidden sm:inline">Create Notes</span>
+                                            </button>
+                                        )}
                                     </div>
                                 ))}
                             </div>
@@ -682,6 +752,7 @@ const SubjectDetail = () => {
                 ))}
             </div>
 
+            {/* General Subject Summary Modal */}
             {notes && (
                 <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setNotes(null)}>
                     <div className="bg-white w-full max-w-lg max-h-[80vh] rounded-2xl p-6 overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
@@ -689,7 +760,35 @@ const SubjectDetail = () => {
                             <h2 className="text-lg font-bold flex items-center gap-2"><Sparkles className="w-5 h-5 text-brand" /> AI Summary</h2>
                             <button onClick={() => setNotes(null)}><X className="text-gray-400" /></button>
                         </div>
-                        <div className="prose prose-sm text-gray-600">{notes}</div>
+                        <div className="prose prose-sm text-gray-600 whitespace-pre-wrap">{notes}</div>
+                    </div>
+                </div>
+            )}
+
+            {/* Video Generated Note Modal */}
+            {viewingNote && (
+                <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setViewingNote(null)}>
+                    <div className="bg-white w-full max-w-2xl max-h-[85vh] rounded-2xl flex flex-col shadow-2xl overflow-hidden animate-slide-up" onClick={e => e.stopPropagation()}>
+                        <div className="p-4 border-b flex justify-between items-center bg-gray-50">
+                            <div>
+                                <h2 className="font-bold text-gray-800 flex items-center gap-2"><Bot className="w-5 h-5 text-brand" /> AI Study Notes</h2>
+                                <p className="text-xs text-gray-500">{viewingNote.videoTitle} • CBSE {viewingNote.syllabusYear}</p>
+                            </div>
+                            <button onClick={() => setViewingNote(null)} className="p-2 hover:bg-gray-200 rounded-full"><X className="w-5 h-5 text-gray-600" /></button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-6 bg-white">
+                            <div className="prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap font-medium">
+                                {viewingNote.content}
+                            </div>
+                        </div>
+                        <div className="p-4 border-t bg-gray-50 flex gap-3">
+                            <button onClick={downloadCurrentNote} className="flex-1 py-3 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 flex items-center justify-center gap-2">
+                                <Download className="w-4 h-4" /> Download Text
+                            </button>
+                            <button onClick={saveCurrentNote} className="flex-1 py-3 bg-brand text-white font-bold rounded-xl hover:bg-brand-dark flex items-center justify-center gap-2 shadow-md">
+                                <Save className="w-4 h-4" /> Save to Profile
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
@@ -698,8 +797,20 @@ const SubjectDetail = () => {
 };
 
 const Profile = () => {
-    const { currentUser, logout } = useStore();
+    const { currentUser, logout, deleteGeneratedNote } = useStore();
+    const [viewNote, setViewNote] = useState<GeneratedNote | null>(null);
+
     if (!currentUser) return <Navigate to="/login" />;
+
+    const downloadNote = (note: GeneratedNote) => {
+        const blob = new Blob([note.content], { type: 'text/plain' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${note.videoTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_notes.txt`;
+        a.click();
+    };
+
     return (
         <div className="pb-24 pt-20 px-4 min-h-screen bg-gray-50">
             <div className="max-w-md mx-auto space-y-6">
@@ -715,12 +826,67 @@ const Profile = () => {
                         <LogOut className="w-4 h-4" /> Sign Out
                     </button>
                 </div>
+
+                {/* Generated Notes Section */}
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                    <div className="p-4 bg-gray-50 border-b border-gray-200 font-bold text-gray-800 flex items-center gap-2">
+                        <FileText className="w-5 h-5 text-brand" /> My AI Notes
+                    </div>
+                    <div className="divide-y divide-gray-100 max-h-80 overflow-y-auto">
+                        {(!currentUser.generatedNotes || currentUser.generatedNotes.length === 0) ? (
+                            <div className="p-8 text-center text-gray-400 text-sm">No notes generated yet.</div>
+                        ) : (
+                            currentUser.generatedNotes.map(note => (
+                                <div key={note.id} className="p-4 hover:bg-gray-50 flex items-center justify-between group">
+                                    <div className="cursor-pointer flex-1" onClick={() => setViewNote(note)}>
+                                        <h4 className="font-bold text-gray-800 text-sm truncate pr-2">{note.videoTitle}</h4>
+                                        <p className="text-xs text-gray-500">{note.subjectName} • {new Date(note.createdAt).toLocaleDateString()}</p>
+                                    </div>
+                                    <div className="flex gap-1">
+                                         <button onClick={() => downloadNote(note)} className="p-2 text-gray-400 hover:text-brand" title="Download">
+                                            <Download className="w-4 h-4" />
+                                         </button>
+                                         <button onClick={() => { if(confirm('Delete note?')) deleteGeneratedNote(note.id); }} className="p-2 text-gray-400 hover:text-red-500" title="Delete">
+                                            <Trash2 className="w-4 h-4" />
+                                         </button>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+
                 {currentUser.role === UserRole.ADMIN && (
                     <Link to="/admin" className="block w-full py-4 bg-gray-800 text-white rounded-xl text-center font-bold shadow-lg hover:bg-black transition-colors">
                         <Shield className="w-4 h-4 inline mr-2" /> Admin Dashboard
                     </Link>
                 )}
             </div>
+
+            {/* Note Viewer Modal */}
+            {viewNote && (
+                <div className="fixed inset-0 z-[150] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setViewNote(null)}>
+                    <div className="bg-white w-full max-w-2xl max-h-[85vh] rounded-2xl flex flex-col shadow-2xl animate-slide-up" onClick={e => e.stopPropagation()}>
+                        <div className="p-4 border-b flex justify-between items-center bg-gray-50">
+                             <div>
+                                <h2 className="font-bold text-gray-800">{viewNote.videoTitle}</h2>
+                                <p className="text-xs text-gray-500">{viewNote.subjectName} • Generated {new Date(viewNote.createdAt).toLocaleDateString()}</p>
+                             </div>
+                             <button onClick={() => setViewNote(null)} className="p-2 hover:bg-gray-200 rounded-full"><X className="w-5 h-5 text-gray-600" /></button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-6">
+                            <div className="prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap font-medium">
+                                {viewNote.content}
+                            </div>
+                        </div>
+                        <div className="p-4 border-t bg-gray-50">
+                            <button onClick={() => downloadNote(viewNote)} className="w-full py-3 bg-brand text-white font-bold rounded-xl hover:bg-brand-dark flex items-center justify-center gap-2">
+                                <Download className="w-4 h-4" /> Download Note
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

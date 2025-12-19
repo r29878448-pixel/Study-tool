@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, Course, AppSettings, UserRole, ExamResult, ExamProgress } from './types';
+import { User, Course, AppSettings, UserRole, ExamResult, ExamProgress, GeneratedNote } from './types';
 
 interface StoreContextType {
   currentUser: User | null;
@@ -22,6 +22,8 @@ interface StoreContextType {
   saveExamResult: (courseId: string, score: number, totalQuestions: number) => void;
   saveExamProgress: (progress: ExamProgress) => void;
   clearExamProgress: (courseId: string) => void;
+  saveGeneratedNote: (note: GeneratedNote) => void;
+  deleteGeneratedNote: (id: string) => void;
   toggleTheme: () => void;
 }
 
@@ -182,11 +184,26 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
     setUsers(users.map(u => u.id === currentUser.id ? updated : u));
   };
 
+  const saveGeneratedNote = (note: GeneratedNote) => {
+    if (!currentUser) return;
+    const updated = { ...currentUser, generatedNotes: [...(currentUser.generatedNotes || []), note] };
+    setCurrentUser(updated);
+    setUsers(users.map(u => u.id === currentUser.id ? updated : u));
+  };
+
+  const deleteGeneratedNote = (id: string) => {
+    if (!currentUser) return;
+    const updated = { ...currentUser, generatedNotes: (currentUser.generatedNotes || []).filter(n => n.id !== id) };
+    setCurrentUser(updated);
+    setUsers(users.map(u => u.id === currentUser.id ? updated : u));
+  };
+
   return (
     <StoreContext.Provider value={{
       currentUser, users, courses, settings, login, signup, createUser, logout,
       addCourse, updateCourse, deleteCourse, enrollCourse, grantTempAccess,
-      updateSettings, updateUser, manageUserRole, saveExamResult, saveExamProgress, clearExamProgress, toggleTheme
+      updateSettings, updateUser, manageUserRole, saveExamResult, saveExamProgress, clearExamProgress, 
+      saveGeneratedNote, deleteGeneratedNote, toggleTheme
     }}>
       {children}
     </StoreContext.Provider>

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, Navigate } from 'react-router-dom';
-import { CheckCircle, ArrowLeft, Loader2, Sparkles, AlertCircle, Clock } from 'lucide-react';
+import { CheckCircle, ArrowLeft, Loader2, Sparkles, Clock } from 'lucide-react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { Question, ExamProgress } from '../types';
 import { useStore } from '../store';

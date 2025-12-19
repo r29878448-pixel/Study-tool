@@ -336,12 +336,16 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
 // --- ADMIN PANEL ---
 
 const AdminPanel = () => {
-    const { currentUser, courses, addCourse, updateCourse, deleteCourse, users, manageUserRole } = useStore();
+    const { currentUser, courses, addCourse, updateCourse, deleteCourse, users, manageUserRole, createUser } = useStore();
     const [tab, setTab] = useState<'batches' | 'users'>('batches');
     const [showModal, setShowModal] = useState(false);
     const [editing, setEditing] = useState<Course | null>(null);
     const [contentTarget, setContentTarget] = useState<Course | null>(null);
     
+    // User Creation State
+    const [showUserModal, setShowUserModal] = useState(false);
+    const [userForm, setUserForm] = useState({ name: '', email: '', password: '', role: UserRole.USER });
+
     const [form, setForm] = useState({ title: '', description: '', image: '', category: '', price: 0, mrp: 0, isPaid: false, isNew: true, accessKey: '', shortenerLink: '', telegramLink: '', startDate: '', endDate: '' });
 
     useEffect(() => {
@@ -383,6 +387,23 @@ const AdminPanel = () => {
         setShowModal(false);
     };
 
+    const handleCreateUser = (e: React.FormEvent) => {
+        e.preventDefault();
+        createUser({
+            id: Date.now().toString(),
+            name: userForm.name,
+            email: userForm.email,
+            phone: '',
+            password: userForm.password,
+            role: userForm.role,
+            purchasedCourseIds: [],
+            lastLogin: new Date().toISOString(),
+            tempAccess: {}
+        });
+        setShowUserModal(false);
+        setUserForm({ name: '', email: '', password: '', role: UserRole.USER });
+    };
+
     return (
         <div className="pb-24 pt-20 px-4 min-h-screen bg-gray-50">
              <div className="max-w-4xl mx-auto">
@@ -416,19 +437,25 @@ const AdminPanel = () => {
                  )}
 
                 {tab === 'users' && (
-                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                      {users.map(u => (
-                          <div key={u.id} className="p-4 border-b last:border-0 flex justify-between items-center hover:bg-gray-50">
-                              <div><p className="font-bold text-gray-800">{u.name}</p><p className="text-xs text-gray-500">{u.email}</p></div>
-                              <select value={u.role} onChange={(e) => manageUserRole(u.id, e.target.value as UserRole)} disabled={u.id === currentUser.id} className="text-xs font-bold px-3 py-1 bg-gray-100 rounded-lg border-none">
-                                <option value={UserRole.USER}>User</option><option value={UserRole.EDITOR}>Manager</option><option value={UserRole.ADMIN}>Admin</option>
-                              </select>
-                          </div>
-                      ))}
+                    <div className="space-y-4">
+                        <button onClick={() => setShowUserModal(true)} className="w-full py-4 bg-white border-2 border-dashed border-gray-300 rounded-xl text-gray-500 font-bold hover:border-brand hover:text-brand flex items-center justify-center gap-2">
+                            <Plus className="w-5 h-5" /> Create New User
+                        </button>
+                        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                            {users.map(u => (
+                                <div key={u.id} className="p-4 border-b last:border-0 flex justify-between items-center hover:bg-gray-50">
+                                    <div><p className="font-bold text-gray-800">{u.name}</p><p className="text-xs text-gray-500">{u.email}</p></div>
+                                    <select value={u.role} onChange={(e) => manageUserRole(u.id, e.target.value as UserRole)} disabled={u.id === currentUser.id} className="text-xs font-bold px-3 py-1 bg-gray-100 rounded-lg border-none outline-none">
+                                        <option value={UserRole.USER}>User</option><option value={UserRole.EDITOR}>Manager</option><option value={UserRole.ADMIN}>Admin</option>
+                                    </select>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 )}
              </div>
 
+             {/* Batch Modal */}
              {showModal && (
                  <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
                     <div className="bg-white w-full max-w-lg rounded-2xl p-6 shadow-2xl overflow-y-auto max-h-[90vh]">
@@ -457,6 +484,32 @@ const AdminPanel = () => {
                     </div>
                  </div>
              )}
+
+             {/* Create User Modal */}
+             {showUserModal && (
+                 <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                    <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl">
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-xl font-bold text-gray-800">Create New User</h2>
+                            <button onClick={() => setShowUserModal(false)} className="p-2 hover:bg-gray-100 rounded-full"><X /></button>
+                        </div>
+                        <form onSubmit={handleCreateUser} className="space-y-4">
+                            <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Full Name</label><input value={userForm.name} onChange={e => setUserForm({ ...userForm, name: e.target.value })} className="w-full p-3 border rounded-lg bg-gray-50" required /></div>
+                            <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Email</label><input type="email" value={userForm.email} onChange={e => setUserForm({ ...userForm, email: e.target.value })} className="w-full p-3 border rounded-lg bg-gray-50" required /></div>
+                            <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Password</label><input type="password" value={userForm.password} onChange={e => setUserForm({ ...userForm, password: e.target.value })} className="w-full p-3 border rounded-lg bg-gray-50" required /></div>
+                            <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Role</label>
+                                <select value={userForm.role} onChange={e => setUserForm({ ...userForm, role: e.target.value as UserRole })} className="w-full p-3 border rounded-lg bg-gray-50">
+                                    <option value={UserRole.USER}>User</option>
+                                    <option value={UserRole.EDITOR}>Manager</option>
+                                    <option value={UserRole.ADMIN}>Admin</option>
+                                </select>
+                            </div>
+                            <button type="submit" className="w-full py-3 bg-brand text-white font-bold rounded-lg hover:bg-brand-dark shadow-md mt-4">Create User</button>
+                        </form>
+                    </div>
+                 </div>
+             )}
+
              {contentTarget && <ContentManager course={contentTarget} onClose={() => setContentTarget(null)} />}
         </div>
     );

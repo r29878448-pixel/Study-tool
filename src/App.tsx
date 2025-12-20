@@ -117,6 +117,13 @@ const TempAccessHandler = () => {
     
     const courseName = courses.find(c => c.id === id)?.title || "Premium Batch";
 
+    useEffect(() => {
+        // Automatically start verification if user is logged in
+        if (currentUser && id && status === 'idle') {
+            handleVerify();
+        }
+    }, [currentUser, id]);
+
     const handleVerify = () => {
         if (!currentUser) {
             navigate('/login', { state: { from: location } });
@@ -157,7 +164,7 @@ const TempAccessHandler = () => {
                         onClick={handleVerify}
                         className="w-full py-4 bg-[#0056d2] text-white font-bold rounded-2xl shadow-lg shadow-blue-200 active:scale-95 transition-all flex items-center justify-center gap-2 hover:bg-[#004bb5]"
                     >
-                        Verify & Unlock
+                        {currentUser ? 'Verify Now' : 'Login to Verify'}
                     </button>
                 )}
             </div>
@@ -728,7 +735,11 @@ const CourseDetail = () => {
         const interval = setInterval(() => {
             const now = new Date().getTime();
             const distance = tempExpiry.getTime() - now;
-            if (distance < 0) { clearInterval(interval); setTimeLeft('EXPIRED'); navigate(0); } else {
+            if (distance < 0) { 
+                clearInterval(interval); 
+                setTimeLeft('EXPIRED'); 
+                navigate(0); // Reload to lock content immediately
+            } else {
                 const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
                 const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
                 const seconds = Math.floor((distance % (1000 * 60)) / 1000);

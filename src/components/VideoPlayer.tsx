@@ -181,24 +181,30 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
     }
   };
 
-  const toggleFullscreen = () => {
+  const toggleFullscreen = async () => {
     if (!containerRef.current) return;
 
-    if (!document.fullscreenElement) {
-      containerRef.current.requestFullscreen().catch(err => {
-        console.error(`Error attempting to enable fullscreen: ${err.message}`);
-      });
-      // Attempt to lock landscape on mobile devices
-      if (screen.orientation && 'lock' in screen.orientation) {
-        // @ts-ignore
-        screen.orientation.lock('landscape').catch(() => {});
+    try {
+      if (!document.fullscreenElement) {
+        await containerRef.current.requestFullscreen();
+        // Attempt to lock to landscape
+        if (screen.orientation && 'lock' in screen.orientation) {
+          try {
+             // @ts-ignore
+             await screen.orientation.lock('landscape');
+          } catch(e) {
+             // Orientation lock failed (not supported on some devices)
+             console.log("Orientation lock not supported");
+          }
+        }
+      } else {
+        await document.exitFullscreen();
+        if (screen.orientation && 'unlock' in screen.orientation) {
+           screen.orientation.unlock();
+        }
       }
-    } else {
-      document.exitFullscreen();
-      // Unlock orientation
-      if (screen.orientation && 'unlock' in screen.orientation) {
-        screen.orientation.unlock();
-      }
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -275,13 +281,14 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
             </div>
         </div>
 
-        {/* Custom Fullscreen Button Bottom Right for Embeds */}
-        <div className={`absolute bottom-0 right-0 p-4 z-40 transition-opacity duration-300 pointer-events-none ${showControls ? 'opacity-100' : 'opacity-0'}`}>
+        {/* Custom Fullscreen Button Bottom Right for Embeds - EXACTLY AS REQUESTED */}
+        <div className={`absolute bottom-0 right-0 p-3 z-40 transition-opacity duration-300 pointer-events-none ${showControls ? 'opacity-100' : 'opacity-0'}`}>
             <button 
                 onClick={toggleFullscreen}
-                className="p-2 bg-black/60 backdrop-blur-md rounded-lg text-white hover:bg-black/80 transition-colors pointer-events-auto shadow-lg"
+                className="p-2.5 bg-black/60 backdrop-blur-md rounded-lg text-white hover:bg-black/80 transition-colors pointer-events-auto shadow-lg border border-white/10"
+                title="Full Screen (Landscape)"
             >
-                {isFullscreen ? <Minimize className="w-5 h-5"/> : <Maximize className="w-5 h-5" />}
+                {isFullscreen ? <Minimize className="w-6 h-6"/> : <Maximize className="w-6 h-6" />}
             </button>
         </div>
 
@@ -437,7 +444,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
                 </button>
             )}
 
-            {/* Fullscreen Button - Moved to Bottom Right */}
+            {/* Fullscreen Button - Bottom Right */}
             <button 
                 onClick={toggleFullscreen}
                 className="text-white hover:text-brand transition-colors"

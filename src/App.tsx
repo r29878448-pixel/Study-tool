@@ -175,14 +175,9 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
     const addSubject = () => { const title = prompt('Subject Title:'); const iconText = prompt('Icon:') || 'Su'; if (title) setSubjects([...subjects, { id: Date.now().toString(), title, iconText, chapters: [] }]); };
     const addChapter = (sId: string) => { const title = prompt('Chapter Title:'); if (title) setSubjects(subjects.map(s => s.id === sId ? { ...s, chapters: [...s.chapters, { id: Date.now().toString(), title, videos: [] }] } : s)); };
     const addVideo = (sId: string, cId: string) => { const title = prompt('Content Title:'); const url = prompt('Stream Link:'); const dur = prompt('Duration:') || '10:00'; const typeInput = prompt('Type (lecture/note/dpp):') || 'lecture'; const type = (['lecture', 'note', 'dpp'].includes(typeInput) ? typeInput : 'lecture') as any; if (title && url) setSubjects(subjects.map(s => s.id === sId ? { ...s, chapters: s.chapters.map(c => c.id === cId ? { ...c, videos: [...c.videos, { id: Date.now().toString(), title, filename: url, duration: dur, type, date: 'TODAY' }] } : c) } : s)); };
+    const updateVideoData = () => { if (!editingVideo || !activeSubjectId) return; const { chapId, vid } = editingVideo; setSubjects(subjects.map(s => s.id === activeSubjectId ? { ...s, chapters: s.chapters.map(c => c.id === chapId ? { ...c, videos: c.videos.map(v => v.id === vid.id ? vid : v) } : c) } : s)); setEditingVideo(null); };
     
-    const updateVideoData = () => { 
-        if (!editingVideo || !activeSubjectId) return; 
-        const { chapId, vid } = editingVideo; 
-        setSubjects(subjects.map(s => s.id === activeSubjectId ? { ...s, chapters: s.chapters.map(c => c.id === chapId ? { ...c, videos: c.videos.map(v => v.id === vid.id ? vid : v) } : c) } : s)); 
-        setEditingVideo(null); 
-    };
-    
+    // Content Node Thumbnail Upload (Classic Style)
     const handleNodeThumbnailUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file && editingVideo) {
@@ -196,63 +191,164 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
     const activeChapter = activeSubject?.chapters.find(c => c.id === activeChapterId);
 
     return (
-        <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-2xl rounded-2xl p-6 max-h-[85vh] flex flex-col shadow-2xl animate-slide-up overflow-hidden">
-                <div className="flex justify-between items-center mb-6 border-b pb-4">
-                    <h2 className="text-xl font-bold flex items-center gap-2 text-gray-800"><VideoIcon className="text-blue-600" /> Content Manager</h2>
-                    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X /></button>
+        <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-3xl rounded-lg shadow-xl max-h-[90vh] flex flex-col overflow-hidden animate-slide-up">
+                {/* Header */}
+                <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                    <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                        <VideoIcon className="w-5 h-5 text-gray-500" /> 
+                        Content Editor
+                    </h2>
+                    <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-md text-gray-600 transition-colors"><X className="w-5 h-5" /></button>
                 </div>
-                <div className="flex items-center gap-2 mb-4 text-xs font-bold text-gray-400 overflow-x-auto no-scrollbar"><button onClick={() => { setActiveSubjectId(null); setActiveChapterId(null); }} className={!activeSubjectId ? 'text-blue-600' : ''}>ROOT</button>{activeSubject && <><ChevronRight className="w-3 h-3" /><button onClick={() => setActiveChapterId(null)} className={activeSubjectId && !activeChapterId ? 'text-blue-600' : ''}>{activeSubject.title.toUpperCase()}</button></>}{activeChapter && <><ChevronRight className="w-3 h-3" /><span className="text-blue-600">{activeChapter.title.toUpperCase()}</span></>}</div>
-                <div className="flex-1 overflow-y-auto space-y-4 no-scrollbar">
+
+                {/* Breadcrumbs */}
+                <div className="px-6 py-3 bg-white border-b border-gray-100 flex items-center gap-2 text-sm font-medium text-gray-500 overflow-x-auto no-scrollbar">
+                    <button onClick={() => { setActiveSubjectId(null); setActiveChapterId(null); }} className={`hover:text-blue-600 ${!activeSubjectId ? 'text-blue-600 font-bold' : ''}`}>ROOT</button>
+                    {activeSubject && (
+                        <>
+                            <ChevronRight className="w-4 h-4 text-gray-400" />
+                            <button onClick={() => setActiveChapterId(null)} className={`hover:text-blue-600 ${activeSubjectId && !activeChapterId ? 'text-blue-600 font-bold' : ''}`}>{activeSubject.title}</button>
+                        </>
+                    )}
+                    {activeChapter && (
+                        <>
+                            <ChevronRight className="w-4 h-4 text-gray-400" />
+                            <span className="text-blue-600 font-bold">{activeChapter.title}</span>
+                        </>
+                    )}
+                </div>
+
+                {/* Body */}
+                <div className="flex-1 overflow-y-auto p-6 bg-gray-50/50">
                     {editingVideo ? (
-                        <div className="space-y-4 bg-gray-50 p-6 rounded-xl animate-fade-in">
-                            <h3 className="font-bold text-gray-700 border-b pb-2 mb-2">Edit Node Metadata</h3>
-                            <div className="flex flex-col gap-4">
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Specific Node Thumbnail</label>
-                                    <div className="relative aspect-video rounded-xl overflow-hidden bg-white border border-gray-200 flex items-center justify-center group shadow-sm">
+                        <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm space-y-4">
+                            <h3 className="font-bold text-gray-800 text-sm uppercase tracking-wide border-b pb-2">Edit Node Details</h3>
+                            
+                            <div className="flex flex-col md:flex-row gap-6">
+                                {/* Thumbnail Section */}
+                                <div className="w-full md:w-1/3 space-y-2">
+                                    <label className="text-xs font-bold text-gray-500 uppercase">Thumbnail</label>
+                                    <div className="relative aspect-video bg-gray-100 rounded-md border border-gray-300 overflow-hidden flex items-center justify-center group">
                                         {editingVideo.vid.thumbnail ? (
                                             <>
-                                                <img src={editingVideo.vid.thumbnail} className="w-full h-full object-cover" alt="Preview" />
-                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                    <button type="button" onClick={() => setEditingVideo({ ...editingVideo, vid: { ...editingVideo.vid, thumbnail: '' } })} className="bg-white text-red-500 p-2 rounded-full shadow-lg hover:scale-110 transition-transform"><Trash2 className="w-4 h-4" /></button>
-                                                </div>
+                                                <img src={editingVideo.vid.thumbnail} className="w-full h-full object-cover" alt="Thumb" />
+                                                <button 
+                                                    onClick={() => setEditingVideo({ ...editingVideo, vid: { ...editingVideo.vid, thumbnail: '' } })} 
+                                                    className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-md shadow-sm hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
                                             </>
                                         ) : (
                                             <div className="text-center p-4">
-                                                <ImageIcon className="w-8 h-8 text-gray-300 mx-auto mb-1 opacity-50" />
-                                                <label className="px-3 py-1.5 bg-gray-100 rounded-lg text-[10px] font-bold text-gray-600 cursor-pointer hover:bg-gray-200 flex items-center gap-1.5">
-                                                    <Upload className="w-3 h-3" /> Select Image
+                                                <ImageIcon className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                                                <label className="cursor-pointer px-3 py-1.5 bg-white border border-gray-300 rounded-md text-xs font-bold text-gray-600 hover:bg-gray-50 inline-flex items-center gap-1">
+                                                    <Upload className="w-3 h-3" /> Upload
                                                     <input type="file" className="hidden" accept="image/*" onChange={handleNodeThumbnailUpload} />
                                                 </label>
                                             </div>
                                         )}
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-1 gap-4">
-                                    <input value={editingVideo.vid.title} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, title: e.target.value}})} className="w-full p-3 border border-gray-200 rounded-lg text-sm" placeholder="Node Title" />
-                                    <input value={editingVideo.vid.filename} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, filename: e.target.value}})} className="w-full p-3 border border-gray-200 rounded-lg text-xs font-mono" placeholder="Stream / Resource Link" />
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <input value={editingVideo.vid.duration} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, duration: e.target.value}})} className="w-full p-3 border border-gray-200 rounded-lg text-sm" placeholder="Duration (e.g. 1:12:00)" />
-                                        <select value={editingVideo.vid.type} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, type: e.target.value as any}})} className="p-3 border border-gray-200 rounded-lg text-sm bg-white">
-                                            <option value="lecture">Lecture</option>
-                                            <option value="note">Notes</option>
-                                            <option value="dpp">DPP</option>
-                                        </select>
+
+                                {/* Form Fields */}
+                                <div className="flex-1 space-y-4">
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Title</label>
+                                        <input value={editingVideo.vid.title} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, title: e.target.value}})} className="w-full p-2.5 border border-gray-300 rounded-md text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none" />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Resource URL</label>
+                                        <input value={editingVideo.vid.filename} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, filename: e.target.value}})} className="w-full p-2.5 border border-gray-300 rounded-md text-sm font-mono focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none" />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Duration</label>
+                                            <input value={editingVideo.vid.duration} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, duration: e.target.value}})} className="w-full p-2.5 border border-gray-300 rounded-md text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none" />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Type</label>
+                                            <select value={editingVideo.vid.type} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, type: e.target.value as any}})} className="w-full p-2.5 border border-gray-300 rounded-md text-sm bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none">
+                                                <option value="lecture">Lecture</option>
+                                                <option value="note">Notes</option>
+                                                <option value="dpp">DPP</option>
+                                            </select>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                            <div className="flex gap-2 pt-2"><button onClick={() => setEditingVideo(null)} className="flex-1 py-3 text-gray-500 font-bold bg-white border border-gray-200 rounded-lg">Cancel</button><button onClick={updateVideoData} className="flex-1 py-3 bg-[#0056d2] text-white font-bold rounded-lg shadow-md">Commit Node</button></div>
+
+                            <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+                                <button onClick={() => setEditingVideo(null)} className="px-4 py-2 text-gray-600 font-bold hover:bg-gray-100 rounded-md text-sm transition-colors">Cancel</button>
+                                <button onClick={updateVideoData} className="px-6 py-2 bg-blue-600 text-white font-bold rounded-md hover:bg-blue-700 shadow-sm text-sm transition-colors">Save Changes</button>
+                            </div>
                         </div>
                     ) : activeChapterId && activeSubjectId ? (
-                        <div className="space-y-3"><button onClick={() => addVideo(activeSubjectId, activeChapterId)} className="w-full py-4 border-2 border-dashed border-blue-200 rounded-xl text-blue-600 font-bold hover:bg-blue-50 transition-colors">+ Add New Node</button>{activeChapter?.videos.map(vid => (<div key={vid.id} className="p-4 bg-white border border-gray-200 rounded-xl flex justify-between items-center shadow-sm"><div className="truncate pr-4 flex items-center gap-3">{vid.thumbnail ? <img src={vid.thumbnail} className="w-8 h-8 rounded object-cover border" alt="" /> : <VideoIcon className="w-4 h-4 text-gray-400" />}<div><p className="text-sm font-bold text-gray-800 truncate">{vid.title}</p><p className="text-[10px] text-blue-500 font-bold uppercase">{vid.type} • {vid.duration}</p></div></div><div className="flex gap-1"><button onClick={() => setEditingVideo({chapId: activeChapterId, vid})} className="p-2 text-gray-400 hover:text-blue-500 transition-colors"><Edit className="w-4 h-4" /></button><button onClick={() => setSubjects(subjects.map(s => s.id === activeSubjectId ? {...s, chapters: s.chapters.map(c => c.id === activeChapterId ? {...c, videos: c.videos.filter(v => v.id !== vid.id)} : c)} : s))} className="text-red-500 p-2 hover:bg-red-50 rounded-lg"><Trash2 className="w-4 h-4" /></button></div></div>))}</div>
+                        <div className="space-y-3">
+                            <button onClick={() => addVideo(activeSubjectId, activeChapterId)} className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 font-bold hover:border-blue-500 hover:text-blue-600 transition-all flex items-center justify-center gap-2 bg-white">
+                                <Plus className="w-5 h-5" /> Add Content Node
+                            </button>
+                            {activeChapter?.videos.map(vid => (
+                                <div key={vid.id} className="p-4 bg-white border border-gray-200 rounded-lg flex justify-between items-center shadow-sm hover:shadow-md transition-shadow">
+                                    <div className="flex items-center gap-3 overflow-hidden">
+                                        {vid.thumbnail ? (
+                                            <img src={vid.thumbnail} className="w-10 h-10 rounded-md object-cover border border-gray-200" alt="" />
+                                        ) : (
+                                            <div className="w-10 h-10 rounded-md bg-gray-100 flex items-center justify-center text-gray-400">
+                                                <VideoIcon className="w-5 h-5" />
+                                            </div>
+                                        )}
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-bold text-gray-800 truncate">{vid.title}</p>
+                                            <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">{vid.type} • {vid.duration}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-1 shrink-0">
+                                        <button onClick={() => setEditingVideo({chapId: activeChapterId, vid})} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"><Edit className="w-4 h-4" /></button>
+                                        <button onClick={() => setSubjects(subjects.map(s => s.id === activeSubjectId ? {...s, chapters: s.chapters.map(c => c.id === activeChapterId ? {...c, videos: c.videos.filter(v => v.id !== vid.id)} : c)} : s))} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"><Trash2 className="w-4 h-4" /></button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
                     ) : activeSubjectId ? (
-                        <div className="space-y-3"><button onClick={() => addChapter(activeSubjectId)} className="w-full py-4 border-2 border-dashed border-blue-200 rounded-xl text-blue-600 font-bold hover:bg-blue-50 transition-colors">+ Create New Chapter</button>{activeSubject?.chapters.map(chap => (<div key={chap.id} className="p-4 bg-white border border-gray-200 rounded-xl flex justify-between items-center shadow-sm hover:border-blue-100 transition-colors"><button onClick={() => setActiveChapterId(chap.id)} className="flex-1 text-left font-bold text-gray-700">{chap.title}</button><button onClick={() => setSubjects(subjects.map(s => s.id === activeSubjectId ? {...s, chapters: s.chapters.filter(c => c.id !== chap.id)} : s))} className="text-red-500 p-2 hover:bg-red-50 rounded-lg"><Trash2 className="w-4 h-4" /></button></div>))}</div>
+                        <div className="space-y-3">
+                            <button onClick={() => addChapter(activeSubjectId)} className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 font-bold hover:border-blue-500 hover:text-blue-600 transition-all flex items-center justify-center gap-2 bg-white">
+                                <Plus className="w-5 h-5" /> Add Chapter
+                            </button>
+                            {activeSubject?.chapters.map(chap => (
+                                <div key={chap.id} className="p-4 bg-white border border-gray-200 rounded-lg flex justify-between items-center shadow-sm hover:shadow-md transition-shadow">
+                                    <button onClick={() => setActiveChapterId(chap.id)} className="flex-1 text-left font-bold text-gray-800 hover:text-blue-600 transition-colors flex items-center gap-2">
+                                        <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                                        {chap.title}
+                                    </button>
+                                    <button onClick={() => setSubjects(subjects.map(s => s.id === activeSubjectId ? {...s, chapters: s.chapters.filter(c => c.id !== chap.id)} : s))} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"><Trash2 className="w-4 h-4" /></button>
+                                </div>
+                            ))}
+                        </div>
                     ) : (
-                        <div className="space-y-3"><button onClick={addSubject} className="w-full py-4 border-2 border-dashed border-blue-200 rounded-xl text-blue-600 font-bold hover:bg-blue-50 transition-colors">+ Initialize Subject Node</button>{subjects.map(sub => (<div key={sub.id} className="p-4 bg-white border border-gray-200 rounded-xl flex justify-between items-center shadow-sm group hover:border-blue-100 transition-colors"><button onClick={() => setActiveSubjectId(sub.id)} className="flex items-center gap-4 flex-1 text-left"><div className="w-9 h-9 bg-blue-50 rounded flex items-center justify-center text-blue-600 font-bold text-xs border border-blue-100">{sub.iconText}</div><span className="font-bold text-gray-800">{sub.title}</span></button><button onClick={() => setSubjects(subjects.filter(s => s.id !== sub.id))} className="text-red-500 p-2 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all"><Trash2 className="w-4 h-4" /></button></div>))}</div>
+                        <div className="space-y-3">
+                            <button onClick={addSubject} className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 font-bold hover:border-blue-500 hover:text-blue-600 transition-all flex items-center justify-center gap-2 bg-white">
+                                <Plus className="w-5 h-5" /> Add Subject
+                            </button>
+                            {subjects.map(sub => (
+                                <div key={sub.id} className="p-4 bg-white border border-gray-200 rounded-lg flex justify-between items-center shadow-sm hover:shadow-md transition-shadow">
+                                    <button onClick={() => setActiveSubjectId(sub.id)} className="flex items-center gap-3 flex-1 text-left">
+                                        <div className="w-8 h-8 bg-blue-50 rounded-md flex items-center justify-center text-blue-600 font-bold text-xs border border-blue-100">{sub.iconText}</div>
+                                        <span className="font-bold text-gray-800">{sub.title}</span>
+                                    </button>
+                                    <button onClick={() => setSubjects(subjects.filter(s => s.id !== sub.id))} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"><Trash2 className="w-4 h-4" /></button>
+                                </div>
+                            ))}
+                        </div>
                     )}
                 </div>
-                <div className="mt-6 pt-6 border-t flex gap-3"><button onClick={onClose} className="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-50 border border-gray-200 rounded-xl">Close Editor</button><button onClick={handleSave} className="flex-1 py-3 bg-[#0056d2] text-white font-bold rounded-xl shadow-lg active:scale-95 transition-all">Commit Structure</button></div>
+                
+                {/* Footer */}
+                <div className="px-6 py-4 bg-white border-t border-gray-200 flex justify-end gap-3">
+                    <button onClick={onClose} className="px-6 py-2.5 text-gray-600 font-bold hover:bg-gray-100 rounded-md transition-colors text-sm">Discard Changes</button>
+                    <button onClick={handleSave} className="px-6 py-2.5 bg-blue-600 text-white font-bold rounded-md shadow-md hover:bg-blue-700 active:scale-95 transition-all text-sm">Commit Changes</button>
+                </div>
             </div>
         </div>
     );
@@ -317,21 +413,21 @@ const AdminPanel = () => {
         <div className="pb-24 pt-24 px-4 min-h-screen bg-[#f8fafc]">
              <div className="max-w-6xl mx-auto">
                  {currentUser.isDemo && <div className="bg-amber-100 border border-amber-200 text-amber-800 p-4 rounded-xl mb-6 flex items-center gap-3 shadow-sm animate-pulse"><AlertCircle className="w-6 h-6" /><div><p className="font-bold text-sm">Demo Mode Active</p><p className="text-xs opacity-80">You are in inspection mode. Changes will not be saved to server.</p></div></div>}
-                 <div className="flex bg-white p-1.5 rounded-xl shadow-sm border border-gray-100 mb-8 overflow-hidden max-w-md">
-                    {availableTabs.map(t => (<button key={t} onClick={() => setTab(t)} className={`flex-1 py-2.5 font-bold capitalize transition-all rounded-lg text-xs ${tab === t ? 'bg-[#0056d2] text-white shadow-md' : 'text-gray-400 hover:bg-gray-50'}`}>{t}</button>))}
+                 <div className="flex bg-white p-1.5 rounded-lg shadow-sm border border-gray-200 mb-8 overflow-hidden max-w-md">
+                    {availableTabs.map(t => (<button key={t} onClick={() => setTab(t)} className={`flex-1 py-2 font-bold capitalize transition-all rounded-md text-xs ${tab === t ? 'bg-[#0056d2] text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>{t}</button>))}
                  </div>
 
                  {tab === 'batches' && (
                      <div className="space-y-4">
-                         <button onClick={() => { setEditing(null); setShowModal(true); }} className="w-full py-10 bg-white border-2 border-dashed border-blue-200 rounded-2xl text-[#0056d2] font-bold flex flex-col items-center justify-center gap-2 hover:bg-blue-50 transition-all"><Plus className="w-8 h-8" /><span>INITIALIZE NEW BATCH Node</span></button>
+                         <button onClick={() => { setEditing(null); setShowModal(true); }} className="w-full py-10 bg-white border-2 border-dashed border-blue-200 rounded-xl text-[#0056d2] font-bold flex flex-col items-center justify-center gap-2 hover:bg-blue-50 transition-all"><Plus className="w-8 h-8" /><span>INITIALIZE NEW BATCH Node</span></button>
                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                              {courses.map(c => (
-                                 <div key={c.id} className="bg-white p-4 rounded-2xl flex flex-col gap-4 border border-gray-100 shadow-sm hover:shadow-md transition-all">
+                                 <div key={c.id} className="bg-white p-4 rounded-lg flex flex-col gap-4 border border-gray-200 shadow-sm hover:shadow-md transition-all">
                                      <div className="flex items-center gap-4">
-                                         <img src={c.image} className="w-16 h-16 rounded-xl object-cover border border-gray-100" alt="" />
+                                         <img src={c.image} className="w-16 h-16 rounded-lg object-cover border border-gray-100" alt="" />
                                          <div className="flex-1 min-w-0"><h3 className="font-bold text-gray-800 text-sm truncate">{c.title}</h3><p className="text-[10px] text-blue-600 font-bold uppercase tracking-widest">{c.category} • {c.isPaid ? 'Paid' : 'Free'}</p></div>
                                      </div>
-                                     <div className="flex gap-2 w-full"><button onClick={() => setContentTarget(c)} className="flex-1 py-2 bg-[#0056d2] text-white rounded-lg font-bold text-[10px] active:scale-95 transition-all">EDIT CONTENT</button><button onClick={() => { setEditing(c); setShowModal(true); }} className="p-2 bg-gray-50 text-gray-400 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-colors"><Edit className="w-4 h-4" /></button>{currentUser.role === UserRole.ADMIN && <button onClick={() => { if(confirm('Erase batch data?')) deleteCourse(c.id); }} className="p-2 bg-red-50 text-red-400 rounded-lg hover:bg-red-500 hover:text-white transition-all"><Trash2 className="w-4 h-4" /></button>}</div>
+                                     <div className="flex gap-2 w-full"><button onClick={() => setContentTarget(c)} className="flex-1 py-2 bg-[#0056d2] text-white rounded-md font-bold text-[10px] active:scale-95 transition-all">EDIT CONTENT</button><button onClick={() => { setEditing(c); setShowModal(true); }} className="p-2 bg-gray-50 text-gray-500 rounded-md hover:bg-blue-50 hover:text-blue-600 transition-colors"><Edit className="w-4 h-4" /></button>{currentUser.role === UserRole.ADMIN && <button onClick={() => { if(confirm('Erase batch data?')) deleteCourse(c.id); }} className="p-2 bg-red-50 text-red-400 rounded-md hover:bg-red-500 hover:text-white transition-all"><Trash2 className="w-4 h-4" /></button>}</div>
                                  </div>
                              ))}
                          </div>
@@ -339,58 +435,58 @@ const AdminPanel = () => {
                  )}
 
                  {tab === 'users' && currentUser.role === UserRole.ADMIN && (
-                    <div className="space-y-4"><button onClick={() => setShowUserModal(true)} className="w-full py-4 bg-white border-2 border-dashed border-gray-300 rounded-xl text-gray-500 font-bold hover:border-blue-500 hover:text-blue-500 flex items-center justify-center gap-2"><Plus className="w-5 h-5" /> Create New User</button><div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden divide-y divide-gray-50">{users.map(u => (<div key={u.id} className="p-4 flex justify-between items-center hover:bg-gray-50 transition-colors"><div className="flex-1 min-w-0 pr-4"><div className="flex items-center gap-2"><p className="font-bold text-gray-800 truncate">{u.name}</p>{u.role === UserRole.ADMIN && <span className="text-[10px] font-bold px-2 py-0.5 bg-red-100 text-red-600 rounded">ADMIN</span>}</div><p className="text-xs text-gray-500 truncate">{u.email}</p></div><div className="flex items-center gap-2"><button onClick={() => setSelectedUser(u)} className="p-2 bg-blue-50 text-blue-600 rounded-lg" title="View Progress"><Eye className="w-4 h-4" /></button><select value={u.role} onChange={(e) => manageUserRole(u.id, e.target.value as UserRole)} disabled={u.id === currentUser.id} className="text-xs font-bold px-3 py-2 bg-gray-100 rounded-lg border-none outline-none cursor-pointer hover:bg-gray-200"><option value={UserRole.USER}>User</option><option value={UserRole.EDITOR}>Manager</option><option value={UserRole.ADMIN}>Admin</option></select></div></div>))}</div></div>
+                    <div className="space-y-4"><button onClick={() => setShowUserModal(true)} className="w-full py-4 bg-white border-2 border-dashed border-gray-300 rounded-xl text-gray-500 font-bold hover:border-blue-500 hover:text-blue-500 flex items-center justify-center gap-2"><Plus className="w-5 h-5" /> Create New User</button><div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden divide-y divide-gray-100">{users.map(u => (<div key={u.id} className="p-4 flex justify-between items-center hover:bg-gray-50 transition-colors"><div className="flex-1 min-w-0 pr-4"><div className="flex items-center gap-2"><p className="font-bold text-gray-800 truncate">{u.name}</p>{u.role === UserRole.ADMIN && <span className="text-[10px] font-bold px-2 py-0.5 bg-red-100 text-red-600 rounded">ADMIN</span>}</div><p className="text-xs text-gray-500 truncate">{u.email}</p></div><div className="flex items-center gap-2"><button onClick={() => setSelectedUser(u)} className="p-2 bg-blue-50 text-blue-600 rounded-md" title="View Progress"><Eye className="w-4 h-4" /></button><select value={u.role} onChange={(e) => manageUserRole(u.id, e.target.value as UserRole)} disabled={u.id === currentUser.id} className="text-xs font-bold px-3 py-2 bg-gray-100 rounded-md border-none outline-none cursor-pointer hover:bg-gray-200"><option value={UserRole.USER}>User</option><option value={UserRole.EDITOR}>Manager</option><option value={UserRole.ADMIN}>Admin</option></select></div></div>))}</div></div>
                  )}
 
                  {tab === 'settings' && currentUser.role === UserRole.ADMIN && (
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 animate-fade-in"><div className="flex items-center gap-3 mb-8"><div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-[#0056d2]"><Settings className="w-6 h-6" /></div><div><h2 className="text-xl font-bold text-gray-800">Global Portal Configuration</h2><p className="text-xs text-gray-400 font-bold uppercase tracking-widest">Core Settings & API Handlers</p></div></div><form onSubmit={handleSaveSettings} className="space-y-6"><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div className="space-y-2"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Application Name</label><input value={settingsForm.appName} onChange={e => setSettingsForm({...settingsForm, appName: e.target.value})} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-xl font-bold text-sm" /></div><div className="space-y-2"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Admin Contact</label><input value={settingsForm.adminEmail} onChange={e => setSettingsForm({...settingsForm, adminEmail: e.target.value})} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-xl font-bold text-sm" /></div></div><button type="submit" className="w-full py-4 bg-[#0056d2] text-white font-black rounded-xl shadow-lg active:scale-95 transition-all text-sm tracking-widest uppercase">Commit System Changes</button></form></div>
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 animate-fade-in"><div className="flex items-center gap-3 mb-8"><div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center text-[#0056d2]"><Settings className="w-6 h-6" /></div><div><h2 className="text-xl font-bold text-gray-800">Global Portal Configuration</h2><p className="text-xs text-gray-400 font-bold uppercase tracking-widest">Core Settings & API Handlers</p></div></div><form onSubmit={handleSaveSettings} className="space-y-6"><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div className="space-y-2"><label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">Application Name</label><input value={settingsForm.appName} onChange={e => setSettingsForm({...settingsForm, appName: e.target.value})} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-md font-bold text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none" /></div><div className="space-y-2"><label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">Admin Contact</label><input value={settingsForm.adminEmail} onChange={e => setSettingsForm({...settingsForm, adminEmail: e.target.value})} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-md font-bold text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none" /></div></div><button type="submit" className="w-full py-3 bg-[#0056d2] text-white font-black rounded-md shadow-md active:scale-95 transition-all text-sm tracking-widest uppercase">Commit System Changes</button></form></div>
                  )}
              </div>
 
              {/* Batch Edit Modal - Restored Classic UI with Upload */}
              {showModal && (
-                 <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                    <div className="bg-white w-full max-w-lg rounded-2xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto no-scrollbar border border-gray-100 animate-slide-up">
-                        <div className="flex justify-between items-center mb-8 border-b pb-4">
-                            <h2 className="text-2xl font-bold text-gray-800 tracking-tight">{editing ? 'Configure Batch' : 'Initialize New Batch'}</h2>
-                            <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X /></button>
+                 <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                    <div className="bg-white w-full max-w-lg rounded-lg p-6 shadow-2xl max-h-[90vh] overflow-y-auto no-scrollbar border border-gray-200 animate-slide-up">
+                        <div className="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
+                            <h2 className="text-xl font-bold text-gray-800 tracking-tight">{editing ? 'Configure Batch' : 'Initialize New Batch'}</h2>
+                            <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X className="w-5 h-5 text-gray-500" /></button>
                         </div>
                         <form onSubmit={handleSaveCourse} className="space-y-5">
                             <div className="space-y-2">
-                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Batch Thumbnail (Device Upload Supported)</label>
-                                <div className="relative aspect-video rounded-xl overflow-hidden bg-gray-50 border-2 border-dashed border-gray-200 flex items-center justify-center group shadow-inner">
+                                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">Batch Thumbnail</label>
+                                <div className="relative aspect-video rounded-lg overflow-hidden bg-gray-50 border border-gray-200 flex items-center justify-center group shadow-inner">
                                     {form.image ? (
                                         <>
                                             <img src={form.image} className="w-full h-full object-cover" alt="Preview" />
                                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                <button type="button" onClick={() => setForm({...form, image: ''})} className="bg-white text-red-500 p-2.5 rounded-full shadow-lg hover:scale-110 transition-transform"><Trash2 className="w-5 h-5" /></button>
+                                                <button type="button" onClick={() => setForm({...form, image: ''})} className="bg-white text-red-500 p-2 rounded-md shadow-lg hover:scale-110 transition-transform"><Trash2 className="w-5 h-5" /></button>
                                             </div>
                                         </>
                                     ) : (
                                         <div className="text-center p-6">
-                                            <ImageIcon className="w-12 h-12 text-gray-300 mx-auto mb-2 opacity-50" />
-                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Inject Thumbnail</p>
-                                            <label className="mt-3 px-4 py-2 bg-gray-100 rounded-lg text-xs font-bold text-gray-600 cursor-pointer hover:bg-gray-200 inline-flex items-center gap-2 border border-gray-200">
-                                                <Upload className="w-4 h-4" /> Upload Device
+                                            <ImageIcon className="w-10 h-10 text-gray-300 mx-auto mb-2 opacity-50" />
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">No Image Selected</p>
+                                            <label className="px-4 py-2 bg-white border border-gray-300 rounded-md text-xs font-bold text-gray-600 cursor-pointer hover:bg-gray-50 inline-flex items-center gap-2 shadow-sm transition-all active:scale-95">
+                                                <Upload className="w-4 h-4" /> Upload from Device
                                                 <input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} />
                                             </label>
                                         </div>
                                     )}
                                 </div>
-                                <input value={form.image} onChange={e => setForm({ ...form, image: e.target.value })} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-xl font-mono text-[10px] shadow-sm" placeholder="Or Paste URL: https://domain.com/image.jpg" />
+                                <input value={form.image} onChange={e => setForm({ ...form, image: e.target.value })} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-md font-mono text-[10px] shadow-sm focus:border-blue-500 outline-none" placeholder="Or Paste URL: https://domain.com/image.jpg" />
                             </div>
 
                             <div className="grid grid-cols-1 gap-4">
-                                <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-blue-500 font-bold shadow-sm" placeholder="Course / Batch Title" required />
-                                <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-blue-500 font-medium text-xs shadow-sm min-h-[80px]" placeholder="Brief Content Description..." required />
+                                <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-md outline-none focus:border-blue-500 font-bold shadow-sm" placeholder="Course / Batch Title" required />
+                                <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-md outline-none focus:border-blue-500 font-medium text-xs shadow-sm min-h-[80px]" placeholder="Brief Content Description..." required />
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
-                                <input value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className="p-4 bg-gray-50 border border-gray-100 rounded-xl text-xs uppercase font-bold shadow-sm" placeholder="Category Name" required />
-                                <div className="flex items-center justify-between px-4 py-4 bg-gray-50 rounded-xl border border-gray-100 shadow-sm cursor-pointer" onClick={() => setForm({...form, isPaid: !form.isPaid})}>
+                                <input value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className="p-3 bg-gray-50 border border-gray-200 rounded-md text-xs uppercase font-bold shadow-sm outline-none focus:border-blue-500" placeholder="Category Name" required />
+                                <div className="flex items-center justify-between px-3 py-3 bg-gray-50 rounded-md border border-gray-200 shadow-sm cursor-pointer hover:bg-gray-100" onClick={() => setForm({...form, isPaid: !form.isPaid})}>
                                     <span className="text-xs font-bold text-gray-500 uppercase">Paid Batch</span>
-                                    <div className={`w-10 h-5 rounded-full relative transition-all ${form.isPaid ? 'bg-blue-600' : 'bg-gray-300'}`}>
-                                        <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${form.isPaid ? 'left-5.5' : 'left-0.5'}`} />
+                                    <div className={`w-9 h-5 rounded-full relative transition-all ${form.isPaid ? 'bg-blue-600' : 'bg-gray-300'}`}>
+                                        <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${form.isPaid ? 'left-4.5' : 'left-0.5'}`} />
                                     </div>
                                 </div>
                             </div>
@@ -399,11 +495,11 @@ const AdminPanel = () => {
                                 <div className="grid grid-cols-2 gap-4 animate-fade-in">
                                     <div className="space-y-1">
                                         <label className="text-[10px] font-bold text-gray-400 ml-1 uppercase">Selling Price</label>
-                                        <input type="number" value={form.price} onChange={e => setForm({ ...form, price: Number(e.target.value) })} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-bold" />
+                                        <input type="number" value={form.price} onChange={e => setForm({ ...form, price: Number(e.target.value) })} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-md text-sm font-bold focus:border-blue-500 outline-none" />
                                     </div>
                                     <div className="space-y-1">
                                         <label className="text-[10px] font-bold text-gray-400 ml-1 uppercase">Striked MRP</label>
-                                        <input type="number" value={form.mrp} onChange={e => setForm({ ...form, mrp: Number(e.target.value) })} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-bold" />
+                                        <input type="number" value={form.mrp} onChange={e => setForm({ ...form, mrp: Number(e.target.value) })} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-md text-sm font-bold focus:border-blue-500 outline-none" />
                                     </div>
                                 </div>
                             )}
@@ -411,24 +507,25 @@ const AdminPanel = () => {
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-bold text-gray-400 ml-1 uppercase">Start Date</label>
-                                    <input value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-xl text-xs" placeholder="e.g. 01 Apr 2025" />
+                                    <input value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-md text-xs shadow-sm focus:border-blue-500 outline-none" placeholder="e.g. 01 Apr 2025" />
                                 </div>
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-bold text-gray-400 ml-1 uppercase">Expiry Date</label>
-                                    <input value={form.endDate} onChange={e => setForm({ ...form, endDate: e.target.value })} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-xl text-xs" placeholder="e.g. 31 Mar 2026" />
+                                    <input value={form.endDate} onChange={e => setForm({ ...form, endDate: e.target.value })} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-md text-xs shadow-sm focus:border-blue-500 outline-none" placeholder="e.g. 31 Mar 2026" />
                                 </div>
                             </div>
 
                             <div className="space-y-1">
                                 <label className="text-[10px] font-bold text-gray-400 ml-1 uppercase">Verification Shortlink (24h Access)</label>
                                 <div className="flex gap-2">
-                                    <input value={form.shortenerLink} onChange={e => setForm({...form, shortenerLink: e.target.value})} className="flex-1 p-4 bg-gray-50 border border-gray-100 rounded-xl text-[10px] font-mono" placeholder="Internal Redirect URL..." />
-                                    <button type="button" onClick={generateShortLink} disabled={generatingLink} className="px-4 bg-blue-100 text-blue-700 font-bold rounded-xl text-[10px] hover:bg-blue-200 transition-colors">{generatingLink ? '...' : 'Generate'}</button>
+                                    <input value={form.shortenerLink} onChange={e => setForm({...form, shortenerLink: e.target.value})} className="flex-1 p-3 bg-gray-50 border border-gray-200 rounded-md text-[10px] font-mono focus:border-blue-500 outline-none" placeholder="Internal Redirect URL..." />
+                                    <button type="button" onClick={generateShortLink} disabled={generatingLink} className="px-4 bg-blue-50 text-blue-600 font-bold rounded-md text-[10px] hover:bg-blue-100 transition-colors border border-blue-100">{generatingLink ? '...' : 'Generate'}</button>
                                 </div>
                             </div>
 
-                            <div className="pt-4">
-                                <button type="submit" className="w-full py-5 bg-[#0056d2] text-white font-black rounded-xl shadow-xl active:scale-95 transition-all uppercase tracking-widest text-sm">Save Batch Node</button>
+                            <div className="pt-4 flex gap-3">
+                                <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-3 text-gray-500 font-bold border border-gray-200 rounded-md hover:bg-gray-50 transition-colors text-sm">Cancel</button>
+                                <button type="submit" className="flex-1 py-3 bg-[#0056d2] text-white font-bold rounded-md shadow-md active:scale-95 transition-all uppercase tracking-widest text-sm">Save Batch</button>
                             </div>
                         </form>
                     </div>
@@ -436,7 +533,7 @@ const AdminPanel = () => {
              )}
 
              {selectedUser && (
-                <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"><div className="bg-white w-full max-w-2xl rounded-2xl p-8 shadow-2xl max-h-[90vh] overflow-y-auto no-scrollbar animate-slide-up"><div className="flex justify-between items-start mb-8"><div className="flex items-center gap-4"><div className="w-16 h-16 bg-blue-600 rounded-xl flex items-center justify-center text-white text-3xl font-black shadow-lg shadow-blue-200">{selectedUser.name.charAt(0)}</div><div><h2 className="text-2xl font-bold text-gray-800">{selectedUser.name}</h2><p className="text-gray-500 text-sm font-medium">{selectedUser.email}</p></div></div><button onClick={() => setSelectedUser(null)} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X className="w-6 h-6 text-gray-400" /></button></div><div className="space-y-6"><div><div className="flex items-center justify-between mb-3"><h3 className="text-sm font-bold text-gray-800 flex items-center gap-2"><BookOpen className="w-4 h-4 text-blue-500" /> Active Access Nodes</h3><div className="flex gap-2"><select value={courseToAddId} onChange={(e) => setCourseToAddId(e.target.value)} className="text-xs p-2 border rounded-lg bg-gray-50 outline-none max-w-[150px]"><option value="">Add Batch...</option>{courses.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}</select><button onClick={handleAddCourseToUser} disabled={!courseToAddId} className="px-3 py-2 bg-[#0056d2] text-white rounded-lg text-xs font-bold disabled:opacity-50">Grant</button></div></div><div className="bg-gray-50 rounded-xl border border-gray-100 overflow-hidden">{getUserCourses(selectedUser).length > 0 ? (getUserCourses(selectedUser).map(c => (<div key={c.id} className="p-4 border-b last:border-0 border-gray-100 flex items-center justify-between"><span className="text-sm font-bold text-gray-700">{c.title}</span><button onClick={() => { adminRevokeUser(selectedUser.id, c.id); setSelectedUser({...selectedUser, purchasedCourseIds: (selectedUser.purchasedCourseIds || []).filter((id: string) => id !== c.id)}); }} className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button></div>))) : (<div className="p-6 text-center text-xs font-bold text-gray-400 uppercase tracking-widest italic">No Nodes Granted</div>)}</div></div></div></div></div>
+                <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"><div className="bg-white w-full max-w-2xl rounded-lg p-8 shadow-2xl max-h-[90vh] overflow-y-auto no-scrollbar animate-slide-up"><div className="flex justify-between items-start mb-8"><div className="flex items-center gap-4"><div className="w-16 h-16 bg-blue-600 rounded-lg flex items-center justify-center text-white text-3xl font-black shadow-lg shadow-blue-200">{selectedUser.name.charAt(0)}</div><div><h2 className="text-2xl font-bold text-gray-800">{selectedUser.name}</h2><p className="text-gray-500 text-sm font-medium">{selectedUser.email}</p></div></div><button onClick={() => setSelectedUser(null)} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X className="w-6 h-6 text-gray-400" /></button></div><div className="space-y-6"><div><div className="flex items-center justify-between mb-3"><h3 className="text-sm font-bold text-gray-800 flex items-center gap-2"><BookOpen className="w-4 h-4 text-blue-500" /> Active Access Nodes</h3><div className="flex gap-2"><select value={courseToAddId} onChange={(e) => setCourseToAddId(e.target.value)} className="text-xs p-2 border rounded-md bg-gray-50 outline-none max-w-[150px]"><option value="">Add Batch...</option>{courses.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}</select><button onClick={handleAddCourseToUser} disabled={!courseToAddId} className="px-3 py-2 bg-[#0056d2] text-white rounded-md text-xs font-bold disabled:opacity-50">Grant</button></div></div><div className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">{getUserCourses(selectedUser).length > 0 ? (getUserCourses(selectedUser).map(c => (<div key={c.id} className="p-4 border-b last:border-0 border-gray-200 flex items-center justify-between"><span className="text-sm font-bold text-gray-700">{c.title}</span><button onClick={() => { adminRevokeUser(selectedUser.id, c.id); setSelectedUser({...selectedUser, purchasedCourseIds: (selectedUser.purchasedCourseIds || []).filter((id: string) => id !== c.id)}); }} className="p-1.5 text-red-400 hover:bg-red-50 rounded-md transition-colors"><Trash2 className="w-4 h-4" /></button></div>))) : (<div className="p-6 text-center text-xs font-bold text-gray-400 uppercase tracking-widest italic">No Nodes Granted</div>)}</div></div></div></div></div>
              )}
 
              {contentTarget && <ContentManager course={contentTarget} onClose={() => setContentTarget(null)} />}

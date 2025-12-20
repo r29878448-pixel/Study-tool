@@ -1,7 +1,8 @@
 
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { 
-  Play, Pause, Volume2, VolumeX, Maximize, Minimize, Lock, ArrowLeft, Loader2
+  Play, Pause, Volume2, VolumeX, Maximize, Minimize, Lock, ArrowLeft, Loader2,
+  SkipBack, SkipForward, Settings, PictureInPicture
 } from './Icons';
 
 interface VideoPlayerProps {
@@ -61,13 +62,56 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onBack
   const [showControls, setShowControls] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   
+  // Advanced Controls
+  const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
+  const [showSettings, setShowSettings] = useState(false);
+  const [doubleTapAnimation, setDoubleTapAnimation] = useState<'left' | 'right' | null>(null);
+  
   const controlsTimeoutRef = useRef<any>(null);
 
   const isDirectFile = src.startsWith('blob:') || /\.(mp4|webm|ogg|mov|m4v)($|\?)/i.test(src);
   const isEmbed = !isDirectFile;
   const displayUrl = isEmbed ? getEmbedUrl(src) : src;
 
-  // Handle Fullscreen Toggle
+  // Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+        if (!containerRef.current) return;
+        // Only react if fullscreen OR element has focus/contains focus
+        const isFocused = document.activeElement === containerRef.current || containerRef.current.contains(document.activeElement);
+        if (!isFullscreen && !isFocused && document.activeElement?.tagName !== 'BODY') return;
+
+        switch(e.key.toLowerCase()) {
+            case ' ':
+            case 'k':
+                e.preventDefault();
+                togglePlay();
+                break;
+            case 'arrowleft':
+            case 'j':
+                e.preventDefault();
+                skip(-10);
+                break;
+            case 'arrowright':
+            case 'l':
+                e.preventDefault();
+                skip(10);
+                break;
+            case 'f':
+                e.preventDefault();
+                toggleFullscreen();
+                break;
+            case 'm':
+                e.preventDefault();
+                toggleMute();
+                break;
+        }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFullscreen, isPlaying, isMuted]); // Dependencies for closure
+
   const toggleFullscreen = useCallback(() => {
     if (!containerRef.current) return;
 
@@ -88,7 +132,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onBack
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
-  // Controls Visibility
   const handleMouseMove = () => {
     setShowControls(true);
     if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
@@ -97,13 +140,23 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onBack
     }
   };
 
-  // Video Handlers
   const togglePlay = () => {
     if (videoRef.current) {
       if (isPlaying) videoRef.current.pause();
       else videoRef.current.play();
       setIsPlaying(!isPlaying);
     }
+  };
+
+  const skip = (seconds: number) => {
+      if(videoRef.current) {
+          videoRef.current.currentTime += seconds;
+          setCurrentTime(videoRef.current.currentTime);
+          
+          // Trigger double tap animation
+          setDoubleTapAnimation(seconds > 0 ? 'right' : 'left');
+          setTimeout(() => setDoubleTapAnimation(null), 500);
+      }
   };
 
   const handleTimeUpdate = () => {
@@ -123,6 +176,27 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onBack
       videoRef.current.muted = !isMuted;
       setIsMuted(!isMuted);
     }
+  };
+
+  const togglePiP = async () => {
+      if(!videoRef.current) return;
+      try {
+          if (document.pictureInPictureElement) {
+              await document.exitPictureInPicture();
+          } else {
+              await videoRef.current.requestPictureInPicture();
+          }
+      } catch (error) {
+          console.error("PiP failed", error);
+      }
+  };
+
+  const changePlaybackSpeed = (speed: number) => {
+      if(videoRef.current) {
+          videoRef.current.playbackRate = speed;
+          setPlaybackSpeed(speed);
+          setShowSettings(false);
+      }
   };
 
   if (isLocked) {
@@ -149,7 +223,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onBack
            )}
         </div>
         
-        {/* Fullscreen Trigger for Embeds (if needed externally) */}
         <div className="absolute bottom-4 right-4 z-20">
            <button onClick={toggleFullscreen} className="p-2 bg-black/50 backdrop-blur-md rounded-full text-white hover:bg-black/70 transition-colors opacity-0 group-hover:opacity-100">
               {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
@@ -167,11 +240,11 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onBack
     );
   }
 
-  // Native Custom Player
   return (
     <div 
       ref={containerRef}
-      className={`relative w-full bg-black rounded-xl overflow-hidden shadow-2xl group ${isFullscreen ? 'h-screen w-screen rounded-none flex items-center justify-center' : (className || 'aspect-video')}`}
+      tabIndex={0}
+      className={`relative w-full bg-black rounded-xl overflow-hidden shadow-2xl group outline-none ${isFullscreen ? 'h-screen w-screen rounded-none flex items-center justify-center' : (className || 'aspect-video')}`}
       onMouseMove={handleMouseMove}
       onMouseLeave={() => isPlaying && setShowControls(false)}
       onDoubleClick={toggleFullscreen}
@@ -193,35 +266,62 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onBack
         onClick={togglePlay}
       />
 
-      {/* Loading Spinner */}
+      {/* Double Tap Animation Zones */}
+      {doubleTapAnimation && (
+          <div className={`absolute inset-y-0 ${doubleTapAnimation === 'left' ? 'left-0' : 'right-0'} w-1/3 flex items-center justify-center bg-white/10 z-20 animate-pulse`}>
+              <div className="flex flex-col items-center text-white/80">
+                  {doubleTapAnimation === 'left' ? <SkipBack className="w-12 h-12" /> : <SkipForward className="w-12 h-12" />}
+                  <span className="text-sm font-bold">10s</span>
+              </div>
+          </div>
+      )}
+
+      {/* Double Tap Detectors */}
+      <div className="absolute inset-0 flex z-10">
+          <div className="w-1/4 h-full" onDoubleClick={(e) => { e.stopPropagation(); skip(-10); }}></div>
+          <div className="flex-1 h-full" onClick={togglePlay}></div>
+          <div className="w-1/4 h-full" onDoubleClick={(e) => { e.stopPropagation(); skip(10); }}></div>
+      </div>
+
       {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-10 pointer-events-none">
-          <Loader2 className="w-10 h-10 text-white animate-spin" />
+        <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-20 pointer-events-none">
+          <Loader2 className="w-12 h-12 text-brand animate-spin" />
         </div>
       )}
 
-      {/* Big Play Button Overlay */}
       {!isPlaying && !isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/20 z-10 cursor-pointer" onClick={togglePlay}>
-           <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center hover:scale-110 transition-transform">
+        <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+           <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center hover:scale-110 transition-transform shadow-lg">
               <Play className="w-8 h-8 text-white fill-current ml-1" />
            </div>
         </div>
       )}
 
       {/* Top Bar */}
-      <div className={`absolute top-0 left-0 right-0 p-4 flex justify-between items-start z-30 transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
+      <div className={`absolute top-0 left-0 right-0 p-4 flex justify-between items-start z-30 transition-opacity duration-300 bg-gradient-to-b from-black/60 to-transparent ${showControls ? 'opacity-100' : 'opacity-0'}`}>
          {onBack && !isFullscreen && (
             <button onClick={onBack} className="p-2 bg-black/40 backdrop-blur-md rounded-full text-white hover:bg-black/60">
                 <ArrowLeft className="w-6 h-6" />
             </button>
          )}
+         <div className="flex-1"></div>
+         <div className="relative">
+             <button onClick={() => setShowSettings(!showSettings)} className="p-2 text-white hover:rotate-45 transition-transform"><Settings className="w-6 h-6" /></button>
+             {showSettings && (
+                 <div className="absolute top-10 right-0 bg-black/90 backdrop-blur-xl rounded-xl p-2 min-w-[120px] shadow-xl border border-white/10 animate-fade-in flex flex-col gap-1">
+                     <div className="px-3 py-2 text-xs font-bold text-gray-400 uppercase tracking-widest border-b border-white/10 mb-1">Speed</div>
+                     {[0.5, 1.0, 1.25, 1.5, 2.0].map(s => (
+                         <button key={s} onClick={() => changePlaybackSpeed(s)} className={`px-3 py-2 text-left text-sm rounded-lg hover:bg-white/10 ${playbackSpeed === s ? 'text-brand font-bold' : 'text-white'}`}>{s}x</button>
+                     ))}
+                 </div>
+             )}
+         </div>
       </div>
 
       {/* Bottom Controls */}
-      <div className={`absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent z-30 transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
+      <div className={`absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 via-black/60 to-transparent z-30 transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
          {/* Progress Bar */}
-         <div className="flex items-center gap-3 mb-2">
+         <div className="flex items-center gap-3 mb-3 group/progress">
             <span className="text-white text-xs font-mono w-10 text-right">{formatTime(currentTime)}</span>
             <input 
               type="range" 
@@ -229,7 +329,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onBack
               max={duration || 100} 
               value={currentTime} 
               onChange={handleSeek}
-              className="flex-1 h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-brand [&::-webkit-slider-thumb]:rounded-full hover:[&::-webkit-slider-thumb]:scale-125 transition-all"
+              className="flex-1 h-1.5 bg-white/20 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-0 [&::-webkit-slider-thumb]:h-0 [&::-webkit-slider-thumb]:bg-brand [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:transition-all group-hover/progress:[&::-webkit-slider-thumb]:w-4 group-hover/progress:[&::-webkit-slider-thumb]:h-4 group-hover/progress:[&::-webkit-slider-thumb]:shadow-[0_0_10px_rgba(59,130,246,0.5)]"
+              style={{
+                  backgroundImage: `linear-gradient(to right, #0056d2 ${(currentTime / (duration || 1)) * 100}%, rgba(255,255,255,0.2) ${(currentTime / (duration || 1)) * 100}%)`
+              }}
             />
             <span className="text-white text-xs font-mono w-10">{formatTime(duration)}</span>
          </div>
@@ -237,17 +340,42 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onBack
          {/* Buttons */}
          <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-               <button onClick={togglePlay} className="text-white hover:text-brand transition-colors">
-                  {isPlaying ? <Pause className="w-6 h-6 fill-current" /> : <Play className="w-6 h-6 fill-current" />}
+               <button onClick={togglePlay} className="text-white hover:text-brand transition-colors hover:scale-110 active:scale-95">
+                  {isPlaying ? <Pause className="w-7 h-7 fill-current" /> : <Play className="w-7 h-7 fill-current" />}
                </button>
-               <button onClick={toggleMute} className="text-white hover:text-gray-300">
-                  {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+               
+               <button onClick={() => skip(-10)} className="text-white/80 hover:text-white hover:bg-white/10 p-1.5 rounded-full transition-all">
+                   <SkipBack className="w-5 h-5" />
                </button>
+               <button onClick={() => skip(10)} className="text-white/80 hover:text-white hover:bg-white/10 p-1.5 rounded-full transition-all">
+                   <SkipForward className="w-5 h-5" />
+               </button>
+
+               <div className="group/vol flex items-center gap-2">
+                   <button onClick={toggleMute} className="text-white hover:text-gray-300">
+                      {isMuted ? <VolumeX className="w-6 h-6" /> : <Volume2 className="w-6 h-6" />}
+                   </button>
+                   <input 
+                     type="range" min="0" max="1" step="0.1" value={isMuted ? 0 : volume}
+                     onChange={(e) => {
+                         const v = parseFloat(e.target.value);
+                         setVolume(v);
+                         if(videoRef.current) videoRef.current.volume = v;
+                         setIsMuted(v === 0);
+                     }}
+                     className="w-0 overflow-hidden group-hover/vol:w-20 transition-all h-1 bg-white/30 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full"
+                   />
+               </div>
             </div>
             
-            <button onClick={toggleFullscreen} className="text-white hover:text-brand transition-colors">
-               {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
-            </button>
+            <div className="flex items-center gap-3">
+                <button onClick={togglePiP} className="text-white/80 hover:text-white" title="Picture in Picture">
+                    <PictureInPicture className="w-5 h-5" />
+                </button>
+                <button onClick={toggleFullscreen} className="text-white hover:text-brand transition-colors transform hover:scale-110">
+                   {isFullscreen ? <Minimize className="w-6 h-6" /> : <Maximize className="w-6 h-6" />}
+                </button>
+            </div>
          </div>
       </div>
     </div>

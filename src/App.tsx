@@ -9,7 +9,7 @@ import {
   Video as VideoIcon, Sparkles, Send, Smartphone, List, Globe, Bell, 
   ChevronRight, MoreVertical, MessageCircle, FileText, Calendar, MessageSquare, Eye,
   RotateCcw, ImageIcon, Key, Clock, Shield, LogOut, Download, Save, Timer as TimerIcon, AlertCircle, Link as LinkIcon,
-  Upload
+  Upload, Folder
 } from './components/Icons';
 import VideoPlayer from './components/VideoPlayer';
 import ChatBot from './components/ChatBot';
@@ -169,15 +169,57 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
     const [subjects, setSubjects] = useState<Subject[]>(course.subjects || []);
     const [activeSubjectId, setActiveSubjectId] = useState<string | null>(null);
     const [activeChapterId, setActiveChapterId] = useState<string | null>(null);
+    
+    // Edit States
     const [editingVideo, setEditingVideo] = useState<{chapId: string, vid: Video} | null>(null);
+    const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
+    const [editingChapter, setEditingChapter] = useState<{sId: string, ch: Chapter} | null>(null);
 
     const handleSave = () => { updateCourse({ ...course, subjects }); onClose(); };
-    const addSubject = () => { const title = prompt('Subject Title:'); const iconText = prompt('Icon:') || 'Su'; if (title) setSubjects([...subjects, { id: Date.now().toString(), title, iconText, chapters: [] }]); };
-    const addChapter = (sId: string) => { const title = prompt('Chapter Title:'); if (title) setSubjects(subjects.map(s => s.id === sId ? { ...s, chapters: [...s.chapters, { id: Date.now().toString(), title, videos: [] }] } : s)); };
-    const addVideo = (sId: string, cId: string) => { const title = prompt('Content Title:'); const url = prompt('Stream Link:'); const dur = prompt('Duration:') || '10:00'; const typeInput = prompt('Type (lecture/note/dpp):') || 'lecture'; const type = (['lecture', 'note', 'dpp'].includes(typeInput) ? typeInput : 'lecture') as any; if (title && url) setSubjects(subjects.map(s => s.id === sId ? { ...s, chapters: s.chapters.map(c => c.id === cId ? { ...c, videos: [...c.videos, { id: Date.now().toString(), title, filename: url, duration: dur, type, date: 'TODAY' }] } : c) } : s)); };
-    const updateVideoData = () => { if (!editingVideo || !activeSubjectId) return; const { chapId, vid } = editingVideo; setSubjects(subjects.map(s => s.id === activeSubjectId ? { ...s, chapters: s.chapters.map(c => c.id === chapId ? { ...c, videos: c.videos.map(v => v.id === vid.id ? vid : v) } : c) } : s)); setEditingVideo(null); };
     
-    // Content Node Thumbnail Upload (Classic Style)
+    // Adders
+    const addSubject = () => { 
+        const title = prompt('Subject Title:'); 
+        const iconText = prompt('Icon (2 chars):') || 'Su'; 
+        if (title) setSubjects([...subjects, { id: Date.now().toString(), title, iconText, chapters: [] }]); 
+    };
+    const addChapter = (sId: string) => { 
+        const title = prompt('Chapter Title:'); 
+        if (title) setSubjects(subjects.map(s => s.id === sId ? { ...s, chapters: [...s.chapters, { id: Date.now().toString(), title, videos: [] }] } : s)); 
+    };
+    const addVideo = (sId: string, cId: string) => { 
+        const title = prompt('Content Title:'); 
+        const url = prompt('Stream Link:'); 
+        const dur = prompt('Duration:') || '10:00'; 
+        const typeInput = prompt('Type (lecture/note/dpp):') || 'lecture'; 
+        const type = (['lecture', 'note', 'dpp'].includes(typeInput) ? typeInput : 'lecture') as any; 
+        if (title && url) setSubjects(subjects.map(s => s.id === sId ? { ...s, chapters: s.chapters.map(c => c.id === cId ? { ...c, videos: [...c.videos, { id: Date.now().toString(), title, filename: url, duration: dur, type, date: 'TODAY' }] } : c) } : s)); 
+    };
+
+    // Updaters
+    const updateVideoData = () => { 
+        if (!editingVideo || !activeSubjectId) return; 
+        const { chapId, vid } = editingVideo; 
+        setSubjects(subjects.map(s => s.id === activeSubjectId ? { ...s, chapters: s.chapters.map(c => c.id === chapId ? { ...c, videos: c.videos.map(v => v.id === vid.id ? vid : v) } : c) } : s)); 
+        setEditingVideo(null); 
+    };
+
+    const updateSubjectData = () => {
+        if (!editingSubject) return;
+        setSubjects(subjects.map(s => s.id === editingSubject.id ? editingSubject : s));
+        setEditingSubject(null);
+    };
+
+    const updateChapterData = () => {
+        if (!editingChapter) return;
+        setSubjects(subjects.map(s => s.id === editingChapter.sId ? {
+            ...s,
+            chapters: s.chapters.map(c => c.id === editingChapter.ch.id ? editingChapter.ch : c)
+        } : s));
+        setEditingChapter(null);
+    };
+    
+    // Thumbnail Uploads
     const handleNodeThumbnailUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file && editingVideo) {
@@ -187,8 +229,109 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
         }
     };
 
+    const handleChapterImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file && editingChapter) {
+            const reader = new FileReader();
+            reader.onloadend = () => setEditingChapter({ ...editingChapter, ch: { ...editingChapter.ch, image: reader.result as string } });
+            reader.readAsDataURL(file);
+        }
+    };
+
     const activeSubject = subjects.find(s => s.id === activeSubjectId);
     const activeChapter = activeSubject?.chapters.find(c => c.id === activeChapterId);
+
+    // Render Edit Forms or Lists
+    if (editingVideo) {
+        return (
+            <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+                <div className="bg-white w-full max-w-lg rounded-lg shadow-xl p-6 animate-slide-up border border-gray-200">
+                    <h3 className="font-bold text-gray-800 text-lg mb-4">Edit Content Node</h3>
+                    <div className="space-y-4">
+                        <div className="flex gap-4">
+                            <div className="w-24 h-24 bg-gray-100 rounded-md border border-gray-200 flex items-center justify-center overflow-hidden relative group shrink-0">
+                                {editingVideo.vid.thumbnail ? <img src={editingVideo.vid.thumbnail} className="w-full h-full object-cover" /> : <ImageIcon className="text-gray-300" />}
+                                <label className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white text-xs font-bold">
+                                    Upload
+                                    <input type="file" className="hidden" accept="image/*" onChange={handleNodeThumbnailUpload} />
+                                </label>
+                            </div>
+                            <div className="flex-1 space-y-2">
+                                <input value={editingVideo.vid.title} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, title: e.target.value}})} className="w-full p-2 border rounded-md text-sm" placeholder="Title" />
+                                <input value={editingVideo.vid.filename} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, filename: e.target.value}})} className="w-full p-2 border rounded-md text-sm font-mono" placeholder="URL" />
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <input value={editingVideo.vid.duration} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, duration: e.target.value}})} className="w-full p-2 border rounded-md text-sm" placeholder="Duration" />
+                            <select value={editingVideo.vid.type} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, type: e.target.value as any}})} className="w-full p-2 border rounded-md text-sm bg-white">
+                                <option value="lecture">Lecture</option>
+                                <option value="note">Notes</option>
+                                <option value="dpp">DPP</option>
+                            </select>
+                        </div>
+                        <div className="flex gap-2 pt-2">
+                            <button onClick={() => setEditingVideo(null)} className="flex-1 py-2 text-gray-500 border rounded-md font-bold text-sm">Cancel</button>
+                            <button onClick={updateVideoData} className="flex-1 py-2 bg-blue-600 text-white rounded-md font-bold text-sm">Save</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    if (editingSubject) {
+        return (
+            <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+                <div className="bg-white w-full max-w-sm rounded-lg shadow-xl p-6 animate-slide-up border border-gray-200">
+                    <h3 className="font-bold text-gray-800 text-lg mb-4">Edit Subject</h3>
+                    <div className="space-y-4">
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold text-gray-500 uppercase">Title</label>
+                            <input value={editingSubject.title} onChange={e => setEditingSubject({...editingSubject, title: e.target.value})} className="w-full p-2 border rounded-md text-sm" />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold text-gray-500 uppercase">Icon Text (2 Chars)</label>
+                            <input value={editingSubject.iconText} onChange={e => setEditingSubject({...editingSubject, iconText: e.target.value})} className="w-full p-2 border rounded-md text-sm" maxLength={2} />
+                        </div>
+                        <div className="flex gap-2 pt-2">
+                            <button onClick={() => setEditingSubject(null)} className="flex-1 py-2 text-gray-500 border rounded-md font-bold text-sm">Cancel</button>
+                            <button onClick={updateSubjectData} className="flex-1 py-2 bg-blue-600 text-white rounded-md font-bold text-sm">Save</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    if (editingChapter) {
+        return (
+            <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+                <div className="bg-white w-full max-w-md rounded-lg shadow-xl p-6 animate-slide-up border border-gray-200">
+                    <h3 className="font-bold text-gray-800 text-lg mb-4">Edit Chapter</h3>
+                    <div className="space-y-4">
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold text-gray-500 uppercase">Title</label>
+                            <input value={editingChapter.ch.title} onChange={e => setEditingChapter({...editingChapter, ch: {...editingChapter.ch, title: e.target.value}})} className="w-full p-2 border rounded-md text-sm" />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold text-gray-500 uppercase">Chapter Thumbnail</label>
+                            <div className="relative h-32 bg-gray-50 rounded-md border border-gray-200 flex items-center justify-center overflow-hidden group">
+                                {editingChapter.ch.image ? <img src={editingChapter.ch.image} className="w-full h-full object-cover" /> : <Folder className="text-gray-300 w-10 h-10" />}
+                                <label className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white text-xs font-bold gap-2">
+                                    <Upload className="w-4 h-4" /> Upload Image
+                                    <input type="file" className="hidden" accept="image/*" onChange={handleChapterImageUpload} />
+                                </label>
+                            </div>
+                        </div>
+                        <div className="flex gap-2 pt-2">
+                            <button onClick={() => setEditingChapter(null)} className="flex-1 py-2 text-gray-500 border rounded-md font-bold text-sm">Cancel</button>
+                            <button onClick={updateChapterData} className="flex-1 py-2 bg-blue-600 text-white rounded-md font-bold text-sm">Save</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
@@ -221,70 +364,7 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
 
                 {/* Body */}
                 <div className="flex-1 overflow-y-auto p-6 bg-gray-50/50">
-                    {editingVideo ? (
-                        <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm space-y-4">
-                            <h3 className="font-bold text-gray-800 text-sm uppercase tracking-wide border-b pb-2">Edit Node Details</h3>
-                            
-                            <div className="flex flex-col md:flex-row gap-6">
-                                {/* Thumbnail Section */}
-                                <div className="w-full md:w-1/3 space-y-2">
-                                    <label className="text-xs font-bold text-gray-500 uppercase">Thumbnail</label>
-                                    <div className="relative aspect-video bg-gray-100 rounded-md border border-gray-300 overflow-hidden flex items-center justify-center group">
-                                        {editingVideo.vid.thumbnail ? (
-                                            <>
-                                                <img src={editingVideo.vid.thumbnail} className="w-full h-full object-cover" alt="Thumb" />
-                                                <button 
-                                                    onClick={() => setEditingVideo({ ...editingVideo, vid: { ...editingVideo.vid, thumbnail: '' } })} 
-                                                    className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-md shadow-sm hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
-                                            </>
-                                        ) : (
-                                            <div className="text-center p-4">
-                                                <ImageIcon className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                                                <label className="cursor-pointer px-3 py-1.5 bg-white border border-gray-300 rounded-md text-xs font-bold text-gray-600 hover:bg-gray-50 inline-flex items-center gap-1">
-                                                    <Upload className="w-3 h-3" /> Upload
-                                                    <input type="file" className="hidden" accept="image/*" onChange={handleNodeThumbnailUpload} />
-                                                </label>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Form Fields */}
-                                <div className="flex-1 space-y-4">
-                                    <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Title</label>
-                                        <input value={editingVideo.vid.title} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, title: e.target.value}})} className="w-full p-2.5 border border-gray-300 rounded-md text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none" />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Resource URL</label>
-                                        <input value={editingVideo.vid.filename} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, filename: e.target.value}})} className="w-full p-2.5 border border-gray-300 rounded-md text-sm font-mono focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none" />
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Duration</label>
-                                            <input value={editingVideo.vid.duration} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, duration: e.target.value}})} className="w-full p-2.5 border border-gray-300 rounded-md text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none" />
-                                        </div>
-                                        <div>
-                                            <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Type</label>
-                                            <select value={editingVideo.vid.type} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, type: e.target.value as any}})} className="w-full p-2.5 border border-gray-300 rounded-md text-sm bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none">
-                                                <option value="lecture">Lecture</option>
-                                                <option value="note">Notes</option>
-                                                <option value="dpp">DPP</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
-                                <button onClick={() => setEditingVideo(null)} className="px-4 py-2 text-gray-600 font-bold hover:bg-gray-100 rounded-md text-sm transition-colors">Cancel</button>
-                                <button onClick={updateVideoData} className="px-6 py-2 bg-blue-600 text-white font-bold rounded-md hover:bg-blue-700 shadow-sm text-sm transition-colors">Save Changes</button>
-                            </div>
-                        </div>
-                    ) : activeChapterId && activeSubjectId ? (
+                    {activeChapterId && activeSubjectId ? (
                         <div className="space-y-3">
                             <button onClick={() => addVideo(activeSubjectId, activeChapterId)} className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 font-bold hover:border-blue-500 hover:text-blue-600 transition-all flex items-center justify-center gap-2 bg-white">
                                 <Plus className="w-5 h-5" /> Add Content Node
@@ -318,11 +398,14 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
                             </button>
                             {activeSubject?.chapters.map(chap => (
                                 <div key={chap.id} className="p-4 bg-white border border-gray-200 rounded-lg flex justify-between items-center shadow-sm hover:shadow-md transition-shadow">
-                                    <button onClick={() => setActiveChapterId(chap.id)} className="flex-1 text-left font-bold text-gray-800 hover:text-blue-600 transition-colors flex items-center gap-2">
-                                        <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                                    <div onClick={() => setActiveChapterId(chap.id)} className="flex-1 text-left font-bold text-gray-800 hover:text-blue-600 transition-colors flex items-center gap-3 cursor-pointer">
+                                        {chap.image ? <img src={chap.image} className="w-8 h-8 rounded object-cover" /> : <div className="w-2 h-2 rounded-full bg-blue-500"></div>}
                                         {chap.title}
-                                    </button>
-                                    <button onClick={() => setSubjects(subjects.map(s => s.id === activeSubjectId ? {...s, chapters: s.chapters.filter(c => c.id !== chap.id)} : s))} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"><Trash2 className="w-4 h-4" /></button>
+                                    </div>
+                                    <div className="flex gap-1">
+                                        <button onClick={() => setEditingChapter({sId: activeSubjectId, ch: chap})} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"><Edit className="w-4 h-4" /></button>
+                                        <button onClick={() => setSubjects(subjects.map(s => s.id === activeSubjectId ? {...s, chapters: s.chapters.filter(c => c.id !== chap.id)} : s))} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"><Trash2 className="w-4 h-4" /></button>
+                                    </div>
                                 </div>
                             ))}
                         </div>
@@ -333,11 +416,14 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
                             </button>
                             {subjects.map(sub => (
                                 <div key={sub.id} className="p-4 bg-white border border-gray-200 rounded-lg flex justify-between items-center shadow-sm hover:shadow-md transition-shadow">
-                                    <button onClick={() => setActiveSubjectId(sub.id)} className="flex items-center gap-3 flex-1 text-left">
+                                    <div onClick={() => setActiveSubjectId(sub.id)} className="flex items-center gap-3 flex-1 text-left cursor-pointer">
                                         <div className="w-8 h-8 bg-blue-50 rounded-md flex items-center justify-center text-blue-600 font-bold text-xs border border-blue-100">{sub.iconText}</div>
                                         <span className="font-bold text-gray-800">{sub.title}</span>
-                                    </button>
-                                    <button onClick={() => setSubjects(subjects.filter(s => s.id !== sub.id))} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"><Trash2 className="w-4 h-4" /></button>
+                                    </div>
+                                    <div className="flex gap-1">
+                                        <button onClick={() => setEditingSubject(sub)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"><Edit className="w-4 h-4" /></button>
+                                        <button onClick={() => setSubjects(subjects.filter(s => s.id !== sub.id))} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"><Trash2 className="w-4 h-4" /></button>
+                                    </div>
                                 </div>
                             ))}
                         </div>

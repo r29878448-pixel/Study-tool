@@ -1,8 +1,7 @@
 
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { 
-  Play, Pause, Volume2, VolumeX, Maximize, Minimize, Settings, Download, Lock, Loader2, ArrowLeft, Bookmark,
-  SkipBack, SkipForward
+  Play, Pause, Volume2, VolumeX, Maximize, Minimize, Settings, Download, Lock, Loader2, ArrowLeft, Bookmark
 } from './Icons';
 
 interface VideoPlayerProps {
@@ -33,7 +32,12 @@ const getEmbedUrl = (input: string) => {
   const ytMatch = input.match(/^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/);
   if (ytMatch && ytMatch[7]?.length === 11) {
     const videoId = ytMatch[7];
-    return `https://www.youtube.com/embed/${videoId}?autoplay=0&controls=1&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&enablejsapi=1&fs=1`;
+    // Parameters:
+    // fs=0 : Hide full screen button
+    // modestbranding=1 : Minimize logo
+    // rel=0 : Related videos from same channel
+    // iv_load_policy=3 : Hide annotations
+    return `https://www.youtube.com/embed/${videoId}?autoplay=0&controls=1&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&enablejsapi=1&fs=0`;
   }
 
   // 3. Vimeo
@@ -52,7 +56,7 @@ const getEmbedUrl = (input: string) => {
       return input.replace('/share/', '/embed/');
   }
 
-  // 6. Generic fallback
+  // 6. Generic fallback (return as is if it looks like a URL)
   return input;
 };
 
@@ -70,10 +74,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
   const [showControls, setShowControls] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  
-  // Double tap state
-  const lastTapRef = useRef<number>(0);
-  const [skipFeedback, setSkipFeedback] = useState<'forward' | 'backward' | null>(null);
 
   const isDirectFile = /\.(mp4|webm|ogg|mov|m4v)($|\?)/i.test(src);
   const isEmbed = !isDirectFile;
@@ -98,11 +98,15 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
           break;
         case 'ArrowRight':
           e.preventDefault();
-          skip(10);
+          if (videoRef.current) {
+            videoRef.current.currentTime += 5;
+          }
           break;
         case 'ArrowLeft':
           e.preventDefault();
-          skip(-10);
+          if (videoRef.current) {
+            videoRef.current.currentTime -= 5;
+          }
           break;
         case 'f':
           e.preventDefault();
@@ -115,40 +119,18 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isPlaying, isFullscreen]); 
 
-  const skip = useCallback((seconds: number) => {
-    if (videoRef.current) {
-        const newTime = videoRef.current.currentTime + seconds;
-        videoRef.current.currentTime = newTime;
-        setCurrentTime(newTime);
-        setSkipFeedback(seconds > 0 ? 'forward' : 'backward');
-        setTimeout(() => setSkipFeedback(null), 600);
+  useEffect(() => {
+    const handleContextMenu = (e: MouseEvent) => e.preventDefault();
+    const videoElement = videoRef.current;
+    if (videoElement && isDirectFile) {
+      videoElement.addEventListener('contextmenu', handleContextMenu);
     }
-  }, []);
-
-  const handleTap = (e: React.MouseEvent | React.TouchEvent, zone: 'left' | 'center' | 'right') => {
-    e.stopPropagation();
-    const now = Date.now();
-    const DOUBLE_TAP_DELAY = 300;
-    
-    if (now - lastTapRef.current < DOUBLE_TAP_DELAY) {
-        // Double tap
-        if (zone === 'left') skip(-10);
-        if (zone === 'right') skip(10);
-        if (zone === 'center') toggleFullscreen();
-        lastTapRef.current = 0;
-    } else {
-        // Single tap
-        lastTapRef.current = now;
-        if (zone === 'center') {
-            // Wait briefly to see if it becomes a double tap, if not toggle controls/play
-            setTimeout(() => {
-                if (Date.now() - lastTapRef.current >= DOUBLE_TAP_DELAY && lastTapRef.current !== 0) {
-                   setShowControls(prev => !prev);
-                }
-            }, DOUBLE_TAP_DELAY);
-        }
-    }
-  };
+    return () => {
+      if (videoElement && isDirectFile) {
+        videoElement.removeEventListener('contextmenu', handleContextMenu);
+      }
+    };
+  }, [isDirectFile]);
 
   const formatTime = (time: number) => {
     const minutes = Math.floor(time / 60);
@@ -199,29 +181,23 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
     }
   };
 
-  const toggleFullscreen = async () => {
+  const toggleFullscreen = () => {
     if (!containerRef.current) return;
 
-    try {
-      if (!document.fullscreenElement) {
-        await containerRef.current.requestFullscreen();
-        // Attempt to lock to landscape
-        if (screen.orientation && 'lock' in screen.orientation) {
-            try {
-                // @ts-ignore
-                await screen.orientation.lock('landscape');
-            } catch (e) {
-                // Lock not supported or allowed
-            }
-        }
-      } else {
-        await document.exitFullscreen();
-        if (screen.orientation && 'unlock' in screen.orientation) {
-            screen.orientation.unlock();
-        }
+    if (!document.fullscreenElement) {
+      containerRef.current.requestFullscreen().catch(err => {
+        console.error(`Error attempting to enable fullscreen: ${err.message}`);
+      });
+      // Attempt to lock landscape on mobile
+      if (screen.orientation && 'lock' in screen.orientation) {
+        // @ts-ignore
+        screen.orientation.lock('landscape').catch(() => {});
       }
-    } catch (err) {
-      console.error(err);
+    } else {
+      document.exitFullscreen();
+      if (screen.orientation && 'unlock' in screen.orientation) {
+        screen.orientation.unlock();
+      }
     }
   };
 
@@ -269,6 +245,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
         onMouseMove={handleMouseMove}
         onMouseLeave={() => setShowControls(false)}
       >
+        {/* Transparent Overlay to block Top-Right YouTube buttons (Share, Watch Later) */}
+        <div className="absolute top-0 right-0 w-40 h-24 z-30 pointer-events-auto" />
+
         {/* Header Overlay for Embeds */}
         <div className={`absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/80 to-transparent z-40 flex justify-between items-start transition-opacity duration-300 pointer-events-none ${showControls ? 'opacity-100' : 'opacity-0'}`}>
             <div className="pointer-events-auto">
@@ -292,6 +271,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
                         <Bookmark className="w-5 h-5" />
                     </button>
                 )}
+            </div>
+        </div>
+
+        {/* Bottom Overlay for Embeds (Custom Fullscreen) */}
+        <div className={`absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent z-40 flex justify-end items-end transition-opacity duration-300 pointer-events-none ${showControls ? 'opacity-100' : 'opacity-0'}`}>
+            <div className="pointer-events-auto">
                 <button 
                     onClick={toggleFullscreen}
                     className="p-2 bg-white/10 backdrop-blur-md rounded-full text-white hover:bg-white/20 transition-colors"
@@ -320,13 +305,13 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
       className={`relative group w-full bg-black rounded-xl overflow-hidden shadow-2xl ${isFullscreen ? 'h-screen w-screen rounded-none fixed inset-0 z-[9999]' : (className || 'aspect-video')} select-none outline-none`}
       onMouseMove={handleMouseMove}
       onMouseLeave={() => isPlaying && setShowControls(false)}
-      // Removed onDoubleClick here, handled via Tap zones
+      onDoubleClick={toggleFullscreen}
     >
       <video
         ref={videoRef}
         src={src}
         poster={poster}
-        className="w-full h-full object-contain pointer-events-none"
+        className="w-full h-full object-contain"
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
         onPlay={() => setIsPlaying(true)}
@@ -334,30 +319,13 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
         onWaiting={() => setIsLoading(true)}
         onCanPlay={() => setIsLoading(false)}
         onEnded={() => { setIsPlaying(false); if (onEnded) onEnded(); }}
+        onClick={togglePlay}
         controlsList="nodownload"
         playsInline
       />
       
-      {/* Tap Gestures Overlay */}
-      <div className="absolute inset-0 z-10 flex">
-          <div className="w-[30%] h-full" onClick={(e) => handleTap(e, 'left')}></div>
-          <div className="flex-1 h-full" onClick={(e) => handleTap(e, 'center')}></div>
-          <div className="w-[30%] h-full" onClick={(e) => handleTap(e, 'right')}></div>
-      </div>
-
-      {/* Skip Feedback Animation */}
-      {skipFeedback && (
-          <div className={`absolute top-1/2 -translate-y-1/2 z-20 pointer-events-none transition-all duration-300 ${skipFeedback === 'backward' ? 'left-1/4' : 'right-1/4'}`}>
-              <div className="bg-black/60 backdrop-blur-md p-4 rounded-full flex flex-col items-center justify-center animate-ping text-white">
-                 {skipFeedback === 'backward' ? <SkipBack className="w-8 h-8" /> : <SkipForward className="w-8 h-8" />}
-                 <span className="text-xs font-bold mt-1">10s</span>
-              </div>
-          </div>
-      )}
-
       {/* Top Controls Overlay */}
-      <div className={`absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/80 to-transparent z-30 flex justify-between items-start transition-opacity duration-300 pointer-events-none ${showControls || !isPlaying ? 'opacity-100' : 'opacity-0'}`}>
-         <div className="pointer-events-auto">
+      <div className={`absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/80 to-transparent z-30 flex justify-between items-start transition-opacity duration-300 ${showControls || !isPlaying ? 'opacity-100' : 'opacity-0'}`}>
          {onBack && !isFullscreen && (
             <button 
                 onClick={onBack}
@@ -366,8 +334,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
                 <ArrowLeft className="w-6 h-6" />
             </button>
          )}
-         </div>
-         <div className="flex gap-2 pointer-events-auto">
+         <div className="flex-1"></div>
+         <div className="flex gap-2">
             <button 
                 onClick={toggleFullscreen}
                 className="p-2 bg-white/10 backdrop-blur-md rounded-full text-white hover:bg-white/20 transition-colors"
@@ -385,17 +353,18 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
 
       {!isPlaying && !isLoading && (
         <div 
-          className="absolute inset-0 flex items-center justify-center bg-black/30 cursor-pointer z-10 pointer-events-none"
+          className="absolute inset-0 flex items-center justify-center bg-black/30 cursor-pointer z-10"
+          onClick={togglePlay}
         >
-          <div className="w-16 h-16 rounded-full bg-brand/90 flex items-center justify-center shadow-xl backdrop-blur-sm transition-transform">
+          <div className="w-16 h-16 rounded-full bg-brand/90 flex items-center justify-center shadow-xl backdrop-blur-sm hover:scale-110 transition-transform">
             <Play className="w-8 h-8 text-white ml-1" fill="currentColor" />
           </div>
         </div>
       )}
 
       {/* Bottom Controls */}
-      <div className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-4 transition-opacity duration-300 z-30 pointer-events-none ${showControls ? 'opacity-100' : 'opacity-0'}`}>
-        <div className="flex items-center gap-3 mb-2 pointer-events-auto">
+      <div className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-4 transition-opacity duration-300 z-20 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
+        <div className="flex items-center gap-3 mb-2">
            <span className="text-white text-xs font-mono">{formatTime(currentTime)}</span>
            <input 
               type="range" 
@@ -408,23 +377,13 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
            <span className="text-white text-xs font-mono">{formatTime(duration)}</span>
         </div>
 
-        <div className="flex items-center justify-between pointer-events-auto">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
              <button onClick={togglePlay} className="text-white hover:text-brand transition-colors">
                {isPlaying ? <Pause className="w-6 h-6" fill="currentColor" /> : <Play className="w-6 h-6" fill="currentColor" />}
              </button>
-
-             {/* Skip Buttons */}
-             <div className="flex items-center gap-2">
-                 <button onClick={() => skip(-10)} className="text-white hover:text-brand transition-colors p-1 hover:bg-white/10 rounded-full" title="-10s">
-                    <SkipBack className="w-5 h-5" />
-                 </button>
-                 <button onClick={() => skip(10)} className="text-white hover:text-brand transition-colors p-1 hover:bg-white/10 rounded-full" title="+10s">
-                    <SkipForward className="w-5 h-5" />
-                 </button>
-             </div>
              
-             <div className="flex items-center gap-2 group/volume hidden sm:flex">
+             <div className="flex items-center gap-2 group/volume">
                <button onClick={toggleMute} className="text-white hover:text-gray-300">
                  {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
                </button>
@@ -495,4 +454,3 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
 };
 
 export default VideoPlayer;
-    

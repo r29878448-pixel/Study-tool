@@ -312,6 +312,7 @@ const AdminPanel = () => {
     const [contentTarget, setContentTarget] = useState<Course | null>(null);
     const [showUserModal, setShowUserModal] = useState(false);
     const [userForm, setUserForm] = useState({ name: '', email: '', password: '', role: UserRole.USER });
+    const [selectedUser, setSelectedUser] = useState<any | null>(null); // For analytics
     
     const [form, setForm] = useState({ 
       title: '', description: '', image: '', category: '', 
@@ -404,11 +405,33 @@ const AdminPanel = () => {
         }
     };
 
+    // Determine available tabs based on role
+    const availableTabs = currentUser.role === UserRole.ADMIN 
+        ? ['batches', 'users', 'settings'] as const
+        : ['batches'] as const;
+
+    // Helper for selected user analysis
+    const getUserCourses = (u: any) => {
+        const permanent = u.purchasedCourseIds || [];
+        const temporary = u.tempAccess ? Object.keys(u.tempAccess) : [];
+        const allIds = [...new Set([...permanent, ...temporary])];
+        return courses.filter(c => allIds.includes(c.id));
+    };
+
+    const getExamStats = (u: any) => {
+        const results = u.examResults || [];
+        const totalExams = results.length;
+        const avgScore = totalExams > 0 
+            ? Math.round(results.reduce((acc: number, curr: any) => acc + (curr.score / curr.totalQuestions * 100), 0) / totalExams) 
+            : 0;
+        return { totalExams, avgScore, results };
+    };
+
     return (
         <div className="pb-24 pt-20 px-4 min-h-screen bg-[#f8fafc]">
              <div className="max-w-4xl mx-auto">
                  <div className="flex bg-white p-1.5 rounded-[24px] shadow-sm border border-gray-100 mb-8 overflow-hidden">
-                    {(['batches', 'users', 'settings'] as const).map(t => (
+                    {availableTabs.map(t => (
                         <button key={t} onClick={() => setTab(t)} className={`flex-1 py-3 font-bold capitalize transition-all rounded-[18px] text-sm ${tab === t ? 'bg-[#0056d2] text-white shadow-md' : 'text-gray-400 hover:bg-gray-50'}`}>
                             {t}
                         </button>
@@ -440,7 +463,7 @@ const AdminPanel = () => {
                      </div>
                  )}
 
-                {tab === 'users' && (
+                {tab === 'users' && currentUser.role === UserRole.ADMIN && (
                     <div className="space-y-4">
                         <button onClick={() => setShowUserModal(true)} className="w-full py-4 bg-white border-2 border-dashed border-gray-300 rounded-xl text-gray-500 font-bold hover:border-brand hover:text-brand flex items-center justify-center gap-2">
                             <Plus className="w-5 h-5" /> Create New User
@@ -448,25 +471,120 @@ const AdminPanel = () => {
                         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                             {users.map(u => (
                                 <div key={u.id} className="p-4 border-b last:border-0 flex justify-between items-center hover:bg-gray-50">
-                                    <div>
+                                    <div className="flex-1 min-w-0 pr-4">
                                         <div className="flex items-center gap-2">
-                                            <p className="font-bold text-gray-800">{u.name}</p>
+                                            <p className="font-bold text-gray-800 truncate">{u.name}</p>
                                             {u.role === UserRole.ADMIN && <span className="text-[10px] font-bold px-2 py-0.5 bg-red-100 text-red-600 rounded">ADMIN</span>}
                                             {u.role === UserRole.EDITOR && <span className="text-[10px] font-bold px-2 py-0.5 bg-blue-100 text-blue-600 rounded">MANAGER</span>}
                                         </div>
-                                        <p className="text-xs text-gray-500">{u.email}</p>
+                                        <p className="text-xs text-gray-500 truncate">{u.email}</p>
                                     </div>
-                                    <select value={u.role} onChange={(e) => manageUserRole(u.id, e.target.value as UserRole)} disabled={u.id === currentUser.id} className="text-xs font-bold px-3 py-1 bg-gray-100 rounded-lg border-none outline-none">
-                                        <option value={UserRole.USER}>User</option>
-                                        <option value={UserRole.EDITOR}>Manager</option>
-                                        <option value={UserRole.ADMIN}>Admin</option>
-                                    </select>
+                                    <div className="flex items-center gap-2">
+                                        <button onClick={() => setSelectedUser(u)} className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors" title="View Progress">
+                                            <Eye className="w-4 h-4" />
+                                        </button>
+                                        <select value={u.role} onChange={(e) => manageUserRole(u.id, e.target.value as UserRole)} disabled={u.id === currentUser.id} className="text-xs font-bold px-3 py-2 bg-gray-100 rounded-lg border-none outline-none cursor-pointer hover:bg-gray-200">
+                                            <option value={UserRole.USER}>User</option>
+                                            <option value={UserRole.EDITOR}>Manager</option>
+                                            <option value={UserRole.ADMIN}>Admin</option>
+                                        </select>
+                                    </div>
                                 </div>
                             ))}
                         </div>
                     </div>
                 )}
              </div>
+
+             {/* User Details Modal */}
+             {selectedUser && (
+                <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="bg-white w-full max-w-2xl rounded-[40px] p-8 shadow-2xl max-h-[90vh] overflow-y-auto no-scrollbar animate-slide-up">
+                        <div className="flex justify-between items-start mb-8">
+                            <div className="flex items-center gap-4">
+                                <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center text-white text-3xl font-black shadow-lg shadow-blue-200">
+                                    {selectedUser.name.charAt(0)}
+                                </div>
+                                <div>
+                                    <h2 className="text-2xl font-bold text-gray-800">{selectedUser.name}</h2>
+                                    <p className="text-gray-500 text-sm font-medium">{selectedUser.email}</p>
+                                    <div className="flex gap-2 mt-2">
+                                        <span className="px-3 py-1 bg-gray-100 rounded-full text-[10px] font-bold text-gray-600 uppercase tracking-wider">{selectedUser.role}</span>
+                                        {selectedUser.lastLogin && <span className="px-3 py-1 bg-green-50 rounded-full text-[10px] font-bold text-green-600 uppercase tracking-wider">Active: {new Date(selectedUser.lastLogin).toLocaleDateString()}</span>}
+                                    </div>
+                                </div>
+                            </div>
+                            <button onClick={() => setSelectedUser(null)} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X className="w-6 h-6 text-gray-400" /></button>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-4 mb-8">
+                            <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 text-center">
+                                <div className="text-3xl font-black text-gray-800">{getUserCourses(selectedUser).length}</div>
+                                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Enrolled Batches</div>
+                            </div>
+                            <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 text-center">
+                                <div className="text-3xl font-black text-gray-800">{getExamStats(selectedUser).totalExams}</div>
+                                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Exams Taken</div>
+                            </div>
+                            <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 text-center">
+                                <div className="text-3xl font-black text-blue-600">{getExamStats(selectedUser).avgScore}%</div>
+                                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Avg. Score</div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-6">
+                            <div>
+                                <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2"><BookOpen className="w-4 h-4 text-blue-500" /> Active Enrollments</h3>
+                                <div className="bg-gray-50 rounded-2xl border border-gray-100 overflow-hidden">
+                                    {getUserCourses(selectedUser).length > 0 ? (
+                                        getUserCourses(selectedUser).map(c => (
+                                            <div key={c.id} className="p-4 border-b last:border-0 border-gray-100 flex items-center gap-3">
+                                                <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                                                <span className="text-sm font-bold text-gray-700">{c.title}</span>
+                                                <span className="ml-auto text-[10px] font-bold text-gray-400 bg-white px-2 py-1 rounded border border-gray-200">{c.isPaid ? 'PAID' : 'FREE'}</span>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="p-6 text-center text-xs font-bold text-gray-400 uppercase tracking-widest">No Active Enrollments</div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div>
+                                <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2"><Bot className="w-4 h-4 text-blue-500" /> Recent Performance</h3>
+                                <div className="bg-gray-50 rounded-2xl border border-gray-100 overflow-hidden">
+                                    {getExamStats(selectedUser).results.length > 0 ? (
+                                        getExamStats(selectedUser).results.slice().reverse().map((res: any, idx: number) => {
+                                            const courseTitle = courses.find(c => c.id === res.courseId)?.title || 'Unknown Course';
+                                            const percentage = Math.round((res.score / res.totalQuestions) * 100);
+                                            return (
+                                                <div key={idx} className="p-4 border-b last:border-0 border-gray-100 flex items-center justify-between">
+                                                    <div>
+                                                        <div className="text-xs font-bold text-gray-800">{courseTitle}</div>
+                                                        <div className="text-[10px] text-gray-400 font-bold uppercase mt-0.5">{new Date(res.date).toLocaleDateString()}</div>
+                                                    </div>
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="text-right">
+                                                            <div className="text-sm font-black text-gray-800">{res.score}/{res.totalQuestions}</div>
+                                                            <div className={`text-[9px] font-bold ${percentage >= 70 ? 'text-green-500' : 'text-orange-500'}`}>{percentage}% Score</div>
+                                                        </div>
+                                                        <div className="w-10 h-10 rounded-full border-4 border-gray-200 flex items-center justify-center text-[10px] font-bold text-gray-400 relative">
+                                                            <div className="absolute inset-0 rounded-full border-4 border-blue-500" style={{ clipPath: `polygon(0 0, 100% 0, 100% ${percentage}%, 0 ${percentage}%)` }}></div>
+                                                            {percentage}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })
+                                    ) : (
+                                        <div className="p-6 text-center text-xs font-bold text-gray-400 uppercase tracking-widest">No Exam Data Available</div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+             )}
 
              {showModal && (
                  <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -567,6 +685,25 @@ const AdminPanel = () => {
                     </div>
                  </div>
              )}
+             
+             {showUserModal && (
+                 <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                    {/* ... (ShowUserModal logic same as before) ... */}
+                    <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl">
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-xl font-bold text-gray-800">Create New User</h2>
+                            <button onClick={() => setShowUserModal(false)} className="p-2 hover:bg-gray-100 rounded-full"><X /></button>
+                        </div>
+                        <form onSubmit={handleCreateUser} className="space-y-4">
+                            <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Full Name</label><input value={userForm.name} onChange={e => setUserForm({ ...userForm, name: e.target.value })} className="w-full p-3 border rounded-lg bg-gray-50" required /></div>
+                            <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Email</label><input type="email" value={userForm.email} onChange={e => setUserForm({ ...userForm, email: e.target.value })} className="w-full p-3 border rounded-lg bg-gray-50" required /></div>
+                            <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Password</label><input type="password" value={userForm.password} onChange={e => setUserForm({ ...userForm, password: e.target.value })} className="w-full p-3 border rounded-lg bg-gray-50" required /></div>
+                            <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Role</label><select value={userForm.role} onChange={e => setUserForm({ ...userForm, role: e.target.value as UserRole })} className="w-full p-3 border rounded-lg bg-gray-50"><option value={UserRole.USER}>User</option><option value={UserRole.EDITOR}>Manager</option><option value={UserRole.ADMIN}>Admin</option></select></div>
+                            <button type="submit" className="w-full py-3 bg-brand text-white font-bold rounded-lg hover:bg-brand-dark shadow-md mt-4">Create User</button>
+                        </form>
+                    </div>
+                 </div>
+             )}
 
              {contentTarget && <ContentManager course={contentTarget} onClose={() => setContentTarget(null)} />}
         </div>
@@ -633,6 +770,7 @@ const CourseDetail = () => {
     // Safe access to array using fallback
     const isOwner = currentUser && (
         currentUser.role === UserRole.ADMIN || 
+        currentUser.role === UserRole.EDITOR || // Allow Managers to view content
         (currentUser.purchasedCourseIds || []).includes(course.id)
     );
     
@@ -845,7 +983,8 @@ const SubjectDetail = () => {
     const hasAccess = !course?.isPaid || 
     (currentUser && (
       currentUser.role === UserRole.ADMIN || 
-      (currentUser.purchasedCourseIds || []).includes(courseId) || 
+      currentUser.role === UserRole.EDITOR || // Allow Managers to view content
+      currentUser.purchasedCourseIds.includes(courseId) || 
       hasTempAccess
     ));
 

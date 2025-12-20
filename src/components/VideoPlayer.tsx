@@ -235,8 +235,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onBack
       >
         <div className={`absolute top-0 left-0 right-0 p-4 z-20 flex justify-between items-start transition-opacity duration-300 pointer-events-none ${isFullscreen || showControls ? 'opacity-100' : 'opacity-0'}`}>
            <div className="pointer-events-auto">
-             {onBack && !isFullscreen && (
-               <button onClick={onBack} className="p-2 bg-black/50 backdrop-blur-md rounded-full text-white hover:bg-black/70 transition-colors">
+             {onBack && (
+               <button onClick={() => { if(document.fullscreenElement) document.exitFullscreen(); if(onBack) onBack(); }} className="p-2 bg-black/60 backdrop-blur-md rounded-full text-white hover:bg-black/80 transition-colors shadow-lg border border-white/10">
                  <ArrowLeft className="w-5 h-5" />
                </button>
              )}
@@ -320,8 +320,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onBack
 
       {/* Top Bar */}
       <div className={`absolute top-0 left-0 right-0 p-6 flex justify-between items-start z-30 transition-opacity duration-300 bg-gradient-to-b from-black/80 via-black/20 to-transparent ${showControls ? 'opacity-100' : 'opacity-0'}`}>
-         {onBack && !isFullscreen && (
-            <button onClick={onBack} className="p-2 bg-white/10 backdrop-blur-md rounded-full text-white hover:bg-white/20 transition-all">
+         {onBack && (
+            <button onClick={() => { if(document.fullscreenElement) document.exitFullscreen(); if(onBack) onBack(); }} className="p-2 bg-black/60 backdrop-blur-md rounded-full text-white hover:bg-black/80 transition-all shadow-lg border border-white/10 pointer-events-auto">
                 <ArrowLeft className="w-6 h-6" />
             </button>
          )}

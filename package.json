@@ -1,3 +1,4 @@
+
 {
   "name": "study-portal",
   "private": true,
@@ -14,7 +15,8 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.22.3",
-    "recharts": "^2.12.2"
+    "recharts": "^2.12.2",
+    "plyr": "^3.7.8"
   },
   "devDependencies": {
     "@types/react": "^18.2.64",

@@ -453,11 +453,33 @@ const AdminPanel = () => {
     const [selectedUser, setSelectedUser] = useState<any | null>(null);
     const [settingsForm, setSettingsForm] = useState<AppSettings>(settings);
     const [courseToAddId, setCourseToAddId] = useState('');
-    const [form, setForm] = useState({ title: '', description: '', image: '', category: '', price: 0, mrp: 0, isPaid: false, accessKey: '', shortenerLink: '', telegramLink: '', startDate: '', endDate: '', isNew: true });
+    const [form, setForm] = useState({ 
+        title: '', description: '', image: '', category: '', 
+        price: 0, mrp: 0, isPaid: false, 
+        shortenerLink: '', telegramLink: '', startDate: '', 
+        endDate: '', isNew: true 
+    });
     const [generatingLink, setGeneratingLink] = useState(false);
 
     useEffect(() => { setSettingsForm(settings); }, [settings]);
-    useEffect(() => { if (editing) { setForm({ title: editing.title, description: editing.description, image: editing.image, category: editing.category, price: editing.price, mrp: editing.mrp, isPaid: !!editing.isPaid, accessKey: editing.accessKey || '', shortenerLink: editing.shortenerLink || '', telegramLink: editing.telegramLink || '', startDate: editing.startDate || '', endDate: editing.endDate || '', isNew: editing.isNew ?? true }); } else setForm({ title: '', description: '', image: '', category: '', price: 0, mrp: 0, isPaid: false, accessKey: '', shortenerLink: '', telegramLink: '', startDate: '', endDate: '', isNew: true }); }, [editing, showModal]);
+    useEffect(() => { 
+        if (editing) { 
+            setForm({ 
+                title: editing.title, description: editing.description, image: editing.image, 
+                category: editing.category, price: editing.price, mrp: editing.mrp, 
+                isPaid: !!editing.isPaid, 
+                shortenerLink: editing.shortenerLink || '', telegramLink: editing.telegramLink || '', 
+                startDate: editing.startDate || '', endDate: editing.endDate || '', isNew: editing.isNew ?? true 
+            }); 
+        } else {
+            setForm({ 
+                title: '', description: '', image: '', category: '', 
+                price: 0, mrp: 0, isPaid: false, 
+                shortenerLink: '', telegramLink: '', startDate: '', 
+                endDate: '', isNew: true 
+            }); 
+        }
+    }, [editing, showModal]);
 
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -477,6 +499,7 @@ const AdminPanel = () => {
     const generateShortLink = async () => { 
         if(!editing) { alert("Save batch first."); return; } 
         setGeneratingLink(true); 
+        // Use window.location.origin to support various hosting environments automatically
         const longUrl = `${window.location.origin}/temp-access/${editing.id}`; 
         const apiBase = settings.linkShortenerApiUrl || 'https://vplink.in/api'; 
         const apiKey = settings.linkShortenerApiKey || '320f263d298979dc11826b8e2574610ba0cc5d6b'; 
@@ -625,8 +648,8 @@ const AdminPanel = () => {
                             </div>
 
                             <div className="space-y-1">
-                                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">Enrollment Key (Permanent Access)</label>
-                                <input value={form.accessKey} onChange={e => setForm({ ...form, accessKey: e.target.value })} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-md font-mono text-xs shadow-sm focus:border-blue-500 outline-none" placeholder="e.g. BATCH2025" />
+                                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">Telegram/Buy Link (Overrides Global)</label>
+                                <input value={form.telegramLink} onChange={e => setForm({ ...form, telegramLink: e.target.value })} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-md font-mono text-xs shadow-sm focus:border-blue-500 outline-none" placeholder="https://t.me/specific_batch_bot" />
                             </div>
 
                             <div className="space-y-1">
@@ -704,8 +727,6 @@ const CourseDetail = () => {
     const { courses, currentUser, enrollCourse, settings } = useStore();
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState<'Subjects' | 'Description'>('Subjects');
-    const [accessKeyInput, setAccessKeyInput] = useState('');
-    const [showKeyInput, setShowKeyInput] = useState(false);
     const [timeLeft, setTimeLeft] = useState('');
     const course = courses.find(c => c.id === id);
     if (!course) return <Navigate to="/" />;
@@ -731,12 +752,13 @@ const CourseDetail = () => {
         }, 1000);
         return () => clearInterval(interval);
     }, [hasTempAccess, tempExpiry, navigate]);
-    const handleKeySubmit = () => { if(course.accessKey && accessKeyInput === course.accessKey) { enrollCourse(course.id); alert("✅ Access Granted Successfully!"); } else alert("❌ Invalid Access Key"); };
+    
     const handleExternalLink = () => { if (course.shortenerLink) window.location.href = course.shortenerLink; else alert("Verification link not generated."); };
     
     const handleBuyOnTelegram = () => {
-        if (settings.botUrl) {
-            window.open(settings.botUrl, '_blank');
+        const targetUrl = course.telegramLink || settings.botUrl;
+        if (targetUrl) {
+            window.open(targetUrl, '_blank');
         } else {
             alert("Contact Admin: Telegram link not set.");
         }
@@ -769,7 +791,6 @@ const CourseDetail = () => {
                                 <Send className="w-5 h-5" /> Buy from Admin on Telegram
                              </button>
                              <button onClick={handleExternalLink} className="w-full py-4 bg-white border-2 border-blue-50 text-blue-600 font-bold rounded-2xl hover:bg-blue-50 active:scale-95 transition-all flex items-center justify-center gap-2 group"><Clock className="w-5 h-5 group-hover:animate-pulse" /> Initialize 24h Sync</button>
-                             {!showKeyInput ? (<button onClick={() => setShowKeyInput(true)} className="w-full py-4 bg-white border-2 border-gray-200 text-gray-700 font-bold rounded-2xl hover:bg-gray-50 active:scale-95 transition-all flex items-center justify-center gap-2"><Key className="w-5 h-5 text-gray-400" /> Use Enrollment Key</button>) : (<div className="bg-white p-2 rounded-2xl border-2 border-[#0056d2] shadow-sm animate-fade-in flex flex-col gap-2"><div className="flex gap-2"><input type="text" placeholder="Access Key..." className="flex-1 p-2 text-sm font-bold text-gray-700 outline-none bg-transparent" value={accessKeyInput} onChange={e => setAccessKeyInput(e.target.value)} autoFocus /><button onClick={handleKeySubmit} className="bg-[#0056d2] text-white px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-[#003ea1] shadow-md">Unlock</button></div><button onClick={() => setShowKeyInput(false)} className="text-[10px] text-gray-400 font-bold uppercase tracking-widest hover:text-red-500 self-center pb-1">Cancel</button></div>)}
                         </div>
                     </div>
                 )}

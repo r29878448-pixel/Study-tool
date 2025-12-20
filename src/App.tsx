@@ -4,13 +4,11 @@ import { HashRouter as Router, Routes, Route, Navigate, useLocation, Link, useNa
 import { StoreProvider, useStore } from './store';
 import { 
   Home, BookOpen, User, Search, PlayCircle, Lock, 
-  LayoutDashboard, Plus, Trash2, Edit, X, 
-  Bot, Loader2, ArrowLeft, 
-  Video as VideoIcon, Bell, 
-  ChevronRight, MoreVertical, Calendar,
-  ImageIcon, Upload, Settings, FileText, CheckCircle,
-  Folder, FileVideo, Sparkles, LogOut, Shield,
-  Download, Link as LinkIcon, Save, Key, Clock
+  LayoutDashboard, Settings, Plus, Trash2, Edit, X, 
+  CheckCircle, ExternalLink, Play, Bot, Brain, Loader2, ArrowLeft, 
+  Video as VideoIcon, Sparkles, Send, Smartphone, List, Globe, Bell, 
+  ChevronRight, MoreVertical, MessageCircle, FileText, Calendar, MessageSquare, Eye,
+  RotateCcw, ImageIcon, Key, Clock, Shield, LogOut, Download, Save
 } from './components/Icons';
 import VideoPlayer from './components/VideoPlayer';
 import ChatBot from './components/ChatBot';
@@ -23,9 +21,16 @@ declare var process: { env: { API_KEY: string } };
 // --- SHARED UI COMPONENTS ---
 
 const Banner = () => (
-  <div className="bg-blue-50 px-4 py-3 flex items-center justify-between text-xs font-medium text-blue-800 border-b border-blue-100">
-    <span>Welcome to your learning dashboard.</span>
-    <X className="w-4 h-4 text-blue-400 cursor-pointer" />
+  <div className="bg-[#fff9e6] px-5 py-3.5 flex items-center justify-between text-[11px] font-semibold text-gray-700 border-b border-yellow-100">
+    <span>Completion % depends on lecture and DPP progress!</span>
+    <X className="w-3.5 h-3.5 text-gray-400" />
+  </div>
+);
+
+const XPBadge = ({ xp = 0 }) => (
+  <div className="flex items-center gap-1.5 bg-gray-100/80 px-3 py-1.5 rounded-full border border-gray-200">
+    <div className="w-5 h-5 bg-[#c5d8f1] rounded-md flex items-center justify-center text-[9px] font-black text-[#4a6da7]">XP</div>
+    <span className="text-xs font-extrabold text-gray-700">{xp}</span>
   </div>
 );
 
@@ -38,17 +43,17 @@ const STHeader = () => {
   if (isNoNav || isTabbedView) return null;
 
   return (
-    <header className="fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-100 flex items-center justify-between px-4 z-50">
+    <header className="fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-100 flex items-center justify-between px-5 z-50">
       <div className="flex items-center gap-3">
         <Link to="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-brand rounded-lg flex items-center justify-center text-white font-bold text-lg">S</div>
-            <span className="font-bold text-gray-900 text-lg tracking-tight">{settings.appName}</span>
+            <div className="w-9 h-9 bg-[#0056d2] rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-blue-200">S</div>
+            <span className="font-display font-extrabold text-[#0056d2] tracking-tight text-xl">{settings.appName}</span>
         </Link>
       </div>
       <div className="flex items-center gap-4">
-        <button className="text-gray-500 hover:text-brand transition-colors"><Bell className="w-6 h-6" /></button>
-        <Link to="/profile" className="w-8 h-8 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center overflow-hidden">
-            {currentUser ? <span className="font-bold text-brand text-sm">{currentUser.name.charAt(0)}</span> : <User className="w-4 h-4 text-gray-400" />}
+        <button className="p-2 text-gray-400 relative transition-colors"><Bell className="w-6 h-6" /></button>
+        <Link to="/profile" className="w-9 h-9 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center transition-transform active:scale-90">
+            {currentUser ? <span className="font-bold text-[#0056d2]">{currentUser.name.charAt(0)}</span> : <User className="w-5 h-5 text-gray-400" />}
         </Link>
       </div>
     </header>
@@ -68,13 +73,13 @@ const STBottomNav = () => {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-gray-100 flex items-center justify-around px-2 z-50 pb-safe">
+    <nav className="fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-gray-100 flex items-center justify-around px-2 z-50 pb-safe shadow-sm">
       {tabs.map(tab => {
         const isActive = location.pathname === tab.path;
         return (
-          <Link key={tab.path} to={tab.path} className={`flex flex-col items-center gap-1 flex-1 py-1 ${isActive ? 'text-brand' : 'text-gray-400 hover:text-gray-600'}`}>
-            <tab.icon className={`w-6 h-6 ${isActive ? 'fill-current' : ''}`} />
-            <span className="text-[10px] font-semibold">{tab.label}</span>
+          <Link key={tab.path} to={tab.path} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${isActive ? 'text-[#0056d2]' : 'text-gray-400'}`}>
+            <tab.icon className={`w-6 h-6 transition-transform ${isActive ? 'scale-110' : ''}`} />
+            <span className={`text-[10px] font-bold ${isActive ? 'opacity-100' : 'opacity-60'}`}>{tab.label}</span>
           </Link>
         );
       })}
@@ -82,879 +87,217 @@ const STBottomNav = () => {
   );
 };
 
-// ... TempAccessHandler, ContentManager ...
-
-// --- TEMP ACCESS HANDLER ---
-
 const TempAccessHandler = () => {
     const { id } = useParams<{id: string}>();
-    const { currentUser, grantTempAccess } = useStore();
+    const { grantTempAccess } = useStore();
     const navigate = useNavigate();
-    const location = useLocation();
 
     useEffect(() => {
-        if (!id) {
-            navigate('/');
-            return;
-        }
-
-        // If not logged in, redirect to login but save where they wanted to go
-        if (!currentUser) {
-            navigate('/login', { state: { from: location } });
-            return;
-        }
-
-        // Simulate verification delay for UX
-        const timer = setTimeout(() => {
+        if (id) {
             grantTempAccess(id);
-            alert("✅ Verification Successful! 24-Hour Access Granted.");
-            navigate(`/course/${id}`);
-        }, 1500);
-
-        return () => clearTimeout(timer);
-    }, [id, currentUser, navigate, grantTempAccess, location]);
+            setTimeout(() => {
+                navigate(`/course/${id}`);
+            }, 1500);
+        } else {
+            navigate('/');
+        }
+    }, [id, grantTempAccess, navigate]);
 
     return (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-6 text-center">
-            <div className="bg-white p-8 rounded-3xl shadow-xl border border-gray-100 max-w-sm w-full">
-                <Loader2 className="w-12 h-12 text-brand animate-spin mx-auto mb-6" />
-                <h2 className="text-xl font-bold text-gray-900 mb-2">Verifying Link...</h2>
-                <p className="text-gray-500 text-sm">Please wait while we validate your access token.</p>
-            </div>
+        <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-gray-50 text-center">
+            <Loader2 className="w-12 h-12 text-[#0056d2] animate-spin mb-4" />
+            <h2 className="text-xl font-bold text-gray-800">Activating 24h Access Pass...</h2>
+            <p className="text-gray-500 text-sm mt-2">Redirecting to content node.</p>
         </div>
     );
 };
 
-// --- CONTENT MANAGEMENT SYSTEM ---
+// --- SUBJECT & CHAPTER CONTENT MANAGER ---
 
 const ContentManager = ({ course, onClose }: { course: Course, onClose: () => void }) => {
     const { updateCourse } = useStore();
-    const [subjects, setSubjects] = useState<Subject[]>(() => {
-        return (course.subjects || []).map(s => ({
-            ...s,
-            chapters: (s.chapters || []).map(c => ({
-                ...c,
-                videos: c.videos || []
-            }))
-        }));
-    });
-    
-    const [view, setView] = useState<'SUBJECTS' | 'CHAPTERS' | 'VIDEOS'>('SUBJECTS');
+    const [subjects, setSubjects] = useState<Subject[]>(course.subjects || []);
     const [activeSubjectId, setActiveSubjectId] = useState<string | null>(null);
     const [activeChapterId, setActiveChapterId] = useState<string | null>(null);
+    const [editingVideo, setEditingVideo] = useState<{chapId: string, vid: Video} | null>(null);
 
-    const [isFormOpen, setIsFormOpen] = useState(false);
-    const [editingItem, setEditingItem] = useState<any | null>(null);
-    const [formData, setFormData] = useState({
-        title: '', iconText: '', image: '', filename: '', duration: '', type: 'lecture', thumbnail: ''
-    });
-
-    // Auto-fetch thumbnail logic
-    useEffect(() => {
-        if (formData.filename && !formData.thumbnail) {
-            const ytMatch = formData.filename.match(/^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/);
-            if (ytMatch && ytMatch[7]?.length === 11) {
-                setFormData(prev => ({ ...prev, thumbnail: `https://img.youtube.com/vi/${ytMatch[7]}/maxresdefault.jpg` }));
-            }
-        }
-    }, [formData.filename]);
-
-    const navigateToChapters = (sId: string) => { setActiveSubjectId(sId); setView('CHAPTERS'); };
-    const navigateToVideos = (cId: string) => { setActiveChapterId(cId); setView('VIDEOS'); };
-    const navigateUp = () => {
-        if (view === 'VIDEOS') { setView('CHAPTERS'); setActiveChapterId(null); }
-        else if (view === 'CHAPTERS') { setView('SUBJECTS'); setActiveSubjectId(null); }
-    };
-
-    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            if (file.type.startsWith('video/') || file.type === 'application/pdf') {
-                const objectUrl = URL.createObjectURL(file);
-                setFormData(prev => ({ 
-                    ...prev, 
-                    filename: objectUrl,
-                    duration: 'Local File',
-                    // If uploading a PDF, set type to 'dpp' or 'note'
-                    type: file.type === 'application/pdf' ? 'dpp' : 'lecture'
-                }));
-            } else {
-                const reader = new FileReader();
-                reader.onloadend = () => setFormData(prev => ({ ...prev, thumbnail: reader.result as string }));
-                reader.readAsDataURL(file);
-            }
-        }
-    };
-
-    const openAddForm = () => {
-        setEditingItem(null);
-        setFormData({ title: '', iconText: '', image: '', filename: '', duration: '', type: 'lecture', thumbnail: '' });
-        setIsFormOpen(true);
-    };
-
-    const openEditForm = (item: any) => {
-        setEditingItem(item);
-        setFormData({
-            title: item.title || '',
-            iconText: item.iconText || '',
-            image: item.image || '',
-            filename: item.filename || '',
-            duration: item.duration || '',
-            type: item.type || 'lecture',
-            thumbnail: item.thumbnail || ''
-        });
-        setIsFormOpen(true);
-    };
-
-    const handleDelete = (itemId: string) => {
-        if (!confirm('Delete this item?')) return;
-        let newSubjects = [...subjects];
-        if (view === 'SUBJECTS') newSubjects = newSubjects.filter(s => s.id !== itemId);
-        else if (view === 'CHAPTERS' && activeSubjectId) {
-            newSubjects = newSubjects.map(s => s.id === activeSubjectId ? { ...s, chapters: s.chapters.filter(c => c.id !== itemId) } : s);
-        } else if (view === 'VIDEOS' && activeSubjectId && activeChapterId) {
-            newSubjects = newSubjects.map(s => s.id === activeSubjectId ? {
-                ...s, chapters: s.chapters.map(c => c.id === activeChapterId ? { ...c, videos: c.videos.filter(v => v.id !== itemId) } : c)
-            } : s);
-        }
-        setSubjects(newSubjects);
-    };
-
-    const handleFormSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        let newSubjects = [...subjects];
-        const now = Date.now().toString();
-
-        if (view === 'SUBJECTS') {
-            const newItem: Subject = {
-                id: editingItem ? editingItem.id : `sub-${now}`,
-                title: formData.title,
-                iconText: formData.iconText || formData.title.substring(0, 2).toUpperCase(),
-                chapters: editingItem ? editingItem.chapters : []
-            };
-            if (editingItem) newSubjects = newSubjects.map(s => s.id === newItem.id ? newItem : s);
-            else newSubjects.push(newItem);
-        } else if (view === 'CHAPTERS' && activeSubjectId) {
-            newSubjects = newSubjects.map(s => {
-                if (s.id !== activeSubjectId) return s;
-                const newItem: Chapter = {
-                    id: editingItem ? editingItem.id : `ch-${now}`,
-                    title: formData.title,
-                    image: formData.image,
-                    videos: editingItem ? editingItem.videos : []
-                };
-                return { ...s, chapters: editingItem ? s.chapters.map(c => c.id === newItem.id ? newItem : c) : [...s.chapters, newItem] };
-            });
-        } else if (view === 'VIDEOS' && activeSubjectId && activeChapterId) {
-            newSubjects = newSubjects.map(s => {
-                if (s.id !== activeSubjectId) return s;
-                return {
-                    ...s, chapters: s.chapters.map(c => {
-                        if (c.id !== activeChapterId) return c;
-                        const newItem: Video = {
-                            id: editingItem ? editingItem.id : `vid-${now}`,
-                            title: formData.title,
-                            filename: formData.filename,
-                            duration: formData.duration || '10:00',
-                            type: formData.type as any,
-                            date: new Date().toLocaleDateString(),
-                            thumbnail: formData.thumbnail
-                        };
-                        return { ...c, videos: editingItem ? c.videos.map(v => v.id === newItem.id ? newItem : v) : [...c.videos, newItem] };
-                    })
-                };
-            });
-        }
-        setSubjects(newSubjects);
-        setIsFormOpen(false);
-    };
-
-    const saveChanges = () => {
+    const handleSave = () => {
         updateCourse({ ...course, subjects });
         onClose();
     };
 
+    const addSubject = () => {
+        const title = prompt('Subject Title (e.g. Chemistry):');
+        const iconText = prompt('Icon Text (e.g. Ch):') || 'Su';
+        if (title) setSubjects([...subjects, { id: Date.now().toString(), title, iconText, chapters: [] }]);
+    };
+
+    const addChapter = (sId: string) => {
+        const title = prompt('Chapter Title:');
+        if (title) {
+            setSubjects(subjects.map(s => s.id === sId ? { ...s, chapters: [...s.chapters, { id: Date.now().toString(), title, videos: [] }] } : s));
+        }
+    };
+
+    const addVideo = (sId: string, cId: string) => {
+        const title = prompt('Content Title:');
+        const url = prompt('Stream Link:');
+        const dur = prompt('Duration (e.g. 1:20:00):') || '10:00';
+        const typeInput = prompt('Type (lecture/note/dpp):') || 'lecture';
+        const type = (['lecture', 'note', 'dpp'].includes(typeInput) ? typeInput : 'lecture') as 'lecture' | 'note' | 'dpp';
+        
+        if (title && url) {
+            setSubjects(subjects.map(s => s.id === sId ? { 
+                ...s, 
+                chapters: s.chapters.map(c => c.id === cId ? { 
+                    ...c, 
+                    videos: [...c.videos, { id: Date.now().toString(), title, filename: url, duration: dur, type, date: 'TODAY' }] 
+                } : c)
+            } : s));
+        }
+    };
+
+    const updateVideoData = () => {
+        if (!editingVideo || !activeSubjectId) return;
+        const { chapId, vid } = editingVideo;
+        setSubjects(subjects.map(s => s.id === activeSubjectId ? {
+            ...s,
+            chapters: s.chapters.map(c => c.id === chapId ? { ...c, videos: c.videos.map(v => v.id === vid.id ? vid : v) } : c)
+        } : s));
+        setEditingVideo(null);
+    };
+
     const activeSubject = subjects.find(s => s.id === activeSubjectId);
-    const activeChapter = activeSubject?.chapters?.find(c => c.id === activeChapterId);
+    const activeChapter = activeSubject?.chapters.find(c => c.id === activeChapterId);
 
     return (
-        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-2xl h-[85vh] rounded-2xl shadow-xl flex flex-col overflow-hidden animate-slide-up">
-                <div className="p-4 border-b flex justify-between items-center bg-gray-50">
-                    <div>
-                        <h2 className="font-bold text-gray-800">Content Manager</h2>
-                        <div className="flex items-center gap-1 text-sm text-gray-500">
-                            <button onClick={() => { setView('SUBJECTS'); setActiveSubjectId(null); setActiveChapterId(null); }} className={view === 'SUBJECTS' ? 'font-bold text-brand' : 'hover:text-brand'}>Subjects</button>
-                            {activeSubject && <><ChevronRight className="w-3 h-3" /><button onClick={() => { setView('CHAPTERS'); setActiveChapterId(null); }} className={view === 'CHAPTERS' ? 'font-bold text-brand' : 'hover:text-brand'}>{activeSubject.title}</button></>}
-                            {activeChapter && <><ChevronRight className="w-3 h-3" /><span className="font-bold text-brand">{activeChapter.title}</span></>}
-                        </div>
-                    </div>
-                    <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full"><X className="w-5 h-5 text-gray-600" /></button>
+        <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-2xl rounded-[32px] p-8 max-h-[85vh] flex flex-col shadow-2xl animate-slide-up overflow-hidden">
+                <div className="flex justify-between items-center mb-6 border-b pb-4">
+                    <h2 className="text-xl font-bold flex items-center gap-2 text-gray-800">
+                      <VideoIcon className="text-blue-600" /> 
+                      {activeChapter ? activeChapter.title : activeSubject ? activeSubject.title : 'Manage Subjects'}
+                    </h2>
+                    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X /></button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
-                    {isFormOpen ? (
-                        <form onSubmit={handleFormSubmit} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 space-y-4">
-                            <h3 className="font-bold text-gray-800 border-b pb-2">{editingItem ? 'Edit' : 'Add'} Item</h3>
-                            <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Title</label><input className="w-full p-3 border rounded-lg bg-gray-50" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} required /></div>
-                            
-                            {view === 'SUBJECTS' && (
-                                <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Icon (2 chars)</label><input className="w-full p-3 border rounded-lg bg-gray-50" value={formData.iconText} onChange={e => setFormData({...formData, iconText: e.target.value})} maxLength={2} /></div>
-                            )}
-
-                            {view === 'VIDEOS' && (
-                                <>
-                                    <div className="space-y-1">
-                                        <label className="text-xs font-bold text-gray-500 uppercase">Content Source</label>
-                                        <div className="flex gap-2 mb-2">
-                                            <div className="relative flex-1">
-                                                <input className="w-full p-3 pl-10 border rounded-lg bg-gray-50" value={formData.filename} onChange={e => setFormData({...formData, filename: e.target.value})} placeholder="Paste URL (YouTube/Vimeo)" required />
-                                                <LinkIcon className="w-4 h-4 absolute left-3 top-3.5 text-gray-400" />
-                                            </div>
-                                            <label className="flex items-center gap-2 px-4 py-3 bg-gray-100 rounded-lg cursor-pointer hover:bg-gray-200 border border-gray-200">
-                                                <Upload className="w-4 h-4 text-gray-600" />
-                                                <span className="text-sm font-bold text-gray-600">Upload</span>
-                                                <input type="file" className="hidden" accept="video/*,application/pdf" onChange={handleFileUpload} />
-                                            </label>
-                                        </div>
-                                        {formData.filename.startsWith('blob:') && <p className="text-xs text-orange-500 font-bold">⚠️ Using local device file (Temporary session only)</p>}
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Duration</label><input className="w-full p-3 border rounded-lg bg-gray-50" value={formData.duration} onChange={e => setFormData({...formData, duration: e.target.value})} /></div>
-                                        <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Type</label><select className="w-full p-3 border rounded-lg bg-gray-50" value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})}><option value="lecture">Video</option><option value="note">PDF Note</option><option value="dpp">DPP (Quiz/PDF)</option></select></div>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-xs font-bold text-gray-500 uppercase">Thumbnail</label>
-                                        <div className="flex gap-2">
-                                            <input value={formData.thumbnail} onChange={e => setFormData({...formData, thumbnail: e.target.value})} className="flex-1 p-3 border rounded-lg bg-gray-50 text-xs" placeholder="https://... or upload" />
-                                            <label className="p-3 bg-gray-100 rounded-lg cursor-pointer hover:bg-gray-200 border border-gray-200">
-                                                <Upload className="w-5 h-5 text-gray-600" />
-                                                <input type="file" className="hidden" accept="image/*" onChange={(e) => {
-                                                    const file = e.target.files?.[0];
-                                                    if(file) {
-                                                        const reader = new FileReader();
-                                                        reader.onloadend = () => setFormData(prev => ({ ...prev, thumbnail: reader.result as string }));
-                                                        reader.readAsDataURL(file);
-                                                    }
-                                                }} />
-                                            </label>
-                                        </div>
-                                        {formData.thumbnail && (
-                                            <img src={formData.thumbnail} className="mt-2 w-24 h-14 object-cover rounded-lg border border-gray-200" alt="Preview" />
-                                        )}
-                                    </div>
-                                </>
-                            )}
-
-                            <div className="flex gap-3 pt-4">
-                                <button type="button" onClick={() => setIsFormOpen(false)} className="flex-1 py-3 text-gray-600 bg-gray-100 font-bold rounded-lg hover:bg-gray-200">Cancel</button>
-                                <button type="submit" className="flex-1 py-3 bg-brand text-white font-bold rounded-lg hover:bg-brand-dark">Save</button>
+                <div className="flex items-center gap-2 mb-4 text-xs font-bold text-gray-400 overflow-x-auto no-scrollbar">
+                    <button onClick={() => { setActiveSubjectId(null); setActiveChapterId(null); }} className={!activeSubjectId ? 'text-blue-600' : ''}>ROOT</button>
+                    {activeSubject && (
+                      <>
+                        <ChevronRight className="w-3 h-3" />
+                        <button onClick={() => setActiveChapterId(null)} className={activeSubjectId && !activeChapterId ? 'text-blue-600' : ''}>{activeSubject.title.toUpperCase()}</button>
+                      </>
+                    )}
+                    {activeChapter && (
+                        <>
+                            <ChevronRight className="w-3 h-3" />
+                            <span className="text-blue-600">{activeChapter.title.toUpperCase()}</span>
+                        </>
+                    )}
+                </div>
+                
+                <div className="flex-1 overflow-y-auto space-y-4 no-scrollbar">
+                    {editingVideo ? (
+                        <div className="space-y-4 bg-gray-50 p-6 rounded-2xl animate-fade-in">
+                            <h3 className="font-bold text-gray-700">Edit Node Data</h3>
+                            <input value={editingVideo.vid.title} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, title: e.target.value}})} className="w-full p-3 border rounded-xl" placeholder="Title" />
+                            <input value={editingVideo.vid.filename} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, filename: e.target.value}})} className="w-full p-3 border rounded-xl" placeholder="URL" />
+                            <input value={editingVideo.vid.duration} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, duration: e.target.value}})} className="w-full p-3 border rounded-xl" placeholder="Duration" />
+                            <div className="flex gap-2">
+                                <button onClick={() => setEditingVideo(null)} className="flex-1 py-2 text-gray-500 font-bold bg-white border rounded-xl">Cancel</button>
+                                <button onClick={updateVideoData} className="flex-1 py-2 bg-[#0056d2] text-white font-bold rounded-xl">Save Node</button>
                             </div>
-                        </form>
+                        </div>
+                    ) : activeChapterId && activeSubjectId ? (
+                        <div className="space-y-3">
+                            <button onClick={() => addVideo(activeSubjectId, activeChapterId)} className="w-full py-4 border-2 border-dashed border-blue-100 rounded-2xl text-blue-600 font-bold hover:bg-blue-50 transition-all">+ Add Chapter Content</button>
+                            {activeChapter?.videos.map(vid => (
+                                <div key={vid.id} className="p-4 bg-gray-50 border border-gray-100 rounded-2xl flex justify-between items-center">
+                                    <div className="truncate pr-4">
+                                        <p className="text-sm font-bold text-gray-800 truncate">{vid.title}</p>
+                                        <p className="text-[10px] text-blue-500 font-bold uppercase">{vid.type} • {vid.duration}</p>
+                                    </div>
+                                    <div className="flex gap-1">
+                                        <button onClick={() => setEditingVideo({chapId: activeChapterId, vid})} className="p-2 text-gray-400 hover:text-blue-500"><Edit className="w-4 h-4" /></button>
+                                        <button onClick={() => setSubjects(subjects.map(s => s.id === activeSubjectId ? {...s, chapters: s.chapters.map(c => c.id === activeChapterId ? {...c, videos: c.videos.filter(v => v.id !== vid.id)} : c)} : s))} className="text-red-500 p-2"><Trash2 className="w-4 h-4" /></button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : activeSubjectId ? (
+                        <div className="space-y-3">
+                            <button onClick={() => addChapter(activeSubjectId)} className="w-full py-4 border-2 border-dashed border-blue-100 rounded-2xl text-blue-600 font-bold hover:bg-blue-50 transition-all">+ Add New Chapter</button>
+                            {activeSubject?.chapters.map(chap => (
+                                <div key={chap.id} className="p-4 bg-white border border-gray-100 rounded-2xl flex justify-between items-center shadow-sm">
+                                    <button onClick={() => setActiveChapterId(chap.id)} className="flex-1 text-left font-bold text-gray-700">{chap.title}</button>
+                                    <button onClick={() => setSubjects(subjects.map(s => s.id === activeSubjectId ? {...s, chapters: s.chapters.filter(c => c.id !== chap.id)} : s))} className="text-red-500 p-2"><Trash2 className="w-4 h-4" /></button>
+                                </div>
+                            ))}
+                        </div>
                     ) : (
                         <div className="space-y-3">
-                            <button onClick={openAddForm} className="w-full py-4 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 font-bold hover:bg-white hover:border-brand hover:text-brand flex items-center justify-center gap-2">
-                                <Plus className="w-5 h-5" /> Add New
-                            </button>
-                            
-                            {view === 'SUBJECTS' && subjects.map(sub => (
-                                <div key={sub.id} onClick={() => navigateToChapters(sub.id)} className="bg-white p-4 rounded-xl border border-gray-200 flex justify-between items-center cursor-pointer hover:border-brand hover:shadow-sm">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 bg-blue-50 text-brand rounded-lg flex items-center justify-center font-bold text-sm">{sub.iconText}</div>
-                                        <div><h4 className="font-bold text-gray-800">{sub.title}</h4><p className="text-xs text-gray-500">{sub.chapters.length} Chapters</p></div>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <button onClick={(e) => { e.stopPropagation(); openEditForm(sub); }} className="p-2 text-gray-400 hover:text-brand"><Edit className="w-4 h-4" /></button>
-                                        <button onClick={(e) => { e.stopPropagation(); handleDelete(sub.id); }} className="p-2 text-gray-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
-                                    </div>
-                                </div>
-                            ))}
-
-                            {view === 'CHAPTERS' && activeSubject?.chapters.map(chap => (
-                                <div key={chap.id} onClick={() => navigateToVideos(chap.id)} className="bg-white p-4 rounded-xl border border-gray-200 flex justify-between items-center cursor-pointer hover:border-brand hover:shadow-sm">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 bg-gray-100 text-gray-500 rounded-lg flex items-center justify-center"><Folder className="w-5 h-5" /></div>
-                                        <div><h4 className="font-bold text-gray-800">{chap.title}</h4><p className="text-xs text-gray-500">{chap.videos.length} Items</p></div>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <button onClick={(e) => { e.stopPropagation(); openEditForm(chap); }} className="p-2 text-gray-400 hover:text-brand"><Edit className="w-4 h-4" /></button>
-                                        <button onClick={(e) => { e.stopPropagation(); handleDelete(chap.id); }} className="p-2 text-gray-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
-                                    </div>
-                                </div>
-                            ))}
-
-                            {view === 'VIDEOS' && activeChapter?.videos.map(vid => (
-                                <div key={vid.id} className="bg-white p-4 rounded-xl border border-gray-200 flex justify-between items-center hover:border-brand hover:shadow-sm">
-                                    <div className="flex items-center gap-3">
-                                        {vid.thumbnail ? (
-                                            <img src={vid.thumbnail} className="w-10 h-10 object-cover rounded-lg" alt="" />
-                                        ) : (
-                                            <div className="w-10 h-10 bg-gray-100 text-gray-500 rounded-lg flex items-center justify-center"><FileVideo className="w-5 h-5" /></div>
-                                        )}
-                                        <div className="overflow-hidden">
-                                            <h4 className="font-bold text-gray-800 text-sm truncate">{vid.title}</h4>
-                                            <p className="text-xs text-gray-500 uppercase">{vid.type} • {vid.duration}</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <button onClick={() => openEditForm(vid)} className="p-2 text-gray-400 hover:text-brand"><Edit className="w-4 h-4" /></button>
-                                        <button onClick={() => handleDelete(vid.id)} className="p-2 text-gray-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
-                                    </div>
+                            <button onClick={addSubject} className="w-full py-4 border-2 border-dashed border-blue-100 rounded-2xl text-blue-600 font-bold hover:bg-blue-50 transition-all">+ Add Subject wise Column</button>
+                            {subjects.map(sub => (
+                                <div key={sub.id} className="p-5 bg-white border border-gray-100 rounded-2xl flex justify-between items-center shadow-sm group">
+                                    <button onClick={() => setActiveSubjectId(sub.id)} className="flex-1 text-left flex items-center gap-4">
+                                        <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600 font-bold text-xs">{sub.iconText}</div>
+                                        <span className="font-bold text-gray-800">{sub.title}</span>
+                                    </button>
+                                    <button onClick={() => setSubjects(subjects.filter(s => s.id !== sub.id))} className="text-red-500 p-2 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-4 h-4" /></button>
                                 </div>
                             ))}
                         </div>
                     )}
                 </div>
                 
-                <div className="p-4 border-t bg-white flex gap-3">
-                    {view !== 'SUBJECTS' && !isFormOpen && <button onClick={navigateUp} className="px-6 py-2 bg-gray-100 text-gray-700 font-bold rounded-lg hover:bg-gray-200">Back</button>}
-                    {!isFormOpen && <button onClick={saveChanges} className="flex-1 py-2 bg-brand text-white font-bold rounded-lg hover:bg-brand-dark">Save Changes</button>}
+                <div className="mt-6 pt-6 border-t flex gap-3">
+                    <button onClick={onClose} className="flex-1 py-4 text-gray-500 font-bold hover:bg-gray-50 rounded-2xl transition-colors">Discard</button>
+                    <button onClick={handleSave} className="flex-1 py-4 bg-[#0056d2] text-white font-bold rounded-2xl shadow-lg active:scale-95 transition-all">Commit Changes</button>
                 </div>
             </div>
         </div>
     );
 };
 
-// ... CourseListing, AdminPanel, Profile, Login ...
-
-const CourseListing = () => {
-    const { courses } = useStore();
-
-    return (
-        <div className="pb-24 pt-20 px-4 min-h-screen bg-gray-50">
-            <div className="max-w-md mx-auto space-y-6">
-                <div className="space-y-6">
-                    {courses.length === 0 ? (
-                        <div className="text-center py-20 text-gray-400">
-                            <Search className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                            <p className="font-bold text-sm">No courses found</p>
-                        </div>
-                    ) : courses.map(c => (
-                        <div key={c.id} className="bg-white rounded-2xl overflow-hidden border border-gray-200 shadow-sm hover:shadow-md transition-all group">
-                            <div className="relative aspect-video">
-                                <img src={c.image} className="w-full h-full object-cover" alt={c.title} />
-                                <div className="absolute top-3 left-3">
-                                    {c.isNew && <span className="bg-yellow-400 text-yellow-900 text-[10px] font-bold px-2 py-1 rounded-lg uppercase shadow-sm">New Batch</span>}
-                                </div>
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-60"></div>
-                                <div className="absolute bottom-4 left-4 right-4">
-                                    <h3 className="text-white font-bold text-lg leading-tight shadow-black drop-shadow-md">{c.title}</h3>
-                                    <p className="text-white/80 text-xs font-medium mt-1">{c.category}</p>
-                                </div>
-                            </div>
-                            <div className="p-5">
-                                <div className="flex items-center gap-4 text-xs font-bold text-gray-500 mb-6">
-                                    <div className="flex items-center gap-1.5"><Calendar className="w-4 h-4" /> Starts {c.startDate}</div>
-                                </div>
-                                <div className="flex gap-3">
-                                    <Link to={`/course/${c.id}`} className="flex-1 py-3 bg-brand text-white text-center font-bold rounded-xl shadow-lg hover:bg-brand-dark transition-all">
-                                        View Details
-                                    </Link>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const CourseDetail = () => {
-    const { id } = useParams<{id: string}>();
-    const { courses, currentUser, grantTempAccess, enrollCourse } = useStore();
-    const navigate = useNavigate();
-    const [activeTab, setActiveTab] = useState<'Subjects' | 'Description'>('Subjects');
-    const [accessKeyInput, setAccessKeyInput] = useState('');
-    const [showKeyInput, setShowKeyInput] = useState(false);
-
-    const course = courses.find(c => c.id === id);
-    if (!course) return <Navigate to="/" />;
-
-    const hasAccess = !course.isPaid || 
-      (currentUser && (
-        currentUser.role === UserRole.ADMIN || 
-        currentUser.purchasedCourseIds.includes(course.id) || 
-        (currentUser.tempAccess?.[course.id] && new Date(currentUser.tempAccess[course.id]) > new Date())
-      ));
-
-    const handleKeySubmit = () => {
-        if(course.accessKey && accessKeyInput === course.accessKey) {
-            enrollCourse(course.id);
-            alert("✅ Access Granted Successfully!");
-        } else {
-            alert("❌ Invalid Access Key");
-        }
-    };
-
-    return (
-        <div className="pb-24 pt-0 min-h-screen bg-white">
-            <div className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
-                <div className="flex items-center gap-4 p-4">
-                    <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-full"><ArrowLeft className="w-6 h-6 text-gray-700" /></button>
-                    <h1 className="text-lg font-bold text-gray-900 truncate flex-1">{course.title}</h1>
-                </div>
-                <div className="flex px-4 gap-6">
-                    {(['Subjects', 'Description'] as const).map(tab => (
-                        <button key={tab} onClick={() => setActiveTab(tab)} className={`pb-3 text-sm font-bold border-b-2 transition-all ${activeTab === tab ? 'text-brand border-brand' : 'text-gray-400 border-transparent'}`}>
-                            {tab}
-                        </button>
-                    ))}
-                </div>
-            </div>
-            <Banner />
-            <div className="p-4 relative">
-                {!hasAccess && activeTab === 'Subjects' && (
-                    <div className="absolute inset-0 z-10 bg-white/95 backdrop-blur-[2px] flex flex-col items-center justify-center p-6 text-center">
-                        <Lock className="w-16 h-16 text-gray-300 mb-4 animate-bounce" />
-                        <h3 className="text-2xl font-bold text-gray-900 mb-2">Content Locked</h3>
-                        <p className="text-gray-500 mb-8 max-w-xs text-sm">Access this premium batch using one of the options below.</p>
-                        
-                        <div className="flex flex-col gap-4 w-full max-w-xs animate-slide-up">
-                             <button 
-                                onClick={() => {
-                                    if(confirm("Activate your 24-hour trial access?")) {
-                                        grantTempAccess(course.id);
-                                    }
-                                }} 
-                                className="w-full py-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold rounded-2xl shadow-lg shadow-blue-200 active:scale-95 transition-all flex items-center justify-center gap-2"
-                             >
-                                <Clock className="w-5 h-5" /> 
-                                Get 24h Temporary Access
-                             </button>
-
-                             {!showKeyInput ? (
-                                <button 
-                                    onClick={() => setShowKeyInput(true)} 
-                                    className="w-full py-4 bg-white border-2 border-gray-200 text-gray-700 font-bold rounded-2xl hover:bg-gray-50 hover:border-gray-300 active:scale-95 transition-all flex items-center justify-center gap-2"
-                                >
-                                    <Key className="w-5 h-5 text-gray-400" />
-                                    Have an Enrollment Key?
-                                </button>
-                             ) : (
-                                <div className="bg-white p-2 rounded-2xl border-2 border-brand shadow-sm animate-fade-in flex flex-col gap-2">
-                                    <div className="flex gap-2">
-                                        <input 
-                                            type="text" 
-                                            placeholder="Enter Key..." 
-                                            className="flex-1 p-2 text-sm font-bold text-gray-700 outline-none bg-transparent"
-                                            value={accessKeyInput}
-                                            onChange={e => setAccessKeyInput(e.target.value)}
-                                            autoFocus
-                                        />
-                                        <button 
-                                            onClick={handleKeySubmit}
-                                            className="bg-brand text-white px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-brand-dark shadow-md"
-                                        >
-                                            Unlock
-                                        </button>
-                                    </div>
-                                    <button onClick={() => setShowKeyInput(false)} className="text-[10px] text-gray-400 font-bold uppercase tracking-widest hover:text-red-500 self-center pb-1">Cancel</button>
-                                </div>
-                             )}
-
-                             {course.price > 0 && (
-                                <div className="text-center mt-2">
-                                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">OR</p>
-                                    <button className="w-full py-3 bg-gray-900 text-white font-bold rounded-2xl shadow-lg hover:bg-black transition-all">
-                                        Purchase for ₹{course.price}
-                                    </button>
-                                </div>
-                             )}
-                        </div>
-                    </div>
-                )}
-                {activeTab === 'Subjects' && (
-                    <div className={`space-y-3 ${!hasAccess ? 'blur-md select-none pointer-events-none opacity-50' : ''}`}>
-                        {(course.subjects || []).map((sub) => (
-                            <div key={sub.id} onClick={() => hasAccess && navigate(`/course/${course.id}/subject/${sub.id}`)} className="bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-4 hover:border-brand cursor-pointer shadow-sm">
-                                <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center text-brand font-bold text-lg">{sub.iconText}</div>
-                                <div className="flex-1">
-                                    <h3 className="font-bold text-gray-800">{sub.title}</h3>
-                                    <p className="text-xs text-gray-500">{sub.chapters.length} Chapters</p>
-                                </div>
-                                {hasAccess ? <ChevronRight className="w-5 h-5 text-gray-400" /> : <Lock className="w-4 h-4 text-gray-400" />}
-                            </div>
-                        ))}
-                    </div>
-                )}
-                {activeTab === 'Description' && (
-                    <div className="space-y-6">
-                        <img src={course.image} className="w-full rounded-2xl shadow-sm" alt="" />
-                        <div>
-                            <h2 className="text-xl font-bold text-gray-900 mb-2">About this Batch</h2>
-                            <p className="text-gray-600 leading-relaxed text-sm">{course.description}</p>
-                        </div>
-                    </div>
-                )}
-            </div>
-            
-            <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100 flex justify-center pb-safe">
-                {hasAccess ? (
-                    <Link to={`/exam/${course.id}`} className="flex items-center gap-2 px-6 py-3 bg-brand text-white font-bold rounded-full shadow-lg hover:bg-brand-dark transition-transform active:scale-95">
-                        <Bot className="w-5 h-5" /> Take AI Assessment
-                    </Link>
-                ) : (
-                    <div className="text-xs font-bold text-gray-500 flex items-center gap-2">
-                        <Lock className="w-4 h-4" /> Assessment Locked
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-};
-
-const SubjectDetail = () => {
-    const { courseId, subjectId } = useParams<{courseId: string, subjectId: string}>();
-    const { courses, saveGeneratedNote, currentUser } = useStore();
-    const navigate = useNavigate();
-    const [generatingNotes, setGeneratingNotes] = useState(false);
-    const [notes, setNotes] = useState<string | null>(null);
-    const [generatingNoteId, setGeneratingNoteId] = useState<string | null>(null);
-    const [viewingNote, setViewingNote] = useState<GeneratedNote | null>(null);
-    const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
-    const [filter, setFilter] = useState<'All' | 'Lectures' | 'DPPs' | 'Notes'>('All');
-    
-    // Topic Selection State
-    const [showTopicModal, setShowTopicModal] = useState(false);
-    const [noteTopic, setNoteTopic] = useState('');
-    const [targetVideoForNote, setTargetVideoForNote] = useState<Video | null>(null);
-
-    const course = courses.find(c => c.id === courseId);
-    const subject = course?.subjects.find(s => s.id === subjectId);
-    
-    if (!subject || !courseId) return <Navigate to="/" />;
-
-    const hasAccess = !course?.isPaid || 
-    (currentUser && (
-      currentUser.role === UserRole.ADMIN || 
-      currentUser.purchasedCourseIds.includes(courseId) || 
-      (currentUser.tempAccess?.[courseId] && new Date(currentUser.tempAccess[courseId]) > new Date())
-    ));
-
-    if (!hasAccess) return <Navigate to={`/course/${courseId}`} />;
-
-    // Step 1: User clicks generate (General or Video specific)
-    const initiateNoteGeneration = (video?: Video) => {
-        if (video) {
-            setTargetVideoForNote(video);
-            setNoteTopic(video.title);
-        } else {
-            setTargetVideoForNote(null);
-            setNoteTopic(subject.title + " Summary");
-        }
-        setShowTopicModal(true);
-    };
-
-    // Step 2: User confirms topic -> Call AI
-    const handleGenerateConfirmed = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setShowTopicModal(false);
-        const topic = noteTopic;
-        const isVideoSpecific = !!targetVideoForNote;
-
-        if (isVideoSpecific && targetVideoForNote) {
-            setGeneratingNoteId(targetVideoForNote.id);
-        } else {
-            setGeneratingNotes(true);
-        }
-
-        try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-            
-            // Professional Prompt
-            const prompt = `
-            Act as a professional academic content creator. Generate high-quality, comprehensive study notes for the topic: "${topic}".
-            
-            **Format:** Clean, professional Markdown.
-            **Tone:** Educational, clear, concise, and professional (Easy to understand English).
-
-            **Structure Requirement:**
-            1. **Topic Overview**: A professional summary of the topic.
-            2. **Important Definitions & Key Concepts**: List 5-7 key terms with precise definitions.
-            3. **Visual Learning (Diagrams)**: Provide 2-3 detailed text-based descriptions of diagrams relevant to this topic. Format as: "> **[DIAGRAM: ...Description...]**".
-            4. **Detailed Explanations**: Explain the core concepts in depth using bullet points.
-            5. **Previous Year Questions (PYQs)**: List 3-5 important questions often asked in exams regarding this topic.
-            6. **Daily Practice Problems (DPP)**: 3 high-quality MCQs with answers at the very end.
-            `;
-
-            const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: prompt });
-            const content = response.text || "Could not generate content.";
-
-            if (isVideoSpecific && targetVideoForNote) {
-                const newNote: GeneratedNote = {
-                    id: Date.now().toString(),
-                    videoId: targetVideoForNote.id,
-                    videoTitle: topic, // Use the user-defined topic as title
-                    subjectName: subject.title,
-                    content: content,
-                    createdAt: new Date().toISOString(),
-                    syllabusYear: '2025-26'
-                };
-                setViewingNote(newNote);
-            } else {
-                setNotes(content);
-            }
-        } catch (e) { 
-            alert("AI Service Unavailable. Please check your connection."); 
-        } finally { 
-            setGeneratingNotes(false);
-            setGeneratingNoteId(null);
-        }
-    };
-
-    const saveCurrentNote = () => { if(viewingNote) { saveGeneratedNote(viewingNote); alert("Note saved to profile!"); setViewingNote(null); } };
-    
-    // Improved Download: HTML/PDF style
-    const downloadCurrentNote = () => {
-        const content = viewingNote ? viewingNote.content : notes;
-        const title = viewingNote ? viewingNote.videoTitle : "Subject_Summary";
-        if(content) {
-            // Convert markdown-ish diagram tags to visual boxes for the "PDF" view
-            const formattedContent = content
-                .replace(/\n/g, '<br/>')
-                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                .replace(/> \*\*\[DIAGRAM: (.*?)\]\*\*/g, '<div style="border:2px dashed #0056d2; background:#f0f7ff; padding:20px; margin:20px 0; border-radius:12px; text-align:center; color:#0056d2; font-weight:bold;">🖼️ DIAGRAM: $1</div>')
-                .replace(/### (.*?)(<br\/>|$)/g, '<h3 style="color:#444; font-size:18px; margin-top:15px; font-weight:bold;">$1</h3>')
-                .replace(/## (.*?)(<br\/>|$)/g, '<h2 style="color:#0056d2; font-size:22px; margin-top:25px; border-bottom:2px solid #eee; padding-bottom:8px;">$1</h2>')
-                .replace(/# (.*?)(<br\/>|$)/g, '<h1 style="color:#0056d2; font-size:28px; margin-top:20px; text-align:center;">$1</h1>');
-
-            const html = `
-                <html>
-                <head>
-                    <title>${title}</title>
-                    <style>
-                        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 50px; max-width: 900px; margin: 0 auto; line-height: 1.7; color: #333; background-color: #fff; }
-                        h1, h2, h3 { color: #0056d2; }
-                        strong { color: #222; }
-                        .header { text-align: center; margin-bottom: 50px; border-bottom: 3px solid #0056d2; padding-bottom: 30px; background-color: #f8fafc; padding: 30px; border-radius: 12px; }
-                        .footer { margin-top: 60px; text-align: center; font-size: 12px; color: #999; border-top: 1px solid #eee; padding-top: 20px; }
-                        .tag { display: inline-block; padding: 4px 12px; border-radius: 20px; background: #e0f2fe; color: #0369a1; font-size: 12px; font-weight: bold; margin-top: 10px; }
-                    </style>
-                </head>
-                <body>
-                    <div class="header">
-                        <h1>${title}</h1>
-                        <p style="margin:0; font-size:16px; color:#666;">Subject: ${subject.title}</p>
-                        <span class="tag">AI Generated Professional Notes</span>
-                    </div>
-                    ${formattedContent}
-                    <div class="footer">
-                        &copy; ${new Date().getFullYear()} Study Portal. Generated via Gemini AI.
-                    </div>
-                </body>
-                </html>
-            `;
-            
-            const blob = new Blob([html], { type: 'text/html' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${title.replace(/[^a-z0-9]/gi, '_')}.html`;
-            a.click();
-        }
-    };
-
-    return (
-        <div className="pb-24 min-h-screen bg-gray-50">
-            {/* Header */}
-            <div className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
-                <div className="flex items-center justify-between p-4">
-                    <div className="flex items-center gap-3">
-                        <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-full"><ArrowLeft className="w-6 h-6 text-gray-700" /></button>
-                        <h1 className="text-lg font-bold text-gray-800 truncate max-w-[200px]">{subject.title}</h1>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-1 bg-gray-100 px-3 py-1 rounded-full border border-gray-200">
-                             <div className="w-4 h-4 bg-blue-200 rounded-md flex items-center justify-center text-[8px] font-bold text-blue-700">XP</div>
-                             <span className="text-xs font-bold text-gray-600">0</span>
-                        </div>
-                    </div>
-                </div>
-                
-                {/* Info Banner */}
-                <div className="bg-blue-50 px-4 py-3 flex items-center justify-between text-xs text-blue-800 border-b border-blue-100">
-                    <div className="flex items-center gap-2">
-                         <div className="w-4 h-4 bg-blue-600 rounded-full text-white flex items-center justify-center font-bold">i</div>
-                         <span>Don't worry if there's a small error, missing XP points will be added soon!</span>
-                    </div>
-                    <X className="w-4 h-4 text-blue-400" />
-                </div>
-
-                {/* Filters */}
-                <div className="flex px-4 py-3 gap-3 overflow-x-auto no-scrollbar">
-                    {(['All', 'Lectures', 'DPPs', 'Notes'] as const).map(f => (
-                        <button 
-                            key={f} 
-                            onClick={() => setFilter(f)} 
-                            className={`px-5 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all border ${filter === f ? 'bg-gray-700 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}
-                        >
-                            {f}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            <div className="p-4 space-y-6">
-                {subject.chapters.length === 0 ? (
-                    <div className="text-center py-20 text-gray-400 text-sm">No chapters available yet.</div>
-                ) : subject.chapters.map((chap, idx) => (
-                    <div key={chap.id} className="space-y-4">
-                        <div className="space-y-3">
-                            {chap.videos.filter(v => filter === 'All' || (filter === 'Lectures' && v.type === 'lecture') || (filter === 'DPPs' && v.type === 'dpp') || (filter === 'Notes' && v.type === 'note')).map(v => (
-                                <div key={v.id} className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex gap-4 items-start active:scale-[0.99] transition-transform">
-                                    <div className="w-24 h-24 bg-gray-100 rounded-xl overflow-hidden shrink-0 relative group">
-                                         {v.thumbnail ? (
-                                             <img src={v.thumbnail} className="w-full h-full object-cover" alt="" />
-                                         ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-gray-400">
-                                                {v.type === 'note' ? <FileText className="w-8 h-8" /> : <VideoIcon className="w-8 h-8" />}
-                                            </div>
-                                         )}
-                                         <div className="absolute bottom-1 right-1 bg-black/60 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-md backdrop-blur-sm">
-                                             {v.duration}
-                                         </div>
-                                         <div className="absolute inset-0 bg-black/10 hidden group-hover:flex items-center justify-center">
-                                             <PlayCircle className="w-8 h-8 text-white opacity-80" />
-                                         </div>
-                                    </div>
-                                    <div className="flex-1 min-w-0 flex flex-col justify-between h-24 py-1">
-                                        <div>
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{v.type?.toUpperCase()}</span>
-                                                <span className="text-[10px] font-bold text-gray-300">•</span>
-                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{v.date || '7 JUL'}</span>
-                                            </div>
-                                            <h4 className="text-sm font-bold text-gray-800 line-clamp-2 leading-tight">{v.title}</h4>
-                                        </div>
-                                        
-                                        <div className="flex items-center gap-2 mt-2">
-                                            {v.type === 'lecture' ? (
-                                                <button onClick={() => setSelectedVideo(v)} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-brand rounded-lg text-xs font-bold hover:bg-blue-100 transition-colors">
-                                                    <PlayCircle className="w-3.5 h-3.5" /> Watch Lecture
-                                                </button>
-                                            ) : (
-                                                <button onClick={() => setSelectedVideo(v)} className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-xs font-bold hover:bg-gray-200 transition-colors">
-                                                    <FileText className="w-3.5 h-3.5" /> View Material
-                                                </button>
-                                            )}
-                                            
-                                            {v.type === 'lecture' && (
-                                                <button onClick={() => initiateNoteGeneration(v)} className="p-1.5 text-gray-400 hover:text-brand bg-white border border-gray-100 rounded-lg" title="AI Notes">
-                                                    {generatingNoteId === v.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bot className="w-4 h-4" />}
-                                                </button>
-                                            )}
-                                            <div className="ml-auto">
-                                                 <CheckCircle className="w-5 h-5 text-gray-300" />
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                ))}
-            </div>
-
-            {/* Topic Input Modal */}
-            {showTopicModal && (
-                <div className="fixed inset-0 z-[110] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-                    <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl animate-slide-up">
-                        <div className="flex items-center gap-3 mb-4 text-brand">
-                            <Sparkles className="w-6 h-6" />
-                            <h3 className="font-bold text-lg text-gray-900">Professional AI Note Generator</h3>
-                        </div>
-                        <form onSubmit={handleGenerateConfirmed}>
-                            <p className="text-sm text-gray-500 mb-2 font-medium">Enter topic for comprehensive notes:</p>
-                            <input 
-                                className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 mb-4 font-bold text-gray-700 focus:border-brand outline-none" 
-                                value={noteTopic} 
-                                onChange={e => setNoteTopic(e.target.value)} 
-                                placeholder="e.g., Chemical Reactions, Optics..." 
-                                autoFocus
-                            />
-                            <div className="flex gap-3">
-                                <button type="button" onClick={() => setShowTopicModal(false)} className="flex-1 py-3 bg-gray-100 text-gray-600 font-bold rounded-xl hover:bg-gray-200">Cancel</button>
-                                <button type="submit" className="flex-1 py-3 bg-brand text-white font-bold rounded-xl hover:bg-brand-dark shadow-md">Generate Notes</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
-            
-            {/* Note View / PDF Preview Modal */}
-            {(notes || viewingNote) && (
-                <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => { setNotes(null); setViewingNote(null); }}>
-                    <div className="bg-white w-full max-w-lg max-h-[85vh] rounded-2xl p-6 overflow-y-auto shadow-2xl flex flex-col" onClick={e => e.stopPropagation()}>
-                        <div className="flex justify-between items-center mb-4 border-b pb-4">
-                            <h2 className="text-lg font-bold flex items-center gap-2 text-gray-800"><Bot className="w-5 h-5 text-brand" /> {viewingNote ? 'Professional Notes' : 'Subject Summary'}</h2>
-                            <button onClick={() => { setNotes(null); setViewingNote(null); }}><X className="text-gray-400" /></button>
-                        </div>
-                        <div className="flex-1 overflow-y-auto">
-                             <div className="prose prose-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{notes || viewingNote?.content}</div>
-                        </div>
-                        <div className="mt-4 pt-4 border-t flex gap-3">
-                            <button onClick={downloadCurrentNote} className="flex-1 py-3 bg-gray-100 font-bold rounded-xl text-gray-700 hover:bg-gray-200 flex items-center justify-center gap-2">
-                                <Download className="w-4 h-4" /> Download PDF
-                            </button>
-                            {viewingNote && (
-                                <button onClick={saveCurrentNote} className="flex-1 py-3 bg-brand text-white font-bold rounded-xl hover:bg-brand-dark flex items-center justify-center gap-2">
-                                    <Save className="w-4 h-4" /> Save to Profile
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {selectedVideo && (
-                <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center">
-                    <div className="w-full max-w-4xl max-h-screen overflow-hidden flex flex-col">
-                        <div className="p-4 flex justify-between items-center text-white">
-                            <h3 className="font-bold truncate">{selectedVideo.title}</h3>
-                            <button onClick={() => setSelectedVideo(null)} className="p-2 hover:bg-white/10 rounded-full"><X className="w-6 h-6" /></button>
-                        </div>
-                        <div className="flex-1 flex items-center justify-center relative">
-                            {selectedVideo.type === 'lecture' ? (
-                                <VideoPlayer src={selectedVideo.filename} onBack={() => setSelectedVideo(null)} />
-                            ) : (
-                                <div className="w-full h-full pt-4 pb-4 px-4 flex flex-col items-center">
-                                    <iframe src={selectedVideo.filename} className="w-full h-full rounded-xl bg-white" title="Document Viewer" />
-                                    <a href={selectedVideo.filename} target="_blank" rel="noreferrer" className="mt-4 px-6 py-3 bg-blue-600 text-white font-bold rounded-xl flex items-center gap-2">
-                                        <Download className="w-4 h-4" /> Download/Open External
-                                    </a>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-};
-
-// ... AdminPanel, Profile, Login ...
+// --- ADMIN PANEL ---
 
 const AdminPanel = () => {
-    const { currentUser, courses, addCourse, updateCourse, deleteCourse, users, manageUserRole, createUser } = useStore();
-    const [tab, setTab] = useState<'batches' | 'users'>('batches');
+    const { currentUser, courses, settings, addCourse, updateCourse, deleteCourse, users, manageUserRole, createUser } = useStore();
+    const [tab, setTab] = useState<'batches' | 'users' | 'settings'>('batches');
     const [showModal, setShowModal] = useState(false);
     const [editing, setEditing] = useState<Course | null>(null);
     const [contentTarget, setContentTarget] = useState<Course | null>(null);
     const [showUserModal, setShowUserModal] = useState(false);
     const [userForm, setUserForm] = useState({ name: '', email: '', password: '', role: UserRole.USER });
-    const [form, setForm] = useState({ title: '', description: '', image: '', category: '', price: 0, mrp: 0, isPaid: false, isNew: true, accessKey: '', shortenerLink: '', telegramLink: '', startDate: '', endDate: '' });
+    
+    const [form, setForm] = useState({ 
+      title: '', description: '', image: '', category: '', 
+      price: 0, mrp: 0, isPaid: false, accessKey: '', 
+      shortenerLink: '', telegramLink: '', startDate: '', 
+      endDate: '', isNew: true 
+    });
     const [generatingLink, setGeneratingLink] = useState(false);
 
     useEffect(() => {
         if (editing) {
-            setForm({ 
-                title: editing.title || '', description: editing.description || '', image: editing.image || '', category: editing.category || '', price: editing.price || 0, mrp: editing.mrp || 0, isPaid: !!editing.isPaid, isNew: editing.isNew ?? true,
-                accessKey: editing.accessKey || '', shortenerLink: editing.shortenerLink || '', telegramLink: editing.telegramLink || '', startDate: editing.startDate || '', endDate: editing.endDate || ''
-            });
+          setForm({ 
+            title: editing.title,
+            description: editing.description,
+            image: editing.image,
+            category: editing.category,
+            price: editing.price,
+            mrp: editing.mrp,
+            isPaid: !!editing.isPaid,
+            accessKey: editing.accessKey || '',
+            shortenerLink: editing.shortenerLink || '',
+            telegramLink: editing.telegramLink || '',
+            startDate: editing.startDate || '',
+            endDate: editing.endDate || '',
+            isNew: editing.isNew ?? true
+          });
         }
-        else setForm({ title: '', description: '', image: '', category: '', price: 0, mrp: 0, isPaid: false, isNew: true, accessKey: '', shortenerLink: '', telegramLink: '', startDate: '', endDate: '' });
+        else setForm({ title: '', description: '', image: '', category: '', price: 0, mrp: 0, isPaid: false, accessKey: '', shortenerLink: '', telegramLink: '', startDate: '', endDate: '', isNew: true });
     }, [editing, showModal]);
 
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -970,7 +313,10 @@ const AdminPanel = () => {
 
     const handleSaveCourse = (e: React.FormEvent) => {
         e.preventDefault();
-        const data: Course = { ...(editing || { id: Date.now().toString(), subjects: [], createdAt: new Date().toISOString() }), ...form };
+        const data: Course = { 
+          ...(editing || { id: Date.now().toString(), subjects: [], createdAt: new Date().toISOString() }), 
+          ...form 
+        };
         if (editing) updateCourse(data); else addCourse(data);
         setShowModal(false);
     };
@@ -994,14 +340,13 @@ const AdminPanel = () => {
 
         try {
             const res = await fetch(apiUrl);
-            // Some APIs return plain text, others JSON. Handling safely.
             const text = await res.text();
             let shortUrl = text;
             try {
                 const json = JSON.parse(text);
                 if(json.shortenedUrl) shortUrl = json.shortenedUrl;
                 else if(json.link) shortUrl = json.link;
-            } catch(e) {} // It was plain text
+            } catch(e) {} 
 
             if (shortUrl && shortUrl.startsWith('http')) {
                 setForm(prev => ({ ...prev, shortenerLink: shortUrl }));
@@ -1018,30 +363,34 @@ const AdminPanel = () => {
     };
 
     return (
-        <div className="pb-24 pt-20 px-4 min-h-screen bg-gray-50">
+        <div className="pb-24 pt-20 px-4 min-h-screen bg-[#f8fafc]">
              <div className="max-w-4xl mx-auto">
-                 <div className="flex bg-white p-1 rounded-xl shadow-sm border border-gray-200 mb-8">
-                    <button onClick={() => setTab('batches')} className={`flex-1 py-2.5 font-bold text-sm rounded-lg ${tab === 'batches' ? 'bg-brand text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>Batches</button>
-                    {currentUser.role === UserRole.ADMIN && <button onClick={() => setTab('users')} className={`flex-1 py-2.5 font-bold text-sm rounded-lg ${tab === 'users' ? 'bg-brand text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>Users</button>}
+                 <div className="flex bg-white p-1.5 rounded-[24px] shadow-sm border border-gray-100 mb-8 overflow-hidden">
+                    {(['batches', 'users', 'settings'] as const).map(t => (
+                        <button key={t} onClick={() => setTab(t)} className={`flex-1 py-3 font-bold capitalize transition-all rounded-[18px] text-sm ${tab === t ? 'bg-[#0056d2] text-white shadow-md' : 'text-gray-400 hover:bg-gray-50'}`}>
+                            {t}
+                        </button>
+                    ))}
                  </div>
 
                  {tab === 'batches' && (
                      <div className="space-y-4">
-                         <button onClick={() => { setEditing(null); setShowModal(true); }} className="w-full py-6 bg-white border-2 border-dashed border-gray-300 rounded-xl text-gray-500 font-bold flex flex-col items-center justify-center gap-2 hover:border-brand hover:text-brand transition-colors">
-                            <Plus className="w-6 h-6" /> Create New Batch
+                         <button onClick={() => { setEditing(null); setShowModal(true); }} className="w-full py-10 bg-white border-2 border-dashed border-blue-200 rounded-[32px] text-[#0056d2] font-bold flex flex-col items-center justify-center gap-2 hover:bg-blue-50 transition-all">
+                            <Plus className="w-8 h-8" />
+                            <span>INITIALIZE NEW BATCH</span>
                          </button>
                          <div className="grid gap-3">
                              {courses.map(c => (
-                                 <div key={c.id} className="bg-white p-4 rounded-xl flex items-center gap-4 border border-gray-200 shadow-sm hover:shadow-md transition-all">
-                                     <img src={c.image} className="w-16 h-16 rounded-lg object-cover bg-gray-100" alt="" />
+                                 <div key={c.id} className="bg-white p-4 rounded-[28px] flex items-center gap-4 border border-gray-100 shadow-sm hover:shadow-md transition-all">
+                                     <img src={c.image} className="w-16 h-16 rounded-2xl object-cover" alt="" />
                                      <div className="flex-1">
-                                        <h3 className="font-bold text-gray-800">{c.title}</h3>
-                                        <p className="text-xs text-gray-500">{c.category} • {c.isPaid ? 'Paid' : 'Free'}</p>
+                                        <h3 className="font-bold text-gray-800 text-sm truncate">{c.title}</h3>
+                                        <p className="text-[10px] text-blue-600 font-bold uppercase tracking-widest">{c.category} • {c.isPaid ? 'Paid' : 'Free'}</p>
                                      </div>
                                      <div className="flex gap-2">
-                                         <button onClick={() => setContentTarget(c)} className="px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-xs font-bold hover:bg-gray-200">Content</button>
-                                         <button onClick={() => { setEditing(c); setShowModal(true); }} className="p-2 text-gray-400 hover:text-brand bg-gray-50 rounded-lg"><Edit className="w-4 h-4" /></button>
-                                         {currentUser.role === UserRole.ADMIN && <button onClick={() => { if(confirm('Delete?')) deleteCourse(c.id); }} className="p-2 text-red-400 hover:text-red-600 bg-red-50 rounded-lg"><Trash2 className="w-4 h-4" /></button>}
+                                         <button onClick={() => setContentTarget(c)} className="px-4 py-2 bg-[#0056d2] text-white rounded-xl font-bold text-[10px] active:scale-95 transition-all">CONTENT</button>
+                                         <button onClick={() => { setEditing(c); setShowModal(true); }} className="p-2 bg-gray-50 text-gray-400 rounded-xl hover:bg-blue-50 hover:text-blue-600 transition-colors"><Edit className="w-4 h-4" /></button>
+                                         {currentUser.role === UserRole.ADMIN && <button onClick={() => { if(confirm('Delete batch sequence?')) deleteCourse(c.id); }} className="p-2 bg-red-50 text-red-400 rounded-xl hover:bg-red-500 hover:text-white transition-all"><Trash2 className="w-4 h-4" /></button>}
                                      </div>
                                  </div>
                              ))}
@@ -1076,63 +425,106 @@ const AdminPanel = () => {
                     </div>
                 )}
              </div>
+
              {showModal && (
-                 <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                    <div className="bg-white w-full max-w-lg rounded-2xl p-6 shadow-2xl overflow-y-auto max-h-[90vh]">
-                        <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-xl font-bold text-gray-800">{editing ? 'Edit Batch' : 'New Batch'}</h2>
-                            <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-full"><X /></button>
+                 <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <div className="bg-white w-full max-w-lg rounded-[40px] p-8 shadow-2xl max-h-[90vh] overflow-y-auto no-scrollbar border border-gray-100 animate-slide-up">
+                        <div className="flex justify-between items-center mb-8">
+                            <h2 className="text-2xl font-bold text-gray-800 tracking-tight">{editing ? 'Edit Batch Configuration' : 'Initialize New Batch Node'}</h2>
+                            <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X /></button>
                         </div>
-                        <form onSubmit={handleSaveCourse} className="space-y-4">
-                            <div className="space-y-1">
-                                <label className="text-xs font-bold text-gray-500 uppercase">Image URL or Upload</label>
-                                <div className="flex gap-2">
-                                    <input value={form.image} onChange={e => setForm({ ...form, image: e.target.value })} className="flex-1 p-3 border rounded-lg bg-gray-50" placeholder="https://..." />
-                                    <label className="p-3 bg-gray-100 rounded-lg cursor-pointer hover:bg-gray-200">
-                                        <Upload className="w-5 h-5 text-gray-600" />
-                                        <input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} />
-                                    </label>
+                        <form onSubmit={handleSaveCourse} className="space-y-5">
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Identity Thumbnail</label>
+                                <div className="relative aspect-video rounded-3xl overflow-hidden bg-gray-50 border-2 border-dashed border-gray-200 flex items-center justify-center group shadow-inner">
+                                    {form.image ? (
+                                        <>
+                                            <img src={form.image} className="w-full h-full object-cover" alt="Preview" />
+                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                <button type="button" onClick={() => setForm({...form, image: ''})} className="bg-white text-red-500 p-2.5 rounded-full shadow-lg hover:scale-110 transition-transform"><Trash2 className="w-5 h-5" /></button>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div className="text-center p-6">
+                                            <div className="flex flex-col items-center">
+                                                <ImageIcon className="w-12 h-12 text-gray-300 mb-2 opacity-50" />
+                                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Inject Thumbnail URL</p>
+                                                <label className="mt-3 px-4 py-2 bg-gray-100 rounded-xl text-xs font-bold text-gray-600 cursor-pointer hover:bg-gray-200">
+                                                    Upload
+                                                    <input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} />
+                                                </label>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
-                                {form.image && <img src={form.image} className="w-full h-32 object-cover rounded-lg mt-2 border" alt="Preview" />}
+                                <input value={form.image} onChange={e => setForm({ ...form, image: e.target.value })} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl font-mono text-[10px] shadow-sm" placeholder="https://domain.com/thumbnail.jpg" />
                             </div>
-                            <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Title</label><input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className="w-full p-3 border rounded-lg bg-gray-50" required /></div>
-                            <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Description</label><textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="w-full p-3 border rounded-lg bg-gray-50 h-24 resize-none" required /></div>
-                            
+
+                            <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:border-blue-500 font-bold shadow-sm" placeholder="Course Title" required />
+                            <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:border-blue-500 font-medium text-xs shadow-sm min-h-[100px]" placeholder="Description" required />
+
                             <div className="space-y-1">
-                                <label className="text-xs font-bold text-gray-500 uppercase">24h Access Link</label>
+                                <label className="text-[10px] font-bold text-gray-400 ml-1 uppercase">24h Access Link</label>
                                 <div className="flex gap-2">
-                                    <input value={form.shortenerLink} onChange={e => setForm({...form, shortenerLink: e.target.value})} className="flex-1 p-3 border rounded-lg bg-gray-50 text-xs" placeholder="Generate link ->" />
-                                    <button type="button" onClick={generateShortLink} disabled={generatingLink} className="px-4 py-2 bg-brand/10 text-brand font-bold rounded-lg text-xs hover:bg-brand/20 disabled:opacity-50">
+                                    <input value={form.shortenerLink} onChange={e => setForm({...form, shortenerLink: e.target.value})} className="flex-1 p-4 bg-gray-50 border border-gray-100 rounded-2xl text-[10px] font-mono shadow-sm" placeholder="Generate link ->" />
+                                    <button type="button" onClick={generateShortLink} disabled={generatingLink} className="px-4 bg-brand/10 text-brand font-bold rounded-2xl text-[10px] hover:bg-brand/20 disabled:opacity-50 uppercase tracking-wider">
                                         {generatingLink ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Auto Generate'}
                                     </button>
                                 </div>
                             </div>
 
                             <div className="space-y-1">
-                                <label className="text-xs font-bold text-gray-500 uppercase">Enrollment / Access Key</label>
+                                <label className="text-[10px] font-bold text-gray-400 ml-1 uppercase">Enrollment / Access Key</label>
                                 <input 
                                     value={form.accessKey} 
                                     onChange={e => setForm({ ...form, accessKey: e.target.value })} 
-                                    className="w-full p-3 border rounded-lg bg-gray-50" 
+                                    className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl text-xs font-mono shadow-sm" 
                                     placeholder="e.g. BATCH2025 (Optional)" 
                                 />
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Category</label><input value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className="w-full p-3 border rounded-lg bg-gray-50" required /></div>
-                                <div className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50" onClick={() => setForm({...form, isPaid: !form.isPaid})}>
-                                    <div className={`w-4 h-4 rounded border ${form.isPaid ? 'bg-brand border-brand' : 'bg-white border-gray-300'}`}></div><span className="text-sm font-bold text-gray-600">Paid Course</span>
+                                <input value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className="p-4 bg-gray-50 border border-gray-100 rounded-2xl text-xs uppercase font-bold shadow-sm" placeholder="Category" required />
+                                <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-2xl border border-gray-100 shadow-sm cursor-pointer" onClick={() => setForm({...form, isPaid: !form.isPaid})}>
+                                    <span className="text-xs font-bold text-gray-400 uppercase">Paid</span>
+                                    <div className={`w-10 h-5 rounded-full relative transition-all ${form.isPaid ? 'bg-blue-600' : 'bg-gray-300'}`}>
+                                        <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${form.isPaid ? 'left-5.5' : 'left-0.5'}`} />
+                                    </div>
                                 </div>
                             </div>
+
+                            {form.isPaid && (
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-gray-400 ml-1 uppercase">Price</label>
+                                        <input type="number" value={form.price} onChange={e => setForm({ ...form, price: Number(e.target.value) })} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl text-xs shadow-sm" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-gray-400 ml-1 uppercase">MRP</label>
+                                        <input type="number" value={form.mrp} onChange={e => setForm({ ...form, mrp: Number(e.target.value) })} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl text-xs shadow-sm" />
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Price</label><input type="number" value={form.price} onChange={e => setForm({ ...form, price: Number(e.target.value) })} className="w-full p-3 border rounded-lg bg-gray-50" /></div>
-                                <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">MRP</label><input type="number" value={form.mrp} onChange={e => setForm({ ...form, mrp: Number(e.target.value) })} className="w-full p-3 border rounded-lg bg-gray-50" /></div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-gray-400 ml-1 uppercase">Node Active</label>
+                                    <input value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl text-xs shadow-sm" placeholder="Start Date" />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-gray-400 ml-1 uppercase">Node Expiry</label>
+                                    <input value={form.endDate} onChange={e => setForm({ ...form, endDate: e.target.value })} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl text-xs shadow-sm" placeholder="End Date" />
+                                </div>
                             </div>
-                            <button type="submit" className="w-full py-3 bg-brand text-white font-bold rounded-lg hover:bg-brand-dark shadow-md mt-4">Save Batch</button>
+
+                            <div className="pt-4">
+                                <button type="submit" className="w-full py-5 bg-[#0056d2] text-white font-black rounded-3xl shadow-xl shadow-blue-100 active:scale-95 transition-all uppercase tracking-[0.2em] text-sm">Commit Sequence</button>
+                            </div>
                         </form>
                     </div>
                  </div>
              )}
+             
              {showUserModal && (
                  <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
                     <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl">
@@ -1150,7 +542,265 @@ const AdminPanel = () => {
                     </div>
                  </div>
              )}
+
              {contentTarget && <ContentManager course={contentTarget} onClose={() => setContentTarget(null)} />}
+        </div>
+    );
+};
+
+const CourseListing = () => {
+    const { courses } = useStore();
+    const [filter, setFilter] = useState<'Paid' | 'Free'>('Free');
+    const filteredCourses = courses.filter(c => filter === 'Paid' ? c.isPaid : !c.isPaid);
+
+    return (
+        <div className="pb-24 pt-20 px-5 min-h-screen bg-[#f8fafc]">
+            <div className="max-w-md mx-auto space-y-6">
+                <div className="bg-white p-1 rounded-3xl border border-gray-100 flex shadow-sm">
+                    {(['Paid', 'Free'] as const).map((t) => (
+                        <button key={t} onClick={() => setFilter(t)} className={`flex-1 py-3 rounded-2xl font-bold text-sm transition-all ${filter === t ? 'bg-blue-50 text-[#0056d2] shadow-sm' : 'text-gray-400 hover:bg-gray-50'}`}>
+                            {t}
+                        </button>
+                    ))}
+                </div>
+
+                <div className="space-y-8">
+                    {filteredCourses.length === 0 ? (
+                        <div className="text-center py-20 animate-fade-in">
+                            <Search className="w-12 h-12 text-gray-200 mx-auto mb-4" />
+                            <p className="text-gray-400 font-bold uppercase text-[10px] tracking-widest">No active nodes in this sector</p>
+                        </div>
+                    ) : filteredCourses.map(c => (
+                        <div key={c.id} className="bg-white rounded-[40px] overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-500 animate-slide-up">
+                            <div className="p-7 flex justify-between items-center">
+                                <div className="flex items-center gap-2.5">
+                                    <h3 className="text-lg font-black text-gray-800 tracking-tight">{c.title}</h3>
+                                    {c.isNew && <span className="bg-[#fff9e6] text-[#eab308] text-[9px] font-black px-2.5 py-1 rounded-lg border border-yellow-200 uppercase tracking-tighter shadow-sm">New</span>}
+                                </div>
+                            </div>
+                            <div className="px-7 relative group">
+                                <img src={c.image} className="w-full aspect-[16/9] object-cover rounded-[30px] group-hover:scale-[1.02] transition-transform duration-700" alt={c.title} />
+                                {!c.isPaid && <div className="absolute top-4 left-11 bg-white/95 backdrop-blur-md px-3.5 py-1.5 rounded-xl text-[10px] font-black text-gray-800 shadow-xl ring-1 ring-black/5 uppercase tracking-widest">Free Node</div>}
+                            </div>
+                            <div className="p-7 pt-5 space-y-6">
+                                <div className="flex items-center gap-5 text-[11px] font-bold text-gray-400">
+                                    <div className="flex items-center gap-2"><Calendar className="w-4 h-4 text-brand/50" /><span>Starts {c.startDate}</span></div>
+                                    <div className="w-1.5 h-1.5 bg-gray-200 rounded-full"></div>
+                                    <div className="flex items-center gap-2"><span>Ends {c.endDate}</span></div>
+                                </div>
+                                <div className="flex gap-4">
+                                    <Link to={`/course/${c.id}`} className="flex-1 py-4 bg-[#0056d2] text-white text-center text-sm font-black rounded-2xl shadow-xl shadow-blue-200 active:scale-95 transition-all uppercase tracking-widest">Let's Study</Link>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const CourseDetail = () => {
+    const { id } = useParams<{id: string}>();
+    const { courses } = useStore();
+    const navigate = useNavigate();
+    const [activeTab, setActiveTab] = useState<'Description' | 'Subjects' | 'Resources' | 'Tests' | 'Community'>('Subjects');
+
+    const course = courses.find(c => c.id === id);
+    if (!course) return <Navigate to="/" />;
+
+    return (
+        <div className="pb-24 pt-0 min-h-screen bg-white">
+            <div className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
+                <div className="flex items-center justify-between p-4 px-6">
+                    <div className="flex items-center gap-5">
+                        <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-50 rounded-full transition-colors"><ArrowLeft className="w-6 h-6 text-gray-800" /></button>
+                        <h1 className="text-xl font-black text-gray-800 truncate max-w-[180px] tracking-tight">{course.title}</h1>
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <XPBadge />
+                        <Bell className="w-6 h-6 text-gray-600" />
+                        <MoreVertical className="w-6 h-6 text-gray-600" />
+                    </div>
+                </div>
+                
+                <div className="flex px-6 gap-8 overflow-x-auto no-scrollbar">
+                    {(['Description', 'Subjects', 'Resources', 'Tests', 'Community'] as const).map(tab => (
+                        <button key={tab} onClick={() => setActiveTab(tab)} className={`pb-3 text-sm font-black whitespace-nowrap transition-all border-b-4 ${activeTab === tab ? 'text-[#0056d2] border-[#0056d2]' : 'text-gray-400 border-transparent'}`}>
+                            {tab}
+                        </button>
+                    ))}
+                </div>
+            </div>
+            <Banner />
+            <div className="p-6">
+                {activeTab === 'Subjects' && (
+                    <div className="space-y-5">
+                        {(course.subjects || []).map((sub) => (
+                            <div key={sub.id} onClick={() => navigate(`/course/${course.id}/subject/${sub.id}`)} className="bg-white border border-gray-100 rounded-[35px] p-6 flex items-center gap-6 shadow-sm active:scale-[0.98] transition-all hover:border-blue-200 hover:shadow-md cursor-pointer">
+                                <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-[#0056d2] font-black text-xl border border-blue-100 shadow-inner">{sub.iconText}</div>
+                                <div className="flex-1">
+                                    <h3 className="font-black text-gray-800 text-lg leading-tight mb-2">{sub.title}</h3>
+                                    <div className="flex items-center gap-5 mt-3">
+                                        <div className="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden shadow-inner"><div className="h-full bg-[#0056d2] w-[0%]"></div></div>
+                                        <span className="text-[12px] font-black text-gray-400">0%</span>
+                                    </div>
+                                </div>
+                                <ChevronRight className="w-6 h-6 text-gray-300" />
+                            </div>
+                        ))}
+                    </div>
+                )}
+                {activeTab === 'Tests' && (
+                   <div className="space-y-4">
+                     <div onClick={() => navigate(`/exam/${course.id}`)} className="bg-gradient-to-br from-[#0056d2] to-blue-600 rounded-[35px] p-8 text-white shadow-xl shadow-blue-200 cursor-pointer active:scale-95 transition-transform">
+                        <div className="flex justify-between items-start mb-6">
+                           <div className="p-3 bg-white/10 backdrop-blur-md rounded-2xl"><Brain className="w-8 h-8 text-white" /></div>
+                           <span className="px-3 py-1 bg-white/20 rounded-full text-[10px] font-bold uppercase tracking-widest border border-white/20">AI Powered</span>
+                        </div>
+                        <h3 className="text-2xl font-bold mb-2">Neural Mock Test</h3>
+                        <p className="text-blue-100 text-sm font-medium mb-6">Generate infinite practice tests based on course content.</p>
+                        <div className="flex items-center gap-2 font-bold text-xs uppercase tracking-widest bg-white/10 w-fit px-4 py-2 rounded-xl">
+                           Start Assessment <ArrowLeft className="w-4 h-4 rotate-180" />
+                        </div>
+                     </div>
+                   </div>
+                )}
+                {activeTab === 'Description' && (
+                    <div className="space-y-8 animate-fade-in">
+                        <div className="relative group">
+                             <img src={course.image} className="w-full h-56 object-cover rounded-[50px] shadow-2xl" alt="" />
+                             <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent rounded-[50px]"></div>
+                        </div>
+                        <div>
+                            <h2 className="text-3xl font-black text-gray-800 mb-4 tracking-tight">{course.title}</h2>
+                            <p className="text-gray-500 text-base leading-relaxed font-medium">{course.description}</p>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+const SubjectDetail = () => {
+    const { courseId, subjectId } = useParams<{courseId: string, subjectId: string}>();
+    const { courses, saveGeneratedNote } = useStore();
+    const navigate = useNavigate();
+    const [tab, setTab] = useState<'Chapters' | 'Notes'>('Chapters');
+    const [filter, setFilter] = useState('All');
+    const [generatingNotes, setGeneratingNotes] = useState(false);
+    
+    const course = courses.find(c => c.id === courseId);
+    const subject = course?.subjects.find(s => s.id === subjectId);
+    if (!subject || !courseId) return <Navigate to="/" />;
+
+    const handleGenerateNotes = async () => {
+        setGeneratingNotes(true);
+        try {
+            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            const prompt = `Generate highly concise educational summary (notes) for "${subject.title}" based on these chapter topics: ${subject.chapters.map(c => c.title).join(', ')}. Use professional teaching tone. Structure with clear headings using Markdown.`;
+            const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: prompt });
+            const text = response.text || "No content generated.";
+            
+            const note: GeneratedNote = {
+                id: Date.now().toString(),
+                videoId: 'subject-summary',
+                videoTitle: `${subject.title} Summary`,
+                subjectName: subject.title,
+                content: text,
+                createdAt: new Date().toISOString(),
+                syllabusYear: '2025'
+            };
+            saveGeneratedNote(note);
+            alert("Notes generated and saved to your Profile!");
+        } catch (e) { 
+            console.error(e);
+            alert("AI generation failed."); 
+        } finally { 
+            setGeneratingNotes(false); 
+        }
+    };
+
+    return (
+        <div className="pb-24 pt-0 min-h-screen bg-white">
+            <div className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
+                <div className="flex items-center justify-between p-4 px-6">
+                    <div className="flex items-center gap-5">
+                        <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-50 rounded-full transition-colors"><ArrowLeft className="w-6 h-6 text-gray-800" /></button>
+                        <h1 className="text-xl font-black text-gray-800 tracking-tight">{subject.title}</h1>
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <button onClick={handleGenerateNotes} disabled={generatingNotes} className="text-[#0056d2] p-2.5 rounded-2xl hover:bg-blue-50 border border-blue-100 transition-all active:scale-90">
+                          {generatingNotes ? <Loader2 className="w-6 h-6 animate-spin" /> : <Sparkles className="w-6 h-6" />}
+                        </button>
+                        <XPBadge />
+                    </div>
+                </div>
+                <div className="flex px-6 gap-10">
+                    {(['Chapters', 'Study Material'] as const).map(t => (
+                        <button key={t} onClick={() => setTab(t === 'Chapters' ? 'Chapters' : 'Notes')} className={`pb-4 text-sm font-black border-b-4 transition-all ${tab === (t === 'Chapters' ? 'Chapters' : 'Notes') ? 'text-[#0056d2] border-[#0056d2]' : 'text-gray-400 border-transparent'}`}>{t}</button>
+                    ))}
+                </div>
+            </div>
+
+            <div className="p-6 space-y-8 pb-32">
+                {tab === 'Chapters' ? (
+                  subject.chapters.length === 0 ? (
+                    <div className="text-center py-32 opacity-30 italic font-black uppercase text-[10px] tracking-widest">No data sequences discovered</div>
+                  ) : (
+                    subject.chapters.map((chap, idx) => (
+                        <div key={chap.id} className="bg-white border border-gray-100 rounded-[40px] p-8 shadow-sm active:scale-[0.98] transition-all hover:border-blue-200 group">
+                            <span className="inline-block bg-blue-50 text-[#0056d2] text-[10px] font-black px-3 py-1.5 rounded-xl mb-3 border border-blue-100 uppercase tracking-[0.2em] shadow-sm">UNIT - {String(idx+1).padStart(2, '0')}</span>
+                            <h3 className="font-black text-gray-800 text-xl mb-2 tracking-tight leading-tight">{chap.title}</h3>
+                            <div className="space-y-4 mt-6">
+                                {chap.videos.map(video => (
+                                    <div key={video.id} className="flex items-center gap-4 p-3 bg-gray-50 rounded-2xl cursor-pointer hover:bg-blue-50 transition-colors" onClick={() => navigate(`/watch/${courseId}?video=${video.id}`)}>
+                                        <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#0056d2] shadow-sm"><PlayCircle className="w-6 h-6" /></div>
+                                        <div className="flex-1">
+                                            <div className="text-xs font-bold text-gray-800 line-clamp-1">{video.title}</div>
+                                            <div className="text-[10px] text-gray-400 font-bold uppercase">{video.type} • {video.duration}</div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ))
+                  )
+                ) : (
+                  <div className="space-y-6">
+                    <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
+                      {(['All', 'Lectures', 'Notes', 'DPPs'] as const).map(f => (
+                        <button key={f} onClick={() => setFilter(f)} className={`px-6 py-2.5 rounded-full text-xs font-black whitespace-nowrap transition-all uppercase tracking-widest border-2 ${filter === f ? 'bg-[#333] border-[#333] text-white shadow-lg' : 'bg-white border-gray-100 text-gray-400 hover:border-gray-200'}`}>{f}</button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+const WatchPage = () => {
+    const { id } = useParams<{id: string}>(); // courseId
+    const location = useLocation();
+    const videoId = new URLSearchParams(location.search).get('video');
+    const { courses } = useStore();
+    const navigate = useNavigate();
+    
+    const course = courses.find(c => c.id === id);
+    const allVideos = course?.subjects.flatMap(s => s.chapters.flatMap(c => c.videos)) || [];
+    const video = allVideos.find(v => v.id === videoId);
+
+    if (!course || !video) return <Navigate to={`/course/${id}`} />;
+
+    return (
+        <div className="bg-black min-h-screen flex flex-col items-center justify-center">
+             <VideoPlayer 
+                src={video.filename} 
+                onBack={() => navigate(-1)} 
+                className="w-full h-full max-h-screen aspect-video"
+            />
         </div>
     );
 };
@@ -1397,6 +1047,7 @@ const MainContent = () => {
         <Route path="/my-courses" element={<CourseListing />} />
         <Route path="/course/:id" element={<CourseDetail />} />
         <Route path="/course/:courseId/subject/:subjectId" element={<SubjectDetail />} />
+        <Route path="/watch/:id" element={<WatchPage />} />
         <Route path="/exam/:id" element={<ExamMode />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/admin" element={<AdminPanel />} />

@@ -8,13 +8,13 @@ import {
   CheckCircle, ExternalLink, Play, Bot, Brain, Loader2, ArrowLeft, 
   Video as VideoIcon, Sparkles, Send, Smartphone, List, Globe, Bell, 
   ChevronRight, MoreVertical, MessageCircle, FileText, Calendar, MessageSquare, Eye,
-  RotateCcw, ImageIcon, Key, Clock, Shield, LogOut, Download, Save, Timer as TimerIcon
+  RotateCcw, ImageIcon, Key, Clock, Shield, LogOut, Download, Save, Timer as TimerIcon, AlertCircle
 } from './components/Icons';
 import VideoPlayer from './components/VideoPlayer';
 import ChatBot from './components/ChatBot';
 import ExamMode from './components/ExamMode';
 import { GoogleGenAI } from "@google/genai";
-import { Course, Chapter, Video, UserRole, Subject, GeneratedNote } from './types';
+import { Course, Chapter, Video, UserRole, Subject, GeneratedNote, AppSettings } from './types';
 
 declare var process: { env: { API_KEY: string } };
 
@@ -305,7 +305,7 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
 // --- ADMIN PANEL ---
 
 const AdminPanel = () => {
-    const { currentUser, courses, settings, addCourse, updateCourse, deleteCourse, users, manageUserRole, createUser } = useStore();
+    const { currentUser, courses, settings, addCourse, updateCourse, deleteCourse, users, manageUserRole, createUser, updateSettings } = useStore();
     const [tab, setTab] = useState<'batches' | 'users' | 'settings'>('batches');
     const [showModal, setShowModal] = useState(false);
     const [editing, setEditing] = useState<Course | null>(null);
@@ -313,6 +313,7 @@ const AdminPanel = () => {
     const [showUserModal, setShowUserModal] = useState(false);
     const [userForm, setUserForm] = useState({ name: '', email: '', password: '', role: UserRole.USER });
     const [selectedUser, setSelectedUser] = useState<any | null>(null); // For analytics
+    const [settingsForm, setSettingsForm] = useState<AppSettings>(settings);
     
     const [form, setForm] = useState({ 
       title: '', description: '', image: '', category: '', 
@@ -321,6 +322,10 @@ const AdminPanel = () => {
       endDate: '', isNew: true 
     });
     const [generatingLink, setGeneratingLink] = useState(false);
+
+    useEffect(() => {
+        setSettingsForm(settings);
+    }, [settings]);
 
     useEffect(() => {
         if (editing) {
@@ -371,6 +376,12 @@ const AdminPanel = () => {
         setShowUserModal(false); setUserForm({ name: '', email: '', password: '', role: UserRole.USER });
     };
 
+    const handleSaveSettings = (e: React.FormEvent) => {
+        e.preventDefault();
+        updateSettings(settingsForm);
+        alert("System configurations updated.");
+    };
+
     const generateShortLink = async () => {
         if(!editing) {
             alert("Please save the batch first to generate a link.");
@@ -379,7 +390,9 @@ const AdminPanel = () => {
         setGeneratingLink(true);
         const targetId = editing.id;
         const longUrl = `${window.location.origin}/#/temp-access/${targetId}`;
-        const apiUrl = `https://vplink.in/api?api=320f263d298979dc11826b8e2574610ba0cc5d6b&url=${encodeURIComponent(longUrl)}`;
+        const apiBase = settings.linkShortenerApiUrl || 'https://vplink.in/api';
+        const apiKey = settings.linkShortenerApiKey || '320f263d298979dc11826b8e2574610ba0cc5d6b';
+        const apiUrl = `${apiBase}?api=${apiKey}&url=${encodeURIComponent(longUrl)}`;
 
         try {
             const res = await fetch(apiUrl);
@@ -430,6 +443,16 @@ const AdminPanel = () => {
     return (
         <div className="pb-24 pt-20 px-4 min-h-screen bg-[#f8fafc]">
              <div className="max-w-4xl mx-auto">
+                 {currentUser.isDemo && (
+                     <div className="bg-amber-100 border border-amber-200 text-amber-800 p-4 rounded-[20px] mb-6 flex items-center gap-3 shadow-sm animate-pulse">
+                         <AlertCircle className="w-6 h-6" />
+                         <div>
+                             <p className="font-bold text-sm">Demo Mode Active</p>
+                             <p className="text-xs opacity-80">You have full admin access, but changes will NOT be saved to the database.</p>
+                         </div>
+                     </div>
+                 )}
+
                  <div className="flex bg-white p-1.5 rounded-[24px] shadow-sm border border-gray-100 mb-8 overflow-hidden">
                     {availableTabs.map(t => (
                         <button key={t} onClick={() => setTab(t)} className={`flex-1 py-3 font-bold capitalize transition-all rounded-[18px] text-sm ${tab === t ? 'bg-[#0056d2] text-white shadow-md' : 'text-gray-400 hover:bg-gray-50'}`}>
@@ -438,6 +461,7 @@ const AdminPanel = () => {
                     ))}
                  </div>
 
+                 {/* ... (Existing Tab Content for Batches, Users, Settings) ... */}
                  {tab === 'batches' && (
                      <div className="space-y-4">
                          <button onClick={() => { setEditing(null); setShowModal(true); }} className="w-full py-10 bg-white border-2 border-dashed border-blue-200 rounded-[32px] text-[#0056d2] font-bold flex flex-col items-center justify-center gap-2 hover:bg-blue-50 transition-all">
@@ -494,9 +518,55 @@ const AdminPanel = () => {
                         </div>
                     </div>
                 )}
+
+                {tab === 'settings' && currentUser.role === UserRole.ADMIN && (
+                    <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 p-8 animate-fade-in">
+                        <div className="flex items-center gap-3 mb-8">
+                            <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-[#0056d2]">
+                                <Settings className="w-6 h-6" />
+                            </div>
+                            <div>
+                                <h2 className="text-xl font-bold text-gray-800">System Configurations</h2>
+                                <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">Global API & Access Controls</p>
+                            </div>
+                        </div>
+                        <form onSubmit={handleSaveSettings} className="space-y-6">
+                            <div className="grid grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Application Name</label>
+                                    <input value={settingsForm.appName} onChange={e => setSettingsForm({...settingsForm, appName: e.target.value})} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold text-sm" />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Admin Email</label>
+                                    <input value={settingsForm.adminEmail} onChange={e => setSettingsForm({...settingsForm, adminEmail: e.target.value})} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold text-sm" />
+                                </div>
+                            </div>
+                            
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Payment Bot URL (Telegram)</label>
+                                <input value={settingsForm.botUrl || ''} onChange={e => setSettingsForm({...settingsForm, botUrl: e.target.value})} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl font-mono text-xs" placeholder="https://t.me/your_bot" />
+                                <p className="text-[10px] text-gray-400 ml-2">Users are redirected here to buy permanent access keys.</p>
+                            </div>
+
+                            <div className="p-6 bg-blue-50 rounded-[28px] space-y-4 border border-blue-100">
+                                <h3 className="text-sm font-bold text-blue-800 flex items-center gap-2"><ExternalLink className="w-4 h-4" /> Link Shortener Service</h3>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-bold text-blue-400 uppercase tracking-widest ml-1">API Endpoint URL</label>
+                                    <input value={settingsForm.linkShortenerApiUrl || ''} onChange={e => setSettingsForm({...settingsForm, linkShortenerApiUrl: e.target.value})} className="w-full p-4 bg-white border border-blue-100 rounded-2xl font-mono text-xs text-blue-600" placeholder="https://vplink.in/api" />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-bold text-blue-400 uppercase tracking-widest ml-1">API Key</label>
+                                    <input value={settingsForm.linkShortenerApiKey || ''} onChange={e => setSettingsForm({...settingsForm, linkShortenerApiKey: e.target.value})} type="password" className="w-full p-4 bg-white border border-blue-100 rounded-2xl font-mono text-xs text-blue-600" />
+                                </div>
+                            </div>
+
+                            <button type="submit" className="w-full py-5 bg-[#0056d2] text-white font-black rounded-3xl shadow-xl shadow-blue-100 active:scale-95 transition-all uppercase tracking-[0.2em] text-sm">Save Configuration</button>
+                        </form>
+                    </div>
+                )}
              </div>
 
-             {/* User Details Modal */}
+             {/* User Details Modal - Reused from previous step */}
              {selectedUser && (
                 <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
                     <div className="bg-white w-full max-w-2xl rounded-[40px] p-8 shadow-2xl max-h-[90vh] overflow-y-auto no-scrollbar animate-slide-up">
@@ -625,7 +695,7 @@ const AdminPanel = () => {
                             <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:border-blue-500 font-medium text-xs shadow-sm min-h-[100px]" placeholder="Description" required />
 
                             <div className="space-y-1">
-                                <label className="text-[10px] font-bold text-gray-400 ml-1 uppercase">24h Access Link</label>
+                                <label className="text-[10px] font-bold text-gray-400 ml-1 uppercase">24h Access Link (Temporary)</label>
                                 <div className="flex gap-2">
                                     <input value={form.shortenerLink} onChange={e => setForm({...form, shortenerLink: e.target.value})} className="flex-1 p-4 bg-gray-50 border border-gray-100 rounded-2xl text-[10px] font-mono shadow-sm" placeholder="Generate link ->" />
                                     <button type="button" onClick={generateShortLink} disabled={generatingLink} className="px-4 bg-brand/10 text-brand font-bold rounded-2xl text-[10px] hover:bg-brand/20 disabled:opacity-50 uppercase tracking-wider">
@@ -635,13 +705,14 @@ const AdminPanel = () => {
                             </div>
 
                             <div className="space-y-1">
-                                <label className="text-[10px] font-bold text-gray-400 ml-1 uppercase">Enrollment / Access Key</label>
+                                <label className="text-[10px] font-bold text-gray-400 ml-1 uppercase">Enrollment Key (Permanent Access)</label>
                                 <input 
                                     value={form.accessKey} 
                                     onChange={e => setForm({ ...form, accessKey: e.target.value })} 
                                     className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl text-xs font-mono shadow-sm" 
-                                    placeholder="e.g. BATCH2025 (Optional)" 
+                                    placeholder="Required for Bot Purchase (e.g. BATCH2025)" 
                                 />
+                                <p className="text-[9px] text-gray-400 ml-1">Users will receive this key from the bot after payment.</p>
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
@@ -756,7 +827,7 @@ const CourseListing = () => {
 
 const CourseDetail = () => {
     const { id } = useParams<{id: string}>();
-    const { courses, currentUser, enrollCourse } = useStore();
+    const { courses, currentUser, enrollCourse, settings } = useStore();
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState<'Subjects' | 'Description'>('Subjects');
     const [accessKeyInput, setAccessKeyInput] = useState('');
@@ -861,6 +932,16 @@ const CourseDetail = () => {
                         <p className="text-gray-500 mb-8 max-w-xs text-sm">Access this premium batch using one of the options below.</p>
                         
                         <div className="flex flex-col gap-4 w-full max-w-xs animate-slide-up">
+                             {/* Option 1: Temporary Access (Only if not already used/expired - simplified to always allow unless paid) */}
+                             <button 
+                                onClick={() => navigate(`/temp-access/${course.id}`)}
+                                className="w-full py-4 bg-[#0056d2] text-white font-bold rounded-2xl shadow-lg shadow-blue-200 active:scale-95 transition-all flex items-center justify-center gap-2"
+                             >
+                                <Clock className="w-5 h-5" />
+                                Get 24h Free Access
+                             </button>
+
+                             {/* Option 2: Enrollment Key */}
                              {!showKeyInput ? (
                                 <button 
                                     onClick={() => setShowKeyInput(true)} 
@@ -891,6 +972,7 @@ const CourseDetail = () => {
                                 </div>
                              )}
 
+                             {/* Option 3: Buy Key */}
                              {course.price > 0 && (
                                 <div className="text-center mt-4">
                                     <div className="flex items-center gap-3 my-3">
@@ -899,14 +981,14 @@ const CourseDetail = () => {
                                         <div className="h-px bg-gray-200 flex-1"></div>
                                     </div>
                                     <button 
-                                        onClick={() => window.open('https://t.me/rk_payment_bot', '_blank')}
+                                        onClick={() => window.open(settings.botUrl || 'https://t.me/rk_payment_bot', '_blank')}
                                         className="w-full py-4 bg-[#229ED9] text-white font-bold rounded-2xl shadow-lg hover:bg-[#1e8dbf] transition-all flex items-center justify-center gap-2 active:scale-95"
                                     >
                                         <Send className="w-5 h-5 -rotate-45 mb-1" />
                                         Buy Enrollment Key
                                     </button>
                                     <p className="text-[10px] text-gray-400 mt-2 font-medium">
-                                        Click above to buy key via Telegram bot (@rk_payment_bot), then enter it above.
+                                        Click above to buy key via Telegram bot, then enter it above.
                                     </p>
                                 </div>
                              )}
@@ -1283,7 +1365,7 @@ const Profile = () => {
 };
 
 const Login = () => {
-    const { login, signup, currentUser } = useStore();
+    const { login, signup, currentUser, loginAsDemo } = useStore();
     const navigate = useNavigate();
     const location = useLocation();
     const [isSignup, setIsSignup] = useState(false);
@@ -1320,6 +1402,14 @@ const Login = () => {
         setLoading(false);
     };
 
+    const handleDemoLogin = () => {
+        setLoading(true);
+        setTimeout(() => {
+            loginAsDemo();
+            setLoading(false);
+        }, 1000);
+    };
+
     return (
         <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-gray-50">
             <div className="w-full max-w-sm">
@@ -1339,6 +1429,15 @@ const Login = () => {
                             {isSignup ? 'Create Account' : 'Sign In'}
                         </button>
                     </form>
+                    
+                    <div className="mt-4 pt-4 border-t border-gray-100">
+                        <button onClick={handleDemoLogin} type="button" className="w-full py-4 bg-amber-100 text-amber-800 font-bold rounded-xl hover:bg-amber-200 transition-colors flex items-center justify-center gap-2">
+                            <Shield className="w-5 h-5" />
+                            Login as Demo Admin
+                        </button>
+                        <p className="text-[10px] text-center text-gray-400 mt-2">Explore features without affecting live data.</p>
+                    </div>
+
                     <div className="mt-6 text-center">
                         <button type="button" onClick={() => setIsSignup(!isSignup)} className="text-sm font-bold text-brand hover:underline">{isSignup ? 'Already have an account? Sign In' : 'Create new account'}</button>
                     </div>

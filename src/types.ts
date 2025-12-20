@@ -44,6 +44,7 @@ export interface User {
   tempAccess?: Record<string, string>;
   savedExamProgress?: ExamProgress[];
   generatedNotes?: GeneratedNote[];
+  isDemo?: boolean;
 }
 
 export interface Video {
@@ -113,4 +114,5 @@ export interface AppSettings {
   razorpayKey: string;
   linkShortenerApiUrl?: string;
   linkShortenerApiKey?: string;
+  botUrl?: string;
 }

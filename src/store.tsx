@@ -8,6 +8,7 @@ interface StoreContextType {
   courses: Course[];
   settings: AppSettings;
   login: (email: string, pass: string) => boolean;
+  loginAsDemo: () => void;
   signup: (name: string, email: string, phone: string, pass: string) => void;
   createUser: (user: User) => void;
   logout: () => void;
@@ -69,7 +70,10 @@ const INITIAL_SETTINGS: AppSettings = {
   supportPhone: '+91 00000 00000',
   razorpayKey: 'rzp_test_study',
   theme: 'light',
-  uiColor: '#0056d2'
+  uiColor: '#0056d2',
+  botUrl: 'https://t.me/rk_payment_bot',
+  linkShortenerApiUrl: 'https://vplink.in/api',
+  linkShortenerApiKey: '320f263d298979dc11826b8e2574610ba0cc5d6b'
 };
 
 export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
@@ -103,15 +107,34 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
     return saved ? JSON.parse(saved) : INITIAL_SETTINGS;
   });
 
-  useEffect(() => { localStorage.setItem('st_users', JSON.stringify(users)); }, [users]);
-  useEffect(() => { localStorage.setItem('st_currentUser', JSON.stringify(currentUser)); }, [currentUser]);
-  useEffect(() => { localStorage.setItem('st_courses', JSON.stringify(courses)); }, [courses]);
-  useEffect(() => { localStorage.setItem('st_settings', JSON.stringify(settings)); }, [settings]);
+  // Persistence Effects - only save if NOT in demo mode
+  useEffect(() => { 
+    if (!currentUser?.isDemo) {
+        localStorage.setItem('st_users', JSON.stringify(users)); 
+    }
+  }, [users, currentUser]);
+
+  useEffect(() => { 
+    if (!currentUser?.isDemo) {
+        localStorage.setItem('st_currentUser', JSON.stringify(currentUser)); 
+    }
+  }, [currentUser]);
+
+  useEffect(() => { 
+    if (!currentUser?.isDemo) {
+        localStorage.setItem('st_courses', JSON.stringify(courses)); 
+    }
+  }, [courses, currentUser]);
+
+  useEffect(() => { 
+    if (!currentUser?.isDemo) {
+        localStorage.setItem('st_settings', JSON.stringify(settings)); 
+    }
+  }, [settings, currentUser]);
 
   const login = (email: string, pass: string) => {
     const user = users.find(u => (u.email.toLowerCase() === email.toLowerCase() || u.phone === email) && u.password === pass);
     if (user) {
-      // Defensive: Ensure all required array/object fields exist (migration for legacy data)
       const secureUser = {
           ...user,
           purchasedCourseIds: user.purchasedCourseIds || [],
@@ -122,11 +145,30 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
           lastLogin: new Date().toISOString()
       };
       setCurrentUser(secureUser);
-      // Update global user list with migrated data
       setUsers(prev => prev.map(u => u.id === user.id ? secureUser : u));
       return true;
     }
     return false;
+  };
+
+  const loginAsDemo = () => {
+    const demoUser: User = {
+        id: 'demo-admin-id',
+        name: 'Demo Administrator',
+        email: 'demo@admin.com',
+        phone: '0000000000',
+        role: UserRole.ADMIN,
+        purchasedCourseIds: [],
+        tempAccess: {},
+        generatedNotes: [],
+        examResults: [],
+        savedExamProgress: [],
+        lastLogin: new Date().toISOString(),
+        isDemo: true
+    };
+    setCurrentUser(demoUser);
+    // Add demo user to list temporarily so they appear in user management lists
+    setUsers(prev => [...prev, demoUser]);
   };
 
   const signup = (name: string, email: string, phone: string, pass: string) => {
@@ -235,7 +277,7 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
 
   return (
     <StoreContext.Provider value={{
-      currentUser, users, courses, settings, login, signup, createUser, logout,
+      currentUser, users, courses, settings, login, loginAsDemo, signup, createUser, logout,
       addCourse, updateCourse, deleteCourse, enrollCourse, grantTempAccess,
       updateSettings, updateUser, manageUserRole, saveExamResult, saveExamProgress, clearExamProgress, 
       saveGeneratedNote, deleteGeneratedNote, toggleTheme

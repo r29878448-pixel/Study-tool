@@ -240,7 +240,7 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
                             <button onClick={addSubject} className="w-full py-4 border-2 border-dashed border-blue-100 rounded-2xl text-blue-600 font-bold hover:bg-blue-50 transition-all">+ Add Subject wise Column</button>
                             {subjects.map(sub => (
                                 <div key={sub.id} className="p-5 bg-white border border-gray-100 rounded-2xl flex justify-between items-center shadow-sm group">
-                                    <button onClick={() => setActiveSubjectId(sub.id)} className="flex-1 text-left flex items-center gap-4">
+                                    <button onClick={() => setActiveSubjectId(sub.id)} className="flex items-center gap-4 flex-1 text-left">
                                         <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600 font-bold text-xs">{sub.iconText}</div>
                                         <span className="font-bold text-gray-800">{sub.title}</span>
                                     </button>
@@ -548,6 +548,8 @@ const AdminPanel = () => {
     );
 };
 
+// --- CORE USER VIEWS ---
+
 const CourseListing = () => {
     const { courses } = useStore();
     const [filter, setFilter] = useState<'Paid' | 'Free'>('Free');
@@ -589,7 +591,8 @@ const CourseListing = () => {
                                     <div className="flex items-center gap-2"><span>Ends {c.endDate}</span></div>
                                 </div>
                                 <div className="flex gap-4">
-                                    <Link to={`/course/${c.id}`} className="flex-1 py-4 bg-[#0056d2] text-white text-center text-sm font-black rounded-2xl shadow-xl shadow-blue-200 active:scale-95 transition-all uppercase tracking-widest">Let's Study</Link>
+                                    <button className="flex-1 py-4 text-sm font-black text-[#7c5cdb] border-2 border-[#7c5cdb]/10 rounded-2xl hover:bg-[#7c5cdb]/5 transition-all uppercase tracking-widest">Archive</button>
+                                    <Link to={`/course/${c.id}`} className="flex-[1.5] py-4 bg-[#7c5cdb] text-white text-center text-sm font-black rounded-2xl shadow-xl shadow-[#7c5cdb]/20 active:scale-95 transition-all uppercase tracking-widest">Let's Study</Link>
                                 </div>
                             </div>
                         </div>
@@ -602,12 +605,30 @@ const CourseListing = () => {
 
 const CourseDetail = () => {
     const { id } = useParams<{id: string}>();
-    const { courses } = useStore();
+    const { courses, currentUser, grantTempAccess, enrollCourse } = useStore();
     const navigate = useNavigate();
-    const [activeTab, setActiveTab] = useState<'Description' | 'Subjects' | 'Resources' | 'Tests' | 'Community'>('Subjects');
+    const [activeTab, setActiveTab] = useState<'Subjects' | 'Description'>('Subjects');
+    const [accessKeyInput, setAccessKeyInput] = useState('');
+    const [showKeyInput, setShowKeyInput] = useState(false);
 
     const course = courses.find(c => c.id === id);
     if (!course) return <Navigate to="/" />;
+
+    const hasAccess = !course.isPaid || 
+      (currentUser && (
+        currentUser.role === UserRole.ADMIN || 
+        currentUser.purchasedCourseIds.includes(course.id) || 
+        (currentUser.tempAccess?.[course.id] && new Date(currentUser.tempAccess[course.id]) > new Date())
+      ));
+
+    const handleKeySubmit = () => {
+        if(course.accessKey && accessKeyInput === course.accessKey) {
+            enrollCourse(course.id);
+            alert("✅ Access Granted Successfully!");
+        } else {
+            alert("❌ Invalid Access Key");
+        }
+    };
 
     return (
         <div className="pb-24 pt-0 min-h-screen bg-white">
@@ -625,7 +646,7 @@ const CourseDetail = () => {
                 </div>
                 
                 <div className="flex px-6 gap-8 overflow-x-auto no-scrollbar">
-                    {(['Description', 'Subjects', 'Resources', 'Tests', 'Community'] as const).map(tab => (
+                    {(['Subjects', 'Description'] as const).map(tab => (
                         <button key={tab} onClick={() => setActiveTab(tab)} className={`pb-3 text-sm font-black whitespace-nowrap transition-all border-b-4 ${activeTab === tab ? 'text-[#0056d2] border-[#0056d2]' : 'text-gray-400 border-transparent'}`}>
                             {tab}
                         </button>
@@ -633,11 +654,82 @@ const CourseDetail = () => {
                 </div>
             </div>
             <Banner />
-            <div className="p-6">
+            <div className="p-6 relative">
+                {!hasAccess && activeTab === 'Subjects' && (
+                    <div className="absolute inset-0 z-10 bg-white/95 backdrop-blur-[2px] flex flex-col items-center justify-center p-6 text-center">
+                        <Lock className="w-16 h-16 text-gray-300 mb-4 animate-bounce" />
+                        <h3 className="text-2xl font-bold text-gray-900 mb-2">Content Locked</h3>
+                        <p className="text-gray-500 mb-8 max-w-xs text-sm">Access this premium batch using one of the options below.</p>
+                        
+                        <div className="flex flex-col gap-4 w-full max-w-xs animate-slide-up">
+                             <button 
+                                onClick={() => {
+                                    if(confirm("Activate your 24-hour trial access?")) {
+                                        grantTempAccess(course.id);
+                                    }
+                                }} 
+                                className="w-full py-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold rounded-2xl shadow-lg shadow-blue-200 active:scale-95 transition-all flex items-center justify-center gap-2"
+                             >
+                                <Clock className="w-5 h-5" /> 
+                                Get 24h Temporary Access
+                             </button>
+
+                             {!showKeyInput ? (
+                                <button 
+                                    onClick={() => setShowKeyInput(true)} 
+                                    className="w-full py-4 bg-white border-2 border-gray-200 text-gray-700 font-bold rounded-2xl hover:bg-gray-50 hover:border-gray-300 active:scale-95 transition-all flex items-center justify-center gap-2"
+                                >
+                                    <Key className="w-5 h-5 text-gray-400" />
+                                    Have an Enrollment Key?
+                                </button>
+                             ) : (
+                                <div className="bg-white p-2 rounded-2xl border-2 border-[#0056d2] shadow-sm animate-fade-in flex flex-col gap-2">
+                                    <div className="flex gap-2">
+                                        <input 
+                                            type="text" 
+                                            placeholder="Enter Key..." 
+                                            className="flex-1 p-2 text-sm font-bold text-gray-700 outline-none bg-transparent"
+                                            value={accessKeyInput}
+                                            onChange={e => setAccessKeyInput(e.target.value)}
+                                            autoFocus
+                                        />
+                                        <button 
+                                            onClick={handleKeySubmit}
+                                            className="bg-[#0056d2] text-white px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-[#003ea1] shadow-md"
+                                        >
+                                            Unlock
+                                        </button>
+                                    </div>
+                                    <button onClick={() => setShowKeyInput(false)} className="text-[10px] text-gray-400 font-bold uppercase tracking-widest hover:text-red-500 self-center pb-1">Cancel</button>
+                                </div>
+                             )}
+
+                             {course.price > 0 && (
+                                <div className="text-center mt-4">
+                                    <div className="flex items-center gap-3 my-3">
+                                        <div className="h-px bg-gray-200 flex-1"></div>
+                                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Premium Access</span>
+                                        <div className="h-px bg-gray-200 flex-1"></div>
+                                    </div>
+                                    <button 
+                                        onClick={() => window.open('https://t.me/rk_payment_bot', '_blank')}
+                                        className="w-full py-4 bg-[#229ED9] text-white font-bold rounded-2xl shadow-lg hover:bg-[#1e8dbf] transition-all flex items-center justify-center gap-2 active:scale-95"
+                                    >
+                                        <Send className="w-5 h-5 -rotate-45 mb-1" />
+                                        Buy Enrollment Key
+                                    </button>
+                                    <p className="text-[10px] text-gray-400 mt-2 font-medium">
+                                        Click above to buy key via Telegram bot (@rk_payment_bot), then enter it above.
+                                    </p>
+                                </div>
+                             )}
+                        </div>
+                    </div>
+                )}
                 {activeTab === 'Subjects' && (
-                    <div className="space-y-5">
+                    <div className={`space-y-5 ${!hasAccess ? 'blur-md select-none pointer-events-none opacity-50' : ''}`}>
                         {(course.subjects || []).map((sub) => (
-                            <div key={sub.id} onClick={() => navigate(`/course/${course.id}/subject/${sub.id}`)} className="bg-white border border-gray-100 rounded-[35px] p-6 flex items-center gap-6 shadow-sm active:scale-[0.98] transition-all hover:border-blue-200 hover:shadow-md cursor-pointer">
+                            <div key={sub.id} onClick={() => hasAccess && navigate(`/course/${course.id}/subject/${sub.id}`)} className="bg-white border border-gray-100 rounded-[35px] p-6 flex items-center gap-6 shadow-sm active:scale-[0.98] transition-all hover:border-blue-200 hover:shadow-md cursor-pointer">
                                 <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-[#0056d2] font-black text-xl border border-blue-100 shadow-inner">{sub.iconText}</div>
                                 <div className="flex-1">
                                     <h3 className="font-black text-gray-800 text-lg leading-tight mb-2">{sub.title}</h3>
@@ -646,25 +738,10 @@ const CourseDetail = () => {
                                         <span className="text-[12px] font-black text-gray-400">0%</span>
                                     </div>
                                 </div>
-                                <ChevronRight className="w-6 h-6 text-gray-300" />
+                                {hasAccess ? <ChevronRight className="w-6 h-6 text-gray-300" /> : <Lock className="w-5 h-5 text-gray-400" />}
                             </div>
                         ))}
                     </div>
-                )}
-                {activeTab === 'Tests' && (
-                   <div className="space-y-4">
-                     <div onClick={() => navigate(`/exam/${course.id}`)} className="bg-gradient-to-br from-[#0056d2] to-blue-600 rounded-[35px] p-8 text-white shadow-xl shadow-blue-200 cursor-pointer active:scale-95 transition-transform">
-                        <div className="flex justify-between items-start mb-6">
-                           <div className="p-3 bg-white/10 backdrop-blur-md rounded-2xl"><Brain className="w-8 h-8 text-white" /></div>
-                           <span className="px-3 py-1 bg-white/20 rounded-full text-[10px] font-bold uppercase tracking-widest border border-white/20">AI Powered</span>
-                        </div>
-                        <h3 className="text-2xl font-bold mb-2">Neural Mock Test</h3>
-                        <p className="text-blue-100 text-sm font-medium mb-6">Generate infinite practice tests based on course content.</p>
-                        <div className="flex items-center gap-2 font-bold text-xs uppercase tracking-widest bg-white/10 w-fit px-4 py-2 rounded-xl">
-                           Start Assessment <ArrowLeft className="w-4 h-4 rotate-180" />
-                        </div>
-                     </div>
-                   </div>
                 )}
                 {activeTab === 'Description' && (
                     <div className="space-y-8 animate-fade-in">
@@ -679,21 +756,43 @@ const CourseDetail = () => {
                     </div>
                 )}
             </div>
+            
+            <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100 flex justify-center pb-safe">
+                {hasAccess ? (
+                    <Link to={`/exam/${course.id}`} className="flex items-center gap-2 px-6 py-3 bg-[#0056d2] text-white font-bold rounded-full shadow-lg hover:bg-[#003ea1] transition-transform active:scale-95">
+                        <Bot className="w-5 h-5" /> Take AI Assessment
+                    </Link>
+                ) : (
+                    <div className="text-xs font-bold text-gray-500 flex items-center gap-2">
+                        <Lock className="w-4 h-4" /> Assessment Locked
+                    </div>
+                )}
+            </div>
         </div>
     );
 };
 
 const SubjectDetail = () => {
     const { courseId, subjectId } = useParams<{courseId: string, subjectId: string}>();
-    const { courses, saveGeneratedNote } = useStore();
+    const { courses, saveGeneratedNote, currentUser } = useStore();
     const navigate = useNavigate();
     const [tab, setTab] = useState<'Chapters' | 'Notes'>('Chapters');
     const [filter, setFilter] = useState('All');
     const [generatingNotes, setGeneratingNotes] = useState(false);
+    const [notes, setNotes] = useState<string | null>(null);
     
     const course = courses.find(c => c.id === courseId);
     const subject = course?.subjects.find(s => s.id === subjectId);
     if (!subject || !courseId) return <Navigate to="/" />;
+
+    const hasAccess = !course?.isPaid || 
+    (currentUser && (
+      currentUser.role === UserRole.ADMIN || 
+      currentUser.purchasedCourseIds.includes(courseId) || 
+      (currentUser.tempAccess?.[courseId] && new Date(currentUser.tempAccess[courseId]) > new Date())
+    ));
+
+    if (!hasAccess) return <Navigate to={`/course/${courseId}`} />;
 
     const handleGenerateNotes = async () => {
         setGeneratingNotes(true);
@@ -774,6 +873,22 @@ const SubjectDetail = () => {
                         <button key={f} onClick={() => setFilter(f)} className={`px-6 py-2.5 rounded-full text-xs font-black whitespace-nowrap transition-all uppercase tracking-widest border-2 ${filter === f ? 'bg-[#333] border-[#333] text-white shadow-lg' : 'bg-white border-gray-100 text-gray-400 hover:border-gray-200'}`}>{f}</button>
                       ))}
                     </div>
+                    <div className="space-y-4">
+                    {subject.chapters.flatMap(c => c.videos).filter(v => filter === 'All' || (filter === 'Lectures' && v.type === 'lecture') || (filter === 'Notes' && v.type === 'note') || (filter === 'DPPs' && v.type === 'dpp')).map(v => (
+                      <div key={v.id} className="bg-white border border-gray-100 rounded-[35px] p-5 shadow-sm flex gap-5 animate-slide-up group">
+                        <div className="w-28 aspect-video bg-gray-50 rounded-2xl overflow-hidden shrink-0 flex items-center justify-center border border-gray-100 shadow-inner group-hover:border-brand/30 transition-colors">
+                          <PlayCircle className="w-8 h-8 text-brand/20 group-hover:text-brand transition-colors" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.3em] mb-1.5">{v.type?.toUpperCase()} • {v.date}</p>
+                          <h4 className="text-sm font-black text-gray-800 line-clamp-2 leading-tight tracking-tight mb-3 group-hover:text-brand transition-colors">{v.title}</h4>
+                          <button onClick={() => navigate(`/watch/${courseId}?video=${v.id}`)} className="flex items-center gap-2 px-4 py-2 bg-brand/5 text-brand rounded-xl text-[10px] font-black hover:bg-brand hover:text-white transition-all shadow-sm active:scale-95 uppercase tracking-widest border border-brand/5">
+                            <PlayCircle className="w-4 h-4" /> Initialize
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    </div>
                   </div>
                 )}
             </div>
@@ -795,15 +910,17 @@ const WatchPage = () => {
     if (!course || !video) return <Navigate to={`/course/${id}`} />;
 
     return (
-        <div className="bg-black min-h-screen flex flex-col items-center justify-center">
+        <div className="bg-black min-h-screen w-full flex flex-col items-center justify-center fixed inset-0 z-[100]">
              <VideoPlayer 
                 src={video.filename} 
                 onBack={() => navigate(-1)} 
-                className="w-full h-full max-h-screen aspect-video"
+                className="w-full h-full object-contain"
             />
         </div>
     );
 };
+
+// ... Profile, Login, MainContent, App ...
 
 const Profile = () => {
     const { currentUser, logout, deleteGeneratedNote, manageUserRole, updateUser } = useStore();

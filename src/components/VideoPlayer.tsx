@@ -2,7 +2,7 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { 
   Play, Pause, Volume2, VolumeX, Maximize, Minimize, Lock, ArrowLeft, Loader2,
-  SkipBack, SkipForward, Settings, PictureInPicture
+  SkipBack, SkipForward, Settings, PictureInPicture, Download, Bookmark
 } from './Icons';
 
 interface VideoPlayerProps {
@@ -10,7 +10,13 @@ interface VideoPlayerProps {
   poster?: string;
   isLocked?: boolean;
   onBack?: () => void;
+  onDownload?: () => void;
+  onBookmark?: (time: number) => void;
+  onEnded?: () => void;
+  onProgress?: (curr: number, dur: number) => void;
+  initialTime?: number;
   className?: string;
+  title?: string;
 }
 
 const getEmbedUrl = (input: string) => {
@@ -49,7 +55,7 @@ const formatTime = (time: number) => {
   return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
 };
 
-const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onBack, className }) => {
+const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onBack, className, onDownload, onBookmark, onEnded, onProgress, initialTime }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   
@@ -60,11 +66,11 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onBack
   const [isMuted, setIsMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showControls, setShowControls] = useState(true);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   
   // Advanced Controls
   const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
-  const [showSettings, setShowSettings] = useState(false);
+  const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const [doubleTapAnimation, setDoubleTapAnimation] = useState<'left' | 'right' | null>(null);
   
   const controlsTimeoutRef = useRef<any>(null);
@@ -72,6 +78,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onBack
   const isDirectFile = src.startsWith('blob:') || /\.(mp4|webm|ogg|mov|m4v)($|\?)/i.test(src);
   const isEmbed = !isDirectFile;
   const displayUrl = isEmbed ? getEmbedUrl(src) : src;
+
+  useEffect(() => {
+    if (videoRef.current && initialTime && initialTime > 0) {
+       videoRef.current.currentTime = initialTime;
+    }
+  }, [initialTime]);
 
   // Keyboard Shortcuts
   useEffect(() => {
@@ -160,7 +172,11 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onBack
   };
 
   const handleTimeUpdate = () => {
-    if (videoRef.current) setCurrentTime(videoRef.current.currentTime);
+    if (videoRef.current) {
+        const t = videoRef.current.currentTime;
+        setCurrentTime(t);
+        if (onProgress) onProgress(t, videoRef.current.duration);
+    }
   };
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -195,7 +211,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onBack
       if(videoRef.current) {
           videoRef.current.playbackRate = speed;
           setPlaybackSpeed(speed);
-          setShowSettings(false);
+          setShowSpeedMenu(false);
       }
   };
 
@@ -213,7 +229,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onBack
     return (
       <div 
         ref={containerRef}
-        className={`relative w-full bg-black rounded-xl overflow-hidden shadow-2xl group ${isFullscreen ? 'h-screen w-screen rounded-none' : (className || 'aspect-video')}`}
+        className={`relative w-full bg-black rounded-xl overflow-hidden shadow-2xl group ${isFullscreen ? 'h-screen w-screen rounded-none fixed inset-0 z-[9999]' : (className || 'aspect-video')}`}
       >
         <div className={`absolute top-0 left-0 p-4 z-20 transition-opacity duration-300 ${isFullscreen || showControls ? 'opacity-100' : 'opacity-0 hover:opacity-100'}`}>
            {onBack && !isFullscreen && (
@@ -244,7 +260,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onBack
     <div 
       ref={containerRef}
       tabIndex={0}
-      className={`relative w-full bg-black rounded-xl overflow-hidden shadow-2xl group outline-none ${isFullscreen ? 'h-screen w-screen rounded-none flex items-center justify-center' : (className || 'aspect-video')}`}
+      className={`relative w-full bg-black rounded-xl overflow-hidden shadow-2xl group outline-none ${isFullscreen ? 'h-screen w-screen rounded-none fixed inset-0 z-[9999] flex items-center justify-center bg-black' : (className || 'aspect-video')}`}
       onMouseMove={handleMouseMove}
       onMouseLeave={() => isPlaying && setShowControls(false)}
       onDoubleClick={toggleFullscreen}
@@ -261,7 +277,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onBack
         }}
         onWaiting={() => setIsLoading(true)}
         onCanPlay={() => setIsLoading(false)}
-        onEnded={() => { setIsPlaying(false); setShowControls(true); }}
+        onEnded={() => { setIsPlaying(false); setShowControls(true); if(onEnded) onEnded(); }}
         playsInline
         onClick={togglePlay}
       />
@@ -306,8 +322,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onBack
          )}
          <div className="flex-1"></div>
          <div className="relative">
-             <button onClick={() => setShowSettings(!showSettings)} className="p-2 text-white hover:rotate-45 transition-transform"><Settings className="w-6 h-6" /></button>
-             {showSettings && (
+             <button onClick={() => setShowSpeedMenu(!showSpeedMenu)} className="p-2 text-white hover:rotate-45 transition-transform"><Settings className="w-6 h-6" /></button>
+             {showSpeedMenu && (
                  <div className="absolute top-10 right-0 bg-black/90 backdrop-blur-xl rounded-xl p-2 min-w-[120px] shadow-xl border border-white/10 animate-fade-in flex flex-col gap-1">
                      <div className="px-3 py-2 text-xs font-bold text-gray-400 uppercase tracking-widest border-b border-white/10 mb-1">Speed</div>
                      {[0.5, 1.0, 1.25, 1.5, 2.0].map(s => (
@@ -372,6 +388,16 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onBack
                 <button onClick={togglePiP} className="text-white/80 hover:text-white" title="Picture in Picture">
                     <PictureInPicture className="w-5 h-5" />
                 </button>
+                {onDownload && (
+                    <button onClick={onDownload} className="text-white/80 hover:text-white" title="Download">
+                        <Download className="w-5 h-5" />
+                    </button>
+                )}
+                {onBookmark && (
+                    <button onClick={() => onBookmark(currentTime)} className="text-white/80 hover:text-white" title="Bookmark">
+                        <Bookmark className="w-5 h-5" />
+                    </button>
+                )}
                 <button onClick={toggleFullscreen} className="text-white hover:text-brand transition-colors transform hover:scale-110">
                    {isFullscreen ? <Minimize className="w-6 h-6" /> : <Maximize className="w-6 h-6" />}
                 </button>

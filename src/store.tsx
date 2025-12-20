@@ -17,6 +17,8 @@ interface StoreContextType {
   deleteCourse: (id: string) => void;
   enrollCourse: (courseId: string) => void;
   grantTempAccess: (courseId: string) => void;
+  adminEnrollUser: (userId: string, courseId: string) => void;
+  adminRevokeUser: (userId: string, courseId: string) => void;
   updateSettings: (settings: AppSettings) => void;
   updateUser: (data: Partial<User>) => void;
   manageUserRole: (userId: string, role: UserRole) => void; 
@@ -210,6 +212,26 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
     setUsers(prev => prev.map(u => u.id === currentUser.id ? updated : u));
   };
 
+  const adminEnrollUser = (userId: string, courseId: string) => {
+    setUsers(prev => prev.map(u => {
+        if (u.id === userId) {
+            const current = u.purchasedCourseIds || [];
+            if (current.includes(courseId)) return u;
+            return { ...u, purchasedCourseIds: [...current, courseId] };
+        }
+        return u;
+    }));
+  };
+
+  const adminRevokeUser = (userId: string, courseId: string) => {
+    setUsers(prev => prev.map(u => {
+        if (u.id === userId) {
+            return { ...u, purchasedCourseIds: (u.purchasedCourseIds || []).filter(id => id !== courseId) };
+        }
+        return u;
+    }));
+  };
+
   const grantTempAccess = (courseId: string) => {
     if (!currentUser) return;
     const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
@@ -278,7 +300,7 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
   return (
     <StoreContext.Provider value={{
       currentUser, users, courses, settings, login, loginAsDemo, signup, createUser, logout,
-      addCourse, updateCourse, deleteCourse, enrollCourse, grantTempAccess,
+      addCourse, updateCourse, deleteCourse, enrollCourse, grantTempAccess, adminEnrollUser, adminRevokeUser,
       updateSettings, updateUser, manageUserRole, saveExamResult, saveExamProgress, clearExamProgress, 
       saveGeneratedNote, deleteGeneratedNote, toggleTheme
     }}>

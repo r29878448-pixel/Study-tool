@@ -8,7 +8,7 @@ import {
   CheckCircle, ExternalLink, Play, Bot, Brain, Loader2, ArrowLeft, 
   Video as VideoIcon, Sparkles, Send, Smartphone, List, Globe, Bell, 
   ChevronRight, MoreVertical, MessageCircle, FileText, Calendar, MessageSquare, Eye,
-  RotateCcw, ImageIcon, Key, Clock, Shield, LogOut, Download, Save, Timer as TimerIcon, AlertCircle
+  RotateCcw, ImageIcon, Key, Clock, Shield, LogOut, Download, Save, Timer as TimerIcon, AlertCircle, Link as LinkIcon
 } from './components/Icons';
 import VideoPlayer from './components/VideoPlayer';
 import ChatBot from './components/ChatBot';
@@ -305,15 +305,16 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
 // --- ADMIN PANEL ---
 
 const AdminPanel = () => {
-    const { currentUser, courses, settings, addCourse, updateCourse, deleteCourse, users, manageUserRole, createUser, updateSettings } = useStore();
+    const { currentUser, courses, settings, addCourse, updateCourse, deleteCourse, users, manageUserRole, createUser, updateSettings, adminEnrollUser, adminRevokeUser } = useStore();
     const [tab, setTab] = useState<'batches' | 'users' | 'settings'>('batches');
     const [showModal, setShowModal] = useState(false);
     const [editing, setEditing] = useState<Course | null>(null);
     const [contentTarget, setContentTarget] = useState<Course | null>(null);
     const [showUserModal, setShowUserModal] = useState(false);
     const [userForm, setUserForm] = useState({ name: '', email: '', password: '', role: UserRole.USER });
-    const [selectedUser, setSelectedUser] = useState<any | null>(null); // For analytics
+    const [selectedUser, setSelectedUser] = useState<any | null>(null);
     const [settingsForm, setSettingsForm] = useState<AppSettings>(settings);
+    const [courseToAddId, setCourseToAddId] = useState('');
     
     const [form, setForm] = useState({ 
       title: '', description: '', image: '', category: '', 
@@ -426,8 +427,7 @@ const AdminPanel = () => {
     // Helper for selected user analysis
     const getUserCourses = (u: any) => {
         const permanent = u.purchasedCourseIds || [];
-        const temporary = u.tempAccess ? Object.keys(u.tempAccess) : [];
-        const allIds = [...new Set([...permanent, ...temporary])];
+        const allIds = [...new Set(permanent)]; // Only count permanent enrollments for admin management
         return courses.filter(c => allIds.includes(c.id));
     };
 
@@ -438,6 +438,25 @@ const AdminPanel = () => {
             ? Math.round(results.reduce((acc: number, curr: any) => acc + (curr.score / curr.totalQuestions * 100), 0) / totalExams) 
             : 0;
         return { totalExams, avgScore, results };
+    };
+
+    const handleAddCourseToUser = () => {
+        if(selectedUser && courseToAddId) {
+            adminEnrollUser(selectedUser.id, courseToAddId);
+            // Update the local selectedUser state to reflect changes immediately
+            const updatedUser = users.find(u => u.id === selectedUser.id);
+            if(updatedUser) setSelectedUser({...updatedUser, purchasedCourseIds: [...(updatedUser.purchasedCourseIds || []), courseToAddId]});
+            setCourseToAddId('');
+        }
+    };
+
+    const handleRemoveCourseFromUser = (cId: string) => {
+        if(selectedUser && confirm('Revoke access to this batch?')) {
+            adminRevokeUser(selectedUser.id, cId);
+            // Update local state
+            const updatedPurchases = (selectedUser.purchasedCourseIds || []).filter((id: string) => id !== cId);
+            setSelectedUser({...selectedUser, purchasedCourseIds: updatedPurchases});
+        }
     };
 
     return (
@@ -461,7 +480,7 @@ const AdminPanel = () => {
                     ))}
                  </div>
 
-                 {/* ... (Existing Tab Content for Batches, Users, Settings) ... */}
+                 {/* ... (Batches Tab) ... */}
                  {tab === 'batches' && (
                      <div className="space-y-4">
                          <button onClick={() => { setEditing(null); setShowModal(true); }} className="w-full py-10 bg-white border-2 border-dashed border-blue-200 rounded-[32px] text-[#0056d2] font-bold flex flex-col items-center justify-center gap-2 hover:bg-blue-50 transition-all">
@@ -487,6 +506,7 @@ const AdminPanel = () => {
                      </div>
                  )}
 
+                {/* ... (Users Tab) ... */}
                 {tab === 'users' && currentUser.role === UserRole.ADMIN && (
                     <div className="space-y-4">
                         <button onClick={() => setShowUserModal(true)} className="w-full py-4 bg-white border-2 border-dashed border-gray-300 rounded-xl text-gray-500 font-bold hover:border-brand hover:text-brand flex items-center justify-center gap-2">
@@ -519,6 +539,7 @@ const AdminPanel = () => {
                     </div>
                 )}
 
+                {/* ... (Settings Tab) ... */}
                 {tab === 'settings' && currentUser.role === UserRole.ADMIN && (
                     <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 p-8 animate-fade-in">
                         <div className="flex items-center gap-3 mb-8">
@@ -566,7 +587,7 @@ const AdminPanel = () => {
                 )}
              </div>
 
-             {/* User Details Modal - Reused from previous step */}
+             {/* User Details Modal with Manual Enrollment */}
              {selectedUser && (
                 <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
                     <div className="bg-white w-full max-w-2xl rounded-[40px] p-8 shadow-2xl max-h-[90vh] overflow-y-auto no-scrollbar animate-slide-up">
@@ -587,31 +608,27 @@ const AdminPanel = () => {
                             <button onClick={() => setSelectedUser(null)} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X className="w-6 h-6 text-gray-400" /></button>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-4 mb-8">
-                            <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 text-center">
-                                <div className="text-3xl font-black text-gray-800">{getUserCourses(selectedUser).length}</div>
-                                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Enrolled Batches</div>
-                            </div>
-                            <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 text-center">
-                                <div className="text-3xl font-black text-gray-800">{getExamStats(selectedUser).totalExams}</div>
-                                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Exams Taken</div>
-                            </div>
-                            <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 text-center">
-                                <div className="text-3xl font-black text-blue-600">{getExamStats(selectedUser).avgScore}%</div>
-                                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Avg. Score</div>
-                            </div>
-                        </div>
-
                         <div className="space-y-6">
                             <div>
-                                <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2"><BookOpen className="w-4 h-4 text-blue-500" /> Active Enrollments</h3>
+                                <div className="flex items-center justify-between mb-3">
+                                    <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2"><BookOpen className="w-4 h-4 text-blue-500" /> Active Enrollments</h3>
+                                    <div className="flex gap-2">
+                                        <select value={courseToAddId} onChange={(e) => setCourseToAddId(e.target.value)} className="text-xs p-2 border rounded-lg bg-gray-50 outline-none max-w-[150px]">
+                                            <option value="">Select Batch...</option>
+                                            {courses.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+                                        </select>
+                                        <button onClick={handleAddCourseToUser} disabled={!courseToAddId} className="px-3 py-2 bg-[#0056d2] text-white rounded-lg text-xs font-bold disabled:opacity-50">Add</button>
+                                    </div>
+                                </div>
                                 <div className="bg-gray-50 rounded-2xl border border-gray-100 overflow-hidden">
                                     {getUserCourses(selectedUser).length > 0 ? (
                                         getUserCourses(selectedUser).map(c => (
-                                            <div key={c.id} className="p-4 border-b last:border-0 border-gray-100 flex items-center gap-3">
-                                                <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                                                <span className="text-sm font-bold text-gray-700">{c.title}</span>
-                                                <span className="ml-auto text-[10px] font-bold text-gray-400 bg-white px-2 py-1 rounded border border-gray-200">{c.isPaid ? 'PAID' : 'FREE'}</span>
+                                            <div key={c.id} className="p-4 border-b last:border-0 border-gray-100 flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                                                    <span className="text-sm font-bold text-gray-700">{c.title}</span>
+                                                </div>
+                                                <button onClick={() => handleRemoveCourseFromUser(c.id)} className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
                                             </div>
                                         ))
                                     ) : (
@@ -620,6 +637,7 @@ const AdminPanel = () => {
                                 </div>
                             </div>
 
+                            {/* ... (Existing Exam Performance Section) ... */}
                             <div>
                                 <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2"><Bot className="w-4 h-4 text-blue-500" /> Recent Performance</h3>
                                 <div className="bg-gray-50 rounded-2xl border border-gray-100 overflow-hidden">
@@ -656,6 +674,7 @@ const AdminPanel = () => {
                 </div>
              )}
 
+             {/* ... (Existing Add/Edit Course Modal) ... */}
              {showModal && (
                  <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
                     {/* ... (ShowModal logic same as before) ... */}
@@ -932,12 +951,12 @@ const CourseDetail = () => {
                         <p className="text-gray-500 mb-8 max-w-xs text-sm">Access this premium batch using one of the options below.</p>
                         
                         <div className="flex flex-col gap-4 w-full max-w-xs animate-slide-up">
-                             {/* Option 1: Temporary Access (Only if not already used/expired - simplified to always allow unless paid) */}
+                             {/* Option 1: Temporary Access */}
                              <button 
                                 onClick={() => navigate(`/temp-access/${course.id}`)}
-                                className="w-full py-4 bg-[#0056d2] text-white font-bold rounded-2xl shadow-lg shadow-blue-200 active:scale-95 transition-all flex items-center justify-center gap-2"
+                                className="w-full py-4 bg-[#0056d2] text-white font-bold rounded-2xl shadow-lg shadow-blue-200 active:scale-95 transition-all flex items-center justify-center gap-2 group hover:bg-[#004bb5]"
                              >
-                                <Clock className="w-5 h-5" />
+                                <Clock className="w-5 h-5 group-hover:animate-pulse" />
                                 Get 24h Free Access
                              </button>
 

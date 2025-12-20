@@ -9,7 +9,7 @@ import {
   Video as VideoIcon, Sparkles, Send, Smartphone, List, Globe, Bell, 
   ChevronRight, MoreVertical, MessageCircle, FileText, Calendar, MessageSquare, Eye,
   RotateCcw, ImageIcon, Key, Clock, Shield, LogOut, Download, Save, Timer as TimerIcon, AlertCircle, Link as LinkIcon,
-  Upload, Folder
+  Upload, Folder, CreditCard
 } from './components/Icons';
 import VideoPlayer from './components/VideoPlayer';
 import ChatBot from './components/ChatBot';
@@ -245,33 +245,33 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
     if (editingVideo) {
         return (
             <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-                <div className="bg-white w-full max-w-lg rounded-lg shadow-xl p-6 animate-slide-up border border-gray-200">
+                <div className="bg-white w-full max-w-lg rounded-xl shadow-xl p-6 animate-slide-up border border-gray-200">
                     <h3 className="font-bold text-gray-800 text-lg mb-4">Edit Content Node</h3>
                     <div className="space-y-4">
                         <div className="flex gap-4">
-                            <div className="w-24 h-24 bg-gray-100 rounded-md border border-gray-200 flex items-center justify-center overflow-hidden relative group shrink-0">
-                                {editingVideo.vid.thumbnail ? <img src={editingVideo.vid.thumbnail} className="w-full h-full object-cover" /> : <ImageIcon className="text-gray-300" />}
+                            <div className="w-24 h-24 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center overflow-hidden relative group shrink-0">
+                                {editingVideo.vid.thumbnail ? <img src={editingVideo.vid.thumbnail} className="w-full h-full object-cover" alt="thumb" /> : <ImageIcon className="text-gray-300 w-8 h-8" />}
                                 <label className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white text-xs font-bold">
                                     Upload
                                     <input type="file" className="hidden" accept="image/*" onChange={handleNodeThumbnailUpload} />
                                 </label>
                             </div>
                             <div className="flex-1 space-y-2">
-                                <input value={editingVideo.vid.title} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, title: e.target.value}})} className="w-full p-2 border rounded-md text-sm" placeholder="Title" />
-                                <input value={editingVideo.vid.filename} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, filename: e.target.value}})} className="w-full p-2 border rounded-md text-sm font-mono" placeholder="URL" />
+                                <input value={editingVideo.vid.title} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, title: e.target.value}})} className="w-full p-2.5 border border-gray-300 rounded-lg text-sm outline-none focus:border-blue-500" placeholder="Title" />
+                                <input value={editingVideo.vid.filename} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, filename: e.target.value}})} className="w-full p-2.5 border border-gray-300 rounded-lg text-sm font-mono outline-none focus:border-blue-500" placeholder="URL" />
                             </div>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
-                            <input value={editingVideo.vid.duration} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, duration: e.target.value}})} className="w-full p-2 border rounded-md text-sm" placeholder="Duration" />
-                            <select value={editingVideo.vid.type} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, type: e.target.value as any}})} className="w-full p-2 border rounded-md text-sm bg-white">
+                            <input value={editingVideo.vid.duration} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, duration: e.target.value}})} className="w-full p-2.5 border border-gray-300 rounded-lg text-sm outline-none focus:border-blue-500" placeholder="Duration" />
+                            <select value={editingVideo.vid.type} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, type: e.target.value as any}})} className="w-full p-2.5 border border-gray-300 rounded-lg text-sm bg-white outline-none focus:border-blue-500">
                                 <option value="lecture">Lecture</option>
                                 <option value="note">Notes</option>
                                 <option value="dpp">DPP</option>
                             </select>
                         </div>
-                        <div className="flex gap-2 pt-2">
-                            <button onClick={() => setEditingVideo(null)} className="flex-1 py-2 text-gray-500 border rounded-md font-bold text-sm">Cancel</button>
-                            <button onClick={updateVideoData} className="flex-1 py-2 bg-blue-600 text-white rounded-md font-bold text-sm">Save</button>
+                        <div className="flex gap-3 pt-4 border-t border-gray-100">
+                            <button onClick={() => setEditingVideo(null)} className="flex-1 py-2.5 text-gray-600 border border-gray-300 rounded-lg font-bold text-sm hover:bg-gray-50 transition-colors">Cancel</button>
+                            <button onClick={updateVideoData} className="flex-1 py-2.5 bg-blue-600 text-white rounded-lg font-bold text-sm hover:bg-blue-700 shadow-md transition-colors">Save Changes</button>
                         </div>
                     </div>
                 </div>
@@ -282,20 +282,20 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
     if (editingSubject) {
         return (
             <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-                <div className="bg-white w-full max-w-sm rounded-lg shadow-xl p-6 animate-slide-up border border-gray-200">
+                <div className="bg-white w-full max-w-sm rounded-xl shadow-xl p-6 animate-slide-up border border-gray-200">
                     <h3 className="font-bold text-gray-800 text-lg mb-4">Edit Subject</h3>
                     <div className="space-y-4">
                         <div className="space-y-1">
                             <label className="text-xs font-bold text-gray-500 uppercase">Title</label>
-                            <input value={editingSubject.title} onChange={e => setEditingSubject({...editingSubject, title: e.target.value})} className="w-full p-2 border rounded-md text-sm" />
+                            <input value={editingSubject.title} onChange={e => setEditingSubject({...editingSubject, title: e.target.value})} className="w-full p-2.5 border border-gray-300 rounded-lg text-sm outline-none focus:border-blue-500" />
                         </div>
                         <div className="space-y-1">
                             <label className="text-xs font-bold text-gray-500 uppercase">Icon Text (2 Chars)</label>
-                            <input value={editingSubject.iconText} onChange={e => setEditingSubject({...editingSubject, iconText: e.target.value})} className="w-full p-2 border rounded-md text-sm" maxLength={2} />
+                            <input value={editingSubject.iconText} onChange={e => setEditingSubject({...editingSubject, iconText: e.target.value})} className="w-full p-2.5 border border-gray-300 rounded-lg text-sm outline-none focus:border-blue-500" maxLength={2} />
                         </div>
-                        <div className="flex gap-2 pt-2">
-                            <button onClick={() => setEditingSubject(null)} className="flex-1 py-2 text-gray-500 border rounded-md font-bold text-sm">Cancel</button>
-                            <button onClick={updateSubjectData} className="flex-1 py-2 bg-blue-600 text-white rounded-md font-bold text-sm">Save</button>
+                        <div className="flex gap-3 pt-4 border-t border-gray-100">
+                            <button onClick={() => setEditingSubject(null)} className="flex-1 py-2.5 text-gray-600 border border-gray-300 rounded-lg font-bold text-sm hover:bg-gray-50 transition-colors">Cancel</button>
+                            <button onClick={updateSubjectData} className="flex-1 py-2.5 bg-blue-600 text-white rounded-lg font-bold text-sm hover:bg-blue-700 shadow-md transition-colors">Save</button>
                         </div>
                     </div>
                 </div>
@@ -306,26 +306,26 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
     if (editingChapter) {
         return (
             <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-                <div className="bg-white w-full max-w-md rounded-lg shadow-xl p-6 animate-slide-up border border-gray-200">
+                <div className="bg-white w-full max-w-md rounded-xl shadow-xl p-6 animate-slide-up border border-gray-200">
                     <h3 className="font-bold text-gray-800 text-lg mb-4">Edit Chapter</h3>
                     <div className="space-y-4">
                         <div className="space-y-1">
                             <label className="text-xs font-bold text-gray-500 uppercase">Title</label>
-                            <input value={editingChapter.ch.title} onChange={e => setEditingChapter({...editingChapter, ch: {...editingChapter.ch, title: e.target.value}})} className="w-full p-2 border rounded-md text-sm" />
+                            <input value={editingChapter.ch.title} onChange={e => setEditingChapter({...editingChapter, ch: {...editingChapter.ch, title: e.target.value}})} className="w-full p-2.5 border border-gray-300 rounded-lg text-sm outline-none focus:border-blue-500" />
                         </div>
                         <div className="space-y-1">
                             <label className="text-xs font-bold text-gray-500 uppercase">Chapter Thumbnail</label>
-                            <div className="relative h-32 bg-gray-50 rounded-md border border-gray-200 flex items-center justify-center overflow-hidden group">
-                                {editingChapter.ch.image ? <img src={editingChapter.ch.image} className="w-full h-full object-cover" /> : <Folder className="text-gray-300 w-10 h-10" />}
+                            <div className="relative h-32 bg-gray-50 rounded-lg border border-gray-300 flex items-center justify-center overflow-hidden group">
+                                {editingChapter.ch.image ? <img src={editingChapter.ch.image} className="w-full h-full object-cover" alt="ch-thumb" /> : <Folder className="text-gray-300 w-10 h-10" />}
                                 <label className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white text-xs font-bold gap-2">
                                     <Upload className="w-4 h-4" /> Upload Image
                                     <input type="file" className="hidden" accept="image/*" onChange={handleChapterImageUpload} />
                                 </label>
                             </div>
                         </div>
-                        <div className="flex gap-2 pt-2">
-                            <button onClick={() => setEditingChapter(null)} className="flex-1 py-2 text-gray-500 border rounded-md font-bold text-sm">Cancel</button>
-                            <button onClick={updateChapterData} className="flex-1 py-2 bg-blue-600 text-white rounded-md font-bold text-sm">Save</button>
+                        <div className="flex gap-3 pt-4 border-t border-gray-100">
+                            <button onClick={() => setEditingChapter(null)} className="flex-1 py-2.5 text-gray-600 border border-gray-300 rounded-lg font-bold text-sm hover:bg-gray-50 transition-colors">Cancel</button>
+                            <button onClick={updateChapterData} className="flex-1 py-2.5 bg-blue-600 text-white rounded-lg font-bold text-sm hover:bg-blue-700 shadow-md transition-colors">Save</button>
                         </div>
                     </div>
                 </div>
@@ -335,7 +335,7 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
 
     return (
         <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-3xl rounded-lg shadow-xl max-h-[90vh] flex flex-col overflow-hidden animate-slide-up">
+            <div className="bg-white w-full max-w-3xl rounded-xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden animate-slide-up">
                 {/* Header */}
                 <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
                     <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
@@ -399,7 +399,7 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
                             {activeSubject?.chapters.map(chap => (
                                 <div key={chap.id} className="p-4 bg-white border border-gray-200 rounded-lg flex justify-between items-center shadow-sm hover:shadow-md transition-shadow">
                                     <div onClick={() => setActiveChapterId(chap.id)} className="flex-1 text-left font-bold text-gray-800 hover:text-blue-600 transition-colors flex items-center gap-3 cursor-pointer">
-                                        {chap.image ? <img src={chap.image} className="w-8 h-8 rounded object-cover" /> : <div className="w-2 h-2 rounded-full bg-blue-500"></div>}
+                                        {chap.image ? <img src={chap.image} className="w-8 h-8 rounded object-cover border border-gray-100" alt="ch" /> : <div className="w-2 h-2 rounded-full bg-blue-500"></div>}
                                         {chap.title}
                                     </div>
                                     <div className="flex gap-1">
@@ -432,8 +432,8 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
                 
                 {/* Footer */}
                 <div className="px-6 py-4 bg-white border-t border-gray-200 flex justify-end gap-3">
-                    <button onClick={onClose} className="px-6 py-2.5 text-gray-600 font-bold hover:bg-gray-100 rounded-md transition-colors text-sm">Discard Changes</button>
-                    <button onClick={handleSave} className="px-6 py-2.5 bg-blue-600 text-white font-bold rounded-md shadow-md hover:bg-blue-700 active:scale-95 transition-all text-sm">Commit Changes</button>
+                    <button onClick={onClose} className="px-6 py-2.5 text-gray-600 font-bold hover:bg-gray-100 rounded-lg transition-colors text-sm">Discard Changes</button>
+                    <button onClick={handleSave} className="px-6 py-2.5 bg-blue-600 text-white font-bold rounded-lg shadow-md hover:bg-blue-700 active:scale-95 transition-all text-sm">Commit Changes</button>
                 </div>
             </div>
         </div>
@@ -525,7 +525,30 @@ const AdminPanel = () => {
                  )}
 
                  {tab === 'settings' && currentUser.role === UserRole.ADMIN && (
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 animate-fade-in"><div className="flex items-center gap-3 mb-8"><div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center text-[#0056d2]"><Settings className="w-6 h-6" /></div><div><h2 className="text-xl font-bold text-gray-800">Global Portal Configuration</h2><p className="text-xs text-gray-400 font-bold uppercase tracking-widest">Core Settings & API Handlers</p></div></div><form onSubmit={handleSaveSettings} className="space-y-6"><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div className="space-y-2"><label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">Application Name</label><input value={settingsForm.appName} onChange={e => setSettingsForm({...settingsForm, appName: e.target.value})} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-md font-bold text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none" /></div><div className="space-y-2"><label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">Admin Contact</label><input value={settingsForm.adminEmail} onChange={e => setSettingsForm({...settingsForm, adminEmail: e.target.value})} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-md font-bold text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none" /></div></div><button type="submit" className="w-full py-3 bg-[#0056d2] text-white font-black rounded-md shadow-md active:scale-95 transition-all text-sm tracking-widest uppercase">Commit System Changes</button></form></div>
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 animate-fade-in">
+                        <div className="flex items-center gap-3 mb-8">
+                            <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center text-[#0056d2]"><Settings className="w-6 h-6" /></div>
+                            <div>
+                                <h2 className="text-xl font-bold text-gray-800">Global Portal Configuration</h2>
+                                <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">Core Settings & API Handlers</p>
+                            </div>
+                        </div>
+                        <form onSubmit={handleSaveSettings} className="space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2"><label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">Application Name</label><input value={settingsForm.appName} onChange={e => setSettingsForm({...settingsForm, appName: e.target.value})} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-md font-bold text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none" /></div>
+                                <div className="space-y-2"><label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">Admin Contact</label><input value={settingsForm.adminEmail} onChange={e => setSettingsForm({...settingsForm, adminEmail: e.target.value})} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-md font-bold text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none" /></div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2"><label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">Link Shortener API URL</label><input value={settingsForm.linkShortenerApiUrl || ''} onChange={e => setSettingsForm({...settingsForm, linkShortenerApiUrl: e.target.value})} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-md font-mono text-xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none" placeholder="https://vplink.in/api" /></div>
+                                <div className="space-y-2"><label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">Link Shortener API Key</label><input value={settingsForm.linkShortenerApiKey || ''} onChange={e => setSettingsForm({...settingsForm, linkShortenerApiKey: e.target.value})} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-md font-mono text-xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none" placeholder="API Key" /></div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2"><label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">Telegram Support/Bot URL</label><input value={settingsForm.botUrl || ''} onChange={e => setSettingsForm({...settingsForm, botUrl: e.target.value})} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-md font-mono text-xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none" placeholder="https://t.me/your_bot" /></div>
+                                <div className="space-y-2"><label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">Payment Gateway Key (Buy)</label><input value={settingsForm.razorpayKey || ''} onChange={e => setSettingsForm({...settingsForm, razorpayKey: e.target.value})} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-md font-mono text-xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none" placeholder="rzp_test_..." /></div>
+                            </div>
+                            <button type="submit" className="w-full py-3 bg-[#0056d2] text-white font-black rounded-md shadow-md active:scale-95 transition-all text-sm tracking-widest uppercase">Commit System Changes</button>
+                        </form>
+                    </div>
                  )}
              </div>
 
@@ -710,6 +733,14 @@ const CourseDetail = () => {
     }, [hasTempAccess, tempExpiry, navigate]);
     const handleKeySubmit = () => { if(course.accessKey && accessKeyInput === course.accessKey) { enrollCourse(course.id); alert("✅ Access Granted Successfully!"); } else alert("❌ Invalid Access Key"); };
     const handleExternalLink = () => { if (course.shortenerLink) window.location.href = course.shortenerLink; else alert("Verification link not generated."); };
+    
+    const handleBuyOnTelegram = () => {
+        if (settings.botUrl) {
+            window.open(settings.botUrl, '_blank');
+        } else {
+            alert("Contact Admin: Telegram link not set.");
+        }
+    };
 
     return (
         <div className="pb-24 pt-0 min-h-screen bg-white">
@@ -734,7 +765,10 @@ const CourseDetail = () => {
                         <h3 className="text-2xl font-bold text-gray-900 mb-2">Node Sequence Locked</h3>
                         <p className="text-gray-500 mb-8 max-w-xs text-sm">Synchronize your identity with this batch using verification protocols.</p>
                         <div className="flex flex-col gap-4 w-full max-w-xs animate-slide-up">
-                             <button onClick={handleExternalLink} className="w-full py-4 bg-[#0056d2] text-white font-bold rounded-2xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 group hover:bg-[#004bb5]"><Clock className="w-5 h-5 group-hover:animate-pulse" /> Initialize 24h Sync</button>
+                             <button onClick={handleBuyOnTelegram} className="w-full py-4 bg-[#0056d2] text-white font-bold rounded-2xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 group hover:bg-[#004bb5]">
+                                <Send className="w-5 h-5" /> Buy from Admin on Telegram
+                             </button>
+                             <button onClick={handleExternalLink} className="w-full py-4 bg-white border-2 border-blue-50 text-blue-600 font-bold rounded-2xl hover:bg-blue-50 active:scale-95 transition-all flex items-center justify-center gap-2 group"><Clock className="w-5 h-5 group-hover:animate-pulse" /> Initialize 24h Sync</button>
                              {!showKeyInput ? (<button onClick={() => setShowKeyInput(true)} className="w-full py-4 bg-white border-2 border-gray-200 text-gray-700 font-bold rounded-2xl hover:bg-gray-50 active:scale-95 transition-all flex items-center justify-center gap-2"><Key className="w-5 h-5 text-gray-400" /> Use Enrollment Key</button>) : (<div className="bg-white p-2 rounded-2xl border-2 border-[#0056d2] shadow-sm animate-fade-in flex flex-col gap-2"><div className="flex gap-2"><input type="text" placeholder="Access Key..." className="flex-1 p-2 text-sm font-bold text-gray-700 outline-none bg-transparent" value={accessKeyInput} onChange={e => setAccessKeyInput(e.target.value)} autoFocus /><button onClick={handleKeySubmit} className="bg-[#0056d2] text-white px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-[#003ea1] shadow-md">Unlock</button></div><button onClick={() => setShowKeyInput(false)} className="text-[10px] text-gray-400 font-bold uppercase tracking-widest hover:text-red-500 self-center pb-1">Cancel</button></div>)}
                         </div>
                     </div>

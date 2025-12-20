@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate, useLocation, Link, useNavigate, useParams } from 'react-router-dom';
 import { StoreProvider, useStore } from './store';
 import { 
@@ -8,7 +8,7 @@ import {
   CheckCircle, ExternalLink, Play, Bot, Brain, Loader2, ArrowLeft, 
   Video as VideoIcon, Sparkles, Send, Smartphone, List, Globe, Bell, 
   ChevronRight, MoreVertical, MessageCircle, FileText, Calendar, MessageSquare, Eye,
-  RotateCcw, ImageIcon, Key, Clock, Shield, LogOut, Download, Save
+  RotateCcw, ImageIcon, Key, Clock, Shield, LogOut, Download, Save, Timer as TimerIcon
 } from './components/Icons';
 import VideoPlayer from './components/VideoPlayer';
 import ChatBot from './components/ChatBot';
@@ -89,25 +89,69 @@ const STBottomNav = () => {
 
 const TempAccessHandler = () => {
     const { id } = useParams<{id: string}>();
-    const { grantTempAccess } = useStore();
+    const { grantTempAccess, courses, currentUser } = useStore();
     const navigate = useNavigate();
+    const location = useLocation();
+    const [status, setStatus] = useState<'idle' | 'verifying' | 'success'>('idle');
+    
+    // Find course name for better UX
+    const courseName = courses.find(c => c.id === id)?.title || "Premium Batch";
 
-    useEffect(() => {
-        if (id) {
-            grantTempAccess(id);
-            setTimeout(() => {
-                navigate(`/course/${id}`);
-            }, 1500);
-        } else {
-            navigate('/');
+    const handleVerify = () => {
+        if (!currentUser) {
+            // Redirect to login if user is not authenticated, preserving the current location to return to
+            navigate('/login', { state: { from: location } });
+            return;
         }
-    }, [id, grantTempAccess, navigate]);
+
+        setStatus('verifying');
+        // Simulate a verification delay (e.g. checking headers or source)
+        setTimeout(() => {
+            if (id) {
+                grantTempAccess(id);
+                setStatus('success');
+                setTimeout(() => {
+                    navigate(`/course/${id}`);
+                }, 1500);
+            }
+        }, 2000);
+    };
 
     return (
-        <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-gray-50 text-center">
-            <Loader2 className="w-12 h-12 text-[#0056d2] animate-spin mb-4" />
-            <h2 className="text-xl font-bold text-gray-800">Activating 24h Access Pass...</h2>
-            <p className="text-gray-500 text-sm mt-2">Redirecting to content node.</p>
+        <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-gray-50 text-center">
+            <div className="bg-white p-8 rounded-[40px] shadow-2xl border border-gray-100 max-w-sm w-full">
+                <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                    {status === 'verifying' ? (
+                        <Loader2 className="w-10 h-10 text-[#0056d2] animate-spin" />
+                    ) : status === 'success' ? (
+                        <CheckCircle className="w-10 h-10 text-green-500" />
+                    ) : (
+                        <Shield className="w-10 h-10 text-[#0056d2]" />
+                    )}
+                </div>
+
+                <h2 className="text-2xl font-black text-gray-800 mb-2">
+                    {status === 'verifying' ? 'Verifying Link...' : status === 'success' ? 'Access Granted!' : 'Security Check'}
+                </h2>
+                
+                <p className="text-gray-500 text-sm font-medium mb-8 leading-relaxed">
+                    {status === 'verifying' 
+                        ? 'Validating your temporary access token. Please wait.' 
+                        : status === 'success' 
+                        ? 'Redirecting you to the batch content.'
+                        : `You are about to access "${courseName}" for 24 hours.`}
+                </p>
+
+                {status === 'idle' && (
+                    <button 
+                        onClick={handleVerify}
+                        className="w-full py-4 bg-[#0056d2] text-white font-bold rounded-2xl shadow-lg shadow-blue-200 active:scale-95 transition-all flex items-center justify-center gap-2"
+                    >
+                        Verify & Unlock
+                    </button>
+                )}
+            </div>
+            <p className="mt-8 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Secured by Study Portal</p>
         </div>
     );
 };
@@ -428,6 +472,7 @@ const AdminPanel = () => {
 
              {showModal && (
                  <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    {/* ... (ShowModal logic same as before) ... */}
                     <div className="bg-white w-full max-w-lg rounded-[40px] p-8 shadow-2xl max-h-[90vh] overflow-y-auto no-scrollbar border border-gray-100 animate-slide-up">
                         <div className="flex justify-between items-center mb-8">
                             <h2 className="text-2xl font-bold text-gray-800 tracking-tight">{editing ? 'Edit Batch Configuration' : 'Initialize New Batch Node'}</h2>
@@ -527,6 +572,7 @@ const AdminPanel = () => {
              
              {showUserModal && (
                  <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                    {/* ... (ShowUserModal logic same as before) ... */}
                     <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl">
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-xl font-bold text-gray-800">Create New User</h2>
@@ -548,31 +594,19 @@ const AdminPanel = () => {
     );
 };
 
-// --- CORE USER VIEWS ---
-
 const CourseListing = () => {
     const { courses } = useStore();
-    const [filter, setFilter] = useState<'Paid' | 'Free'>('Free');
-    const filteredCourses = courses.filter(c => filter === 'Paid' ? c.isPaid : !c.isPaid);
 
     return (
         <div className="pb-24 pt-20 px-5 min-h-screen bg-[#f8fafc]">
             <div className="max-w-md mx-auto space-y-6">
-                <div className="bg-white p-1 rounded-3xl border border-gray-100 flex shadow-sm">
-                    {(['Paid', 'Free'] as const).map((t) => (
-                        <button key={t} onClick={() => setFilter(t)} className={`flex-1 py-3 rounded-2xl font-bold text-sm transition-all ${filter === t ? 'bg-blue-50 text-[#0056d2] shadow-sm' : 'text-gray-400 hover:bg-gray-50'}`}>
-                            {t}
-                        </button>
-                    ))}
-                </div>
-
                 <div className="space-y-8">
-                    {filteredCourses.length === 0 ? (
+                    {courses.length === 0 ? (
                         <div className="text-center py-20 animate-fade-in">
                             <Search className="w-12 h-12 text-gray-200 mx-auto mb-4" />
                             <p className="text-gray-400 font-bold uppercase text-[10px] tracking-widest">No active nodes in this sector</p>
                         </div>
-                    ) : filteredCourses.map(c => (
+                    ) : courses.map(c => (
                         <div key={c.id} className="bg-white rounded-[40px] overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-500 animate-slide-up">
                             <div className="p-7 flex justify-between items-center">
                                 <div className="flex items-center gap-2.5">
@@ -591,8 +625,7 @@ const CourseListing = () => {
                                     <div className="flex items-center gap-2"><span>Ends {c.endDate}</span></div>
                                 </div>
                                 <div className="flex gap-4">
-                                    <button className="flex-1 py-4 text-sm font-black text-[#7c5cdb] border-2 border-[#7c5cdb]/10 rounded-2xl hover:bg-[#7c5cdb]/5 transition-all uppercase tracking-widest">Archive</button>
-                                    <Link to={`/course/${c.id}`} className="flex-[1.5] py-4 bg-[#7c5cdb] text-white text-center text-sm font-black rounded-2xl shadow-xl shadow-[#7c5cdb]/20 active:scale-95 transition-all uppercase tracking-widest">Let's Study</Link>
+                                    <Link to={`/course/${c.id}`} className="flex-1 py-4 bg-[#0056d2] text-white text-center text-sm font-black rounded-2xl shadow-xl shadow-blue-200 active:scale-95 transition-all uppercase tracking-widest">Let's Study</Link>
                                 </div>
                             </div>
                         </div>
@@ -605,21 +638,57 @@ const CourseListing = () => {
 
 const CourseDetail = () => {
     const { id } = useParams<{id: string}>();
-    const { courses, currentUser, grantTempAccess, enrollCourse } = useStore();
+    const { courses, currentUser, enrollCourse } = useStore();
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState<'Subjects' | 'Description'>('Subjects');
     const [accessKeyInput, setAccessKeyInput] = useState('');
     const [showKeyInput, setShowKeyInput] = useState(false);
+    const [timeLeft, setTimeLeft] = useState('');
 
     const course = courses.find(c => c.id === id);
     if (!course) return <Navigate to="/" />;
 
-    const hasAccess = !course.isPaid || 
-      (currentUser && (
-        currentUser.role === UserRole.ADMIN || 
-        currentUser.purchasedCourseIds.includes(course.id) || 
-        (currentUser.tempAccess?.[course.id] && new Date(currentUser.tempAccess[course.id]) > new Date())
-      ));
+    // --- ACCESS LOGIC ---
+    const isOwner = currentUser && (currentUser.role === UserRole.ADMIN || currentUser.purchasedCourseIds.includes(course.id));
+    
+    // Check temp access validity
+    let hasTempAccess = false;
+    let tempExpiry = null;
+    
+    if (currentUser?.tempAccess?.[course.id]) {
+        const expiryDate = new Date(currentUser.tempAccess[course.id]);
+        if (expiryDate > new Date()) {
+            hasTempAccess = true;
+            tempExpiry = expiryDate;
+        }
+    }
+
+    const hasAccess = !course.isPaid || isOwner || hasTempAccess;
+
+    // --- COUNTDOWN TIMER ---
+    useEffect(() => {
+        if (!hasTempAccess || !tempExpiry) return;
+
+        const interval = setInterval(() => {
+            const now = new Date().getTime();
+            const distance = tempExpiry.getTime() - now;
+
+            if (distance < 0) {
+                clearInterval(interval);
+                setTimeLeft('EXPIRED');
+                // Force re-render to lock content
+                navigate(0); 
+            } else {
+                const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+                setTimeLeft(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+            }
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [hasTempAccess, tempExpiry, navigate]);
+
 
     const handleKeySubmit = () => {
         if(course.accessKey && accessKeyInput === course.accessKey) {
@@ -639,6 +708,13 @@ const CourseDetail = () => {
                         <h1 className="text-xl font-black text-gray-800 truncate max-w-[180px] tracking-tight">{course.title}</h1>
                     </div>
                     <div className="flex items-center gap-4">
+                        {/* Countdown Timer Display */}
+                        {hasTempAccess && timeLeft && (
+                            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 border border-red-100 rounded-lg animate-pulse">
+                                <TimerIcon className="w-4 h-4 text-red-500" />
+                                <span className="text-xs font-bold text-red-600 font-mono">{timeLeft}</span>
+                            </div>
+                        )}
                         <XPBadge />
                         <Bell className="w-6 h-6 text-gray-600" />
                         <MoreVertical className="w-6 h-6 text-gray-600" />
@@ -662,18 +738,6 @@ const CourseDetail = () => {
                         <p className="text-gray-500 mb-8 max-w-xs text-sm">Access this premium batch using one of the options below.</p>
                         
                         <div className="flex flex-col gap-4 w-full max-w-xs animate-slide-up">
-                             <button 
-                                onClick={() => {
-                                    if(confirm("Activate your 24-hour trial access?")) {
-                                        grantTempAccess(course.id);
-                                    }
-                                }} 
-                                className="w-full py-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold rounded-2xl shadow-lg shadow-blue-200 active:scale-95 transition-all flex items-center justify-center gap-2"
-                             >
-                                <Clock className="w-5 h-5" /> 
-                                Get 24h Temporary Access
-                             </button>
-
                              {!showKeyInput ? (
                                 <button 
                                     onClick={() => setShowKeyInput(true)} 
@@ -772,6 +836,8 @@ const CourseDetail = () => {
     );
 };
 
+// ... (SubjectDetail, WatchPage, Profile, Login, MainContent, App same as before) ...
+// Ensure SubjectDetail access check also respects temp access expiry
 const SubjectDetail = () => {
     const { courseId, subjectId } = useParams<{courseId: string, subjectId: string}>();
     const { courses, saveGeneratedNote, currentUser } = useStore();
@@ -779,17 +845,23 @@ const SubjectDetail = () => {
     const [tab, setTab] = useState<'Chapters' | 'Notes'>('Chapters');
     const [filter, setFilter] = useState('All');
     const [generatingNotes, setGeneratingNotes] = useState(false);
-    const [notes, setNotes] = useState<string | null>(null);
     
     const course = courses.find(c => c.id === courseId);
     const subject = course?.subjects.find(s => s.id === subjectId);
     if (!subject || !courseId) return <Navigate to="/" />;
 
+    let hasTempAccess = false;
+    if (currentUser?.tempAccess?.[courseId]) {
+        if (new Date(currentUser.tempAccess[courseId]) > new Date()) {
+            hasTempAccess = true;
+        }
+    }
+
     const hasAccess = !course?.isPaid || 
     (currentUser && (
       currentUser.role === UserRole.ADMIN || 
       currentUser.purchasedCourseIds.includes(courseId) || 
-      (currentUser.tempAccess?.[courseId] && new Date(currentUser.tempAccess[courseId]) > new Date())
+      hasTempAccess
     ));
 
     if (!hasAccess) return <Navigate to={`/course/${courseId}`} />;
@@ -823,6 +895,7 @@ const SubjectDetail = () => {
 
     return (
         <div className="pb-24 pt-0 min-h-screen bg-white">
+            {/* ... Header and Tabs ... */}
             <div className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
                 <div className="flex items-center justify-between p-4 px-6">
                     <div className="flex items-center gap-5">

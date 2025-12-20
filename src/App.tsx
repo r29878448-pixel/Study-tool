@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useRef } from 'react';
-import { HashRouter as Router, Routes, Route, Navigate, useLocation, Link, useNavigate, useParams } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, Link, useNavigate, useParams } from 'react-router-dom';
 import { StoreProvider, useStore } from './store';
 import { 
   Home, BookOpen, User, Search, PlayCircle, Lock, 
@@ -191,7 +191,7 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
 
     return (
         <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-2xl rounded-[32px] p-8 max-h-[85vh] flex flex-col shadow-2xl animate-slide-up overflow-hidden">
+            <div className="bg-white w-full max-w-2xl rounded-2xl p-6 max-h-[85vh] flex flex-col shadow-2xl animate-slide-up overflow-hidden">
                 <div className="flex justify-between items-center mb-6 border-b pb-4">
                     <h2 className="text-xl font-bold flex items-center gap-2 text-gray-800"><VideoIcon className="text-blue-600" /> Content Manager</h2>
                     <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X /></button>
@@ -199,21 +199,22 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
                 <div className="flex items-center gap-2 mb-4 text-xs font-bold text-gray-400 overflow-x-auto no-scrollbar"><button onClick={() => { setActiveSubjectId(null); setActiveChapterId(null); }} className={!activeSubjectId ? 'text-blue-600' : ''}>ROOT</button>{activeSubject && <><ChevronRight className="w-3 h-3" /><button onClick={() => setActiveChapterId(null)} className={activeSubjectId && !activeChapterId ? 'text-blue-600' : ''}>{activeSubject.title.toUpperCase()}</button></>}{activeChapter && <><ChevronRight className="w-3 h-3" /><span className="text-blue-600">{activeChapter.title.toUpperCase()}</span></>}</div>
                 <div className="flex-1 overflow-y-auto space-y-4 no-scrollbar">
                     {editingVideo ? (
-                        <div className="space-y-4 bg-gray-50 p-6 rounded-2xl animate-fade-in">
+                        <div className="space-y-4 bg-gray-50 p-6 rounded-xl animate-fade-in">
                             <h3 className="font-bold text-gray-700">Edit Node Data</h3>
-                            <input value={editingVideo.vid.title} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, title: e.target.value}})} className="w-full p-3 border rounded-xl" placeholder="Title" />
-                            <input value={editingVideo.vid.filename} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, filename: e.target.value}})} className="w-full p-3 border rounded-xl" placeholder="URL" />
-                            <div className="flex gap-2"><button onClick={() => setEditingVideo(null)} className="flex-1 py-2 text-gray-500 font-bold bg-white border rounded-xl">Cancel</button><button onClick={updateVideoData} className="flex-1 py-2 bg-[#0056d2] text-white font-bold rounded-xl">Save</button></div>
+                            <input value={editingVideo.vid.title} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, title: e.target.value}})} className="w-full p-3 border rounded-lg" placeholder="Title" />
+                            <input value={editingVideo.vid.filename} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, filename: e.target.value}})} className="w-full p-3 border rounded-lg" placeholder="URL" />
+                            <input value={editingVideo.vid.duration} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, duration: e.target.value}})} className="w-full p-3 border rounded-lg" placeholder="Duration" />
+                            <div className="flex gap-2"><button onClick={() => setEditingVideo(null)} className="flex-1 py-2 text-gray-500 font-bold bg-white border rounded-lg">Cancel</button><button onClick={updateVideoData} className="flex-1 py-2 bg-[#0056d2] text-white font-bold rounded-lg">Save</button></div>
                         </div>
                     ) : activeChapterId && activeSubjectId ? (
-                        <div className="space-y-3"><button onClick={() => addVideo(activeSubjectId, activeChapterId)} className="w-full py-4 border-2 border-dashed border-blue-100 rounded-2xl text-blue-600 font-bold hover:bg-blue-50">+ Add Content</button>{activeChapter?.videos.map(vid => (<div key={vid.id} className="p-4 bg-gray-50 border border-gray-100 rounded-2xl flex justify-between items-center"><div className="truncate pr-4"><p className="text-sm font-bold text-gray-800 truncate">{vid.title}</p></div><div className="flex gap-1"><button onClick={() => setEditingVideo({chapId: activeChapterId, vid})} className="p-2 text-gray-400 hover:text-blue-500"><Edit className="w-4 h-4" /></button><button onClick={() => setSubjects(subjects.map(s => s.id === activeSubjectId ? {...s, chapters: s.chapters.map(c => c.id === activeChapterId ? {...c, videos: c.videos.filter(v => v.id !== vid.id)} : c)} : s))} className="text-red-500 p-2"><Trash2 className="w-4 h-4" /></button></div></div>))}</div>
+                        <div className="space-y-3"><button onClick={() => addVideo(activeSubjectId, activeChapterId)} className="w-full py-4 border-2 border-dashed border-blue-100 rounded-xl text-blue-600 font-bold hover:bg-blue-50">+ Add Content</button>{activeChapter?.videos.map(vid => (<div key={vid.id} className="p-4 bg-white border border-gray-200 rounded-xl flex justify-between items-center shadow-sm"><div className="truncate pr-4"><p className="text-sm font-bold text-gray-800 truncate">{vid.title}</p></div><div className="flex gap-1"><button onClick={() => setEditingVideo({chapId: activeChapterId, vid})} className="p-2 text-gray-400 hover:text-blue-500"><Edit className="w-4 h-4" /></button><button onClick={() => setSubjects(subjects.map(s => s.id === activeSubjectId ? {...s, chapters: s.chapters.map(c => c.id === activeChapterId ? {...c, videos: c.videos.filter(v => v.id !== vid.id)} : c)} : s))} className="text-red-500 p-2"><Trash2 className="w-4 h-4" /></button></div></div>))}</div>
                     ) : activeSubjectId ? (
-                        <div className="space-y-3"><button onClick={() => addChapter(activeSubjectId)} className="w-full py-4 border-2 border-dashed border-blue-100 rounded-2xl text-blue-600 font-bold hover:bg-blue-50">+ Add Chapter</button>{activeSubject?.chapters.map(chap => (<div key={chap.id} className="p-4 bg-white border border-gray-100 rounded-2xl flex justify-between items-center shadow-sm"><button onClick={() => setActiveChapterId(chap.id)} className="flex-1 text-left font-bold text-gray-700">{chap.title}</button><button onClick={() => setSubjects(subjects.map(s => s.id === activeSubjectId ? {...s, chapters: s.chapters.filter(c => c.id !== chap.id)} : s))} className="text-red-500 p-2"><Trash2 className="w-4 h-4" /></button></div>))}</div>
+                        <div className="space-y-3"><button onClick={() => addChapter(activeSubjectId)} className="w-full py-4 border-2 border-dashed border-blue-100 rounded-xl text-blue-600 font-bold hover:bg-blue-50">+ Add Chapter</button>{activeSubject?.chapters.map(chap => (<div key={chap.id} className="p-4 bg-white border border-gray-200 rounded-xl flex justify-between items-center shadow-sm"><button onClick={() => setActiveChapterId(chap.id)} className="flex-1 text-left font-bold text-gray-700">{chap.title}</button><button onClick={() => setSubjects(subjects.map(s => s.id === activeSubjectId ? {...s, chapters: s.chapters.filter(c => c.id !== chap.id)} : s))} className="text-red-500 p-2"><Trash2 className="w-4 h-4" /></button></div>))}</div>
                     ) : (
-                        <div className="space-y-3"><button onClick={addSubject} className="w-full py-4 border-2 border-dashed border-blue-100 rounded-2xl text-blue-600 font-bold hover:bg-blue-50">+ Add Subject</button>{subjects.map(sub => (<div key={sub.id} className="p-5 bg-white border border-gray-100 rounded-2xl flex justify-between items-center shadow-sm group"><button onClick={() => setActiveSubjectId(sub.id)} className="flex items-center gap-4 flex-1 text-left"><div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600 font-bold text-xs">{sub.iconText}</div><span className="font-bold text-gray-800">{sub.title}</span></button><button onClick={() => setSubjects(subjects.filter(s => s.id !== sub.id))} className="text-red-500 p-2"><Trash2 className="w-4 h-4" /></button></div>))}</div>
+                        <div className="space-y-3"><button onClick={addSubject} className="w-full py-4 border-2 border-dashed border-blue-100 rounded-xl text-blue-600 font-bold hover:bg-blue-50">+ Add Subject</button>{subjects.map(sub => (<div key={sub.id} className="p-4 bg-white border border-gray-200 rounded-xl flex justify-between items-center shadow-sm group"><button onClick={() => setActiveSubjectId(sub.id)} className="flex items-center gap-4 flex-1 text-left"><div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600 font-bold text-xs">{sub.iconText}</div><span className="font-bold text-gray-800">{sub.title}</span></button><button onClick={() => setSubjects(subjects.filter(s => s.id !== sub.id))} className="text-red-500 p-2"><Trash2 className="w-4 h-4" /></button></div>))}</div>
                     )}
                 </div>
-                <div className="mt-6 pt-6 border-t flex gap-3"><button onClick={onClose} className="flex-1 py-4 text-gray-500 font-bold hover:bg-gray-50 rounded-2xl">Discard</button><button onClick={handleSave} className="flex-1 py-4 bg-[#0056d2] text-white font-bold rounded-2xl shadow-lg">Commit</button></div>
+                <div className="mt-6 pt-6 border-t flex gap-3"><button onClick={onClose} className="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-50 rounded-xl">Discard</button><button onClick={handleSave} className="flex-1 py-3 bg-[#0056d2] text-white font-bold rounded-xl shadow-lg">Commit</button></div>
             </div>
         </div>
     );
@@ -243,7 +244,40 @@ const AdminPanel = () => {
     const handleSaveCourse = (e: React.FormEvent) => { e.preventDefault(); const data: Course = { ...(editing || { id: Date.now().toString(), subjects: [], createdAt: new Date().toISOString() }), ...form }; if (editing) updateCourse(data); else addCourse(data); setShowModal(false); };
     const handleCreateUser = (e: React.FormEvent) => { e.preventDefault(); if (users.some(u => u.email.toLowerCase() === userForm.email.toLowerCase())) { alert("User exists."); return; } createUser({ id: Date.now().toString(), name: userForm.name, email: userForm.email, phone: '', password: userForm.password, role: userForm.role, purchasedCourseIds: [], lastLogin: new Date().toISOString(), tempAccess: {} }); setShowUserModal(false); setUserForm({ name: '', email: '', password: '', role: UserRole.USER }); };
     const handleSaveSettings = (e: React.FormEvent) => { e.preventDefault(); updateSettings(settingsForm); alert("System configurations updated."); };
-    const generateShortLink = async () => { if(!editing) { alert("Save batch first."); return; } setGeneratingLink(true); const targetId = editing.id; const longUrl = `${window.location.origin}/#/temp-access/${targetId}`; const apiBase = settings.linkShortenerApiUrl || 'https://vplink.in/api'; const apiKey = settings.linkShortenerApiKey || '320f263d298979dc11826b8e2574610ba0cc5d6b'; const apiUrl = `${apiBase}?api=${apiKey}&url=${encodeURIComponent(longUrl)}`; try { const res = await fetch(apiUrl); const text = await res.text(); let shortUrl = text; try { const json = JSON.parse(text); if(json.shortenedUrl) shortUrl = json.shortenedUrl; else if(json.link) shortUrl = json.link; } catch(e) {} if (shortUrl && shortUrl.startsWith('http')) { setForm(prev => ({ ...prev, shortenerLink: shortUrl })); } else { setForm(prev => ({ ...prev, shortenerLink: longUrl })); alert("Shortener failed. Using long URL."); } } catch (e) { setForm(prev => ({ ...prev, shortenerLink: longUrl })); alert("Network error."); } finally { setGeneratingLink(false); } };
+    
+    // Updated Link Generation for BrowserRouter (no hash)
+    const generateShortLink = async () => { 
+        if(!editing) { alert("Save batch first."); return; } 
+        setGeneratingLink(true); 
+        const targetId = editing.id; 
+        // Changed URL structure to match BrowserRouter (removed /#)
+        const longUrl = `${window.location.origin}/temp-access/${targetId}`; 
+        const apiBase = settings.linkShortenerApiUrl || 'https://vplink.in/api'; 
+        const apiKey = settings.linkShortenerApiKey || '320f263d298979dc11826b8e2574610ba0cc5d6b'; 
+        const apiUrl = `${apiBase}?api=${apiKey}&url=${encodeURIComponent(longUrl)}`; 
+        try { 
+            const res = await fetch(apiUrl); 
+            const text = await res.text(); 
+            let shortUrl = text; 
+            try { 
+                const json = JSON.parse(text); 
+                if(json.shortenedUrl) shortUrl = json.shortenedUrl; 
+                else if(json.link) shortUrl = json.link; 
+            } catch(e) {} 
+            if (shortUrl && shortUrl.startsWith('http')) { 
+                setForm(prev => ({ ...prev, shortenerLink: shortUrl })); 
+            } else { 
+                setForm(prev => ({ ...prev, shortenerLink: longUrl })); 
+                alert("Shortener failed. Using long URL."); 
+            } 
+        } catch (e) { 
+            setForm(prev => ({ ...prev, shortenerLink: longUrl })); 
+            alert("Network error."); 
+        } finally { 
+            setGeneratingLink(false); 
+        } 
+    };
+
     const availableTabs = currentUser.role === UserRole.ADMIN ? ['batches', 'users', 'settings'] as const : ['batches'] as const;
     const getUserCourses = (u: any) => { const permanent = u.purchasedCourseIds || []; const allIds = [...new Set(permanent)]; return courses.filter(c => allIds.includes(c.id)); };
     const getExamStats = (u: any) => { const results = u.examResults || []; const totalExams = results.length; const avgScore = totalExams > 0 ? Math.round(results.reduce((acc: number, curr: any) => acc + (curr.score / curr.totalQuestions * 100), 0) / totalExams) : 0; return { totalExams, avgScore, results }; };
@@ -285,9 +319,97 @@ const AdminPanel = () => {
              {selectedUser && (
                 <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"><div className="bg-white w-full max-w-2xl rounded-[40px] p-8 shadow-2xl max-h-[90vh] overflow-y-auto no-scrollbar animate-slide-up"><div className="flex justify-between items-start mb-8"><div className="flex items-center gap-4"><div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center text-white text-3xl font-black shadow-lg shadow-blue-200">{selectedUser.name.charAt(0)}</div><div><h2 className="text-2xl font-bold text-gray-800">{selectedUser.name}</h2><p className="text-gray-500 text-sm font-medium">{selectedUser.email}</p><div className="flex gap-2 mt-2"><span className="px-3 py-1 bg-gray-100 rounded-full text-[10px] font-bold text-gray-600 uppercase tracking-wider">{selectedUser.role}</span>{selectedUser.lastLogin && <span className="px-3 py-1 bg-green-50 rounded-full text-[10px] font-bold text-green-600 uppercase tracking-wider">Active: {new Date(selectedUser.lastLogin).toLocaleDateString()}</span>}</div></div></div><button onClick={() => setSelectedUser(null)} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X className="w-6 h-6 text-gray-400" /></button></div><div className="space-y-6"><div><div className="flex items-center justify-between mb-3"><h3 className="text-sm font-bold text-gray-800 flex items-center gap-2"><BookOpen className="w-4 h-4 text-blue-500" /> Active Enrollments</h3><div className="flex gap-2"><select value={courseToAddId} onChange={(e) => setCourseToAddId(e.target.value)} className="text-xs p-2 border rounded-lg bg-gray-50 outline-none max-w-[150px]"><option value="">Select Batch...</option>{courses.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}</select><button onClick={handleAddCourseToUser} disabled={!courseToAddId} className="px-3 py-2 bg-[#0056d2] text-white rounded-lg text-xs font-bold disabled:opacity-50">Add</button></div></div><div className="bg-gray-50 rounded-2xl border border-gray-100 overflow-hidden">{getUserCourses(selectedUser).length > 0 ? (getUserCourses(selectedUser).map(c => (<div key={c.id} className="p-4 border-b last:border-0 border-gray-100 flex items-center justify-between"><div className="flex items-center gap-3"><div className="w-2 h-2 rounded-full bg-green-500"></div><span className="text-sm font-bold text-gray-700">{c.title}</span></div><button onClick={() => handleRemoveCourseFromUser(c.id)} className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button></div>))) : (<div className="p-6 text-center text-xs font-bold text-gray-400 uppercase tracking-widest">No Active Enrollments</div>)}</div></div><div><h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2"><Bot className="w-4 h-4 text-blue-500" /> Recent Performance</h3><div className="bg-gray-50 rounded-2xl border border-gray-100 overflow-hidden">{getExamStats(selectedUser).results.length > 0 ? (getExamStats(selectedUser).results.slice().reverse().map((res: any, idx: number) => { const courseTitle = courses.find(c => c.id === res.courseId)?.title || 'Unknown Course'; const percentage = Math.round((res.score / res.totalQuestions) * 100); return (<div key={idx} className="p-4 border-b last:border-0 border-gray-100 flex items-center justify-between"><div><div className="text-xs font-bold text-gray-800">{courseTitle}</div><div className="text-[10px] text-gray-400 font-bold uppercase mt-0.5">{new Date(res.date).toLocaleDateString()}</div></div><div className="flex items-center gap-3"><div className="text-right"><div className="text-sm font-black text-gray-800">{res.score}/{res.totalQuestions}</div><div className={`text-[9px] font-bold ${percentage >= 70 ? 'text-green-500' : 'text-orange-500'}`}>{percentage}% Score</div></div><div className="w-10 h-10 rounded-full border-4 border-gray-200 flex items-center justify-center text-[10px] font-bold text-gray-400 relative"><div className="absolute inset-0 rounded-full border-4 border-blue-500" style={{ clipPath: `polygon(0 0, 100% 0, 100% ${percentage}%, 0 ${percentage}%)` }}></div>{percentage}</div></div></div>); })) : (<div className="p-6 text-center text-xs font-bold text-gray-400 uppercase tracking-widest">No Exam Data Available</div>)}</div></div></div></div></div>
              )}
-             {/* Add/Edit Modal - simplified structure with grid */}
+             {/* Add/Edit Modal - RESTORED ORIGINAL UI */}
              {showModal && (
-                 <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"><div className="bg-white w-full max-w-lg rounded-[40px] p-8 shadow-2xl max-h-[90vh] overflow-y-auto no-scrollbar border border-gray-100 animate-slide-up"><div className="flex justify-between items-center mb-8"><h2 className="text-2xl font-bold text-gray-800 tracking-tight">{editing ? 'Edit Batch Configuration' : 'Initialize New Batch Node'}</h2><button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X /></button></div><form onSubmit={handleSaveCourse} className="space-y-5"><div className="space-y-2"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Identity Thumbnail</label><div className="relative aspect-video rounded-3xl overflow-hidden bg-gray-50 border-2 border-dashed border-gray-200 flex items-center justify-center group shadow-inner">{form.image ? (<><img src={form.image} className="w-full h-full object-cover" alt="Preview" /><div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"><button type="button" onClick={() => setForm({...form, image: ''})} className="bg-white text-red-500 p-2.5 rounded-full shadow-lg hover:scale-110 transition-transform"><Trash2 className="w-5 h-5" /></button></div></>) : (<div className="text-center p-6"><div className="flex flex-col items-center"><ImageIcon className="w-12 h-12 text-gray-300 mb-2 opacity-50" /><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Inject Thumbnail URL</p><label className="mt-3 px-4 py-2 bg-gray-100 rounded-xl text-xs font-bold text-gray-600 cursor-pointer hover:bg-gray-200">Upload<input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} /></label></div></div>)}</div><input value={form.image} onChange={e => setForm({ ...form, image: e.target.value })} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl font-mono text-[10px] shadow-sm" placeholder="https://domain.com/thumbnail.jpg" /></div><input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:border-blue-500 font-bold shadow-sm" placeholder="Course Title" required /><textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:border-blue-500 font-medium text-xs shadow-sm min-h-[100px]" placeholder="Description" required /><div className="space-y-1"><label className="text-[10px] font-bold text-gray-400 ml-1 uppercase">24h Access Link (Temporary)</label><div className="flex gap-2"><input value={form.shortenerLink} onChange={e => setForm({...form, shortenerLink: e.target.value})} className="flex-1 p-4 bg-gray-50 border border-gray-100 rounded-2xl text-[10px] font-mono shadow-sm" placeholder="Generate link ->" /><button type="button" onClick={generateShortLink} disabled={generatingLink} className="px-4 bg-brand/10 text-brand font-bold rounded-2xl text-[10px] hover:bg-brand/20 disabled:opacity-50 uppercase tracking-wider">{generatingLink ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Auto Generate'}</button></div></div><div className="space-y-1"><label className="text-[10px] font-bold text-gray-400 ml-1 uppercase">Enrollment Key (Permanent Access)</label><input value={form.accessKey} onChange={e => setForm({ ...form, accessKey: e.target.value })} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl text-xs font-mono shadow-sm" placeholder="Required for Bot Purchase (e.g. BATCH2025)" /><p className="text-[9px] text-gray-400 ml-1">Users will receive this key from the bot after payment.</p></div><div className="grid grid-cols-2 gap-4"><input value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className="p-4 bg-gray-50 border border-gray-100 rounded-2xl text-xs uppercase font-bold shadow-sm" placeholder="Category" required /><div className="flex items-center gap-3 p-4 bg-gray-50 rounded-2xl border border-gray-100 shadow-sm cursor-pointer" onClick={() => setForm({...form, isPaid: !form.isPaid})}><span className="text-xs font-bold text-gray-400 uppercase">Paid</span><div className={`w-10 h-5 rounded-full relative transition-all ${form.isPaid ? 'bg-blue-600' : 'bg-gray-300'}`}><div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${form.isPaid ? 'left-5.5' : 'left-0.5'}`} /></div></div></div>{form.isPaid && (<div className="grid grid-cols-2 gap-4"><div className="space-y-1"><label className="text-[10px] font-bold text-gray-400 ml-1 uppercase">Price</label><input type="number" value={form.price} onChange={e => setForm({ ...form, price: Number(e.target.value) })} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl text-xs shadow-sm" /></div><div className="space-y-1"><label className="text-[10px] font-bold text-gray-400 ml-1 uppercase">MRP</label><input type="number" value={form.mrp} onChange={e => setForm({ ...form, mrp: Number(e.target.value) })} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl text-xs shadow-sm" /></div></div>)}<div className="grid grid-cols-2 gap-4"><div className="space-y-1"><label className="text-[10px] font-bold text-gray-400 ml-1 uppercase">Node Active</label><input value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl text-xs shadow-sm" placeholder="Start Date" /></div><div className="space-y-1"><label className="text-[10px] font-bold text-gray-400 ml-1 uppercase">Node Expiry</label><input value={form.endDate} onChange={e => setForm({ ...form, endDate: e.target.value })} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl text-xs shadow-sm" placeholder="End Date" /></div></div><div className="pt-4"><button type="submit" className="w-full py-5 bg-[#0056d2] text-white font-black rounded-3xl shadow-xl shadow-blue-100 active:scale-95 transition-all uppercase tracking-[0.2em] text-sm">Commit Sequence</button></div></form></div></div>
+                 <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <div className="bg-white w-full max-w-lg rounded-2xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto no-scrollbar border border-gray-100 animate-slide-up">
+                        <div className="flex justify-between items-center mb-8">
+                            <h2 className="text-2xl font-bold text-gray-800 tracking-tight">{editing ? 'Edit Batch Configuration' : 'Initialize New Batch Node'}</h2>
+                            <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X /></button>
+                        </div>
+                        <form onSubmit={handleSaveCourse} className="space-y-5">
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Identity Thumbnail</label>
+                                <div className="relative aspect-video rounded-2xl overflow-hidden bg-gray-50 border-2 border-dashed border-gray-200 flex items-center justify-center group shadow-inner">
+                                    {form.image ? (
+                                        <>
+                                            <img src={form.image} className="w-full h-full object-cover" alt="Preview" />
+                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                <button type="button" onClick={() => setForm({...form, image: ''})} className="bg-white text-red-500 p-2.5 rounded-full shadow-lg hover:scale-110 transition-transform"><Trash2 className="w-5 h-5" /></button>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div className="text-center p-6">
+                                            <ImageIcon className="w-12 h-12 text-gray-300 mx-auto mb-2 opacity-50" />
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Inject Thumbnail URL</p>
+                                            <label className="mt-3 px-4 py-2 bg-gray-100 rounded-xl text-xs font-bold text-gray-600 cursor-pointer hover:bg-gray-200">
+                                                Upload
+                                                <input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} />
+                                            </label>
+                                        </div>
+                                    )}
+                                </div>
+                                <input value={form.image} onChange={e => setForm({ ...form, image: e.target.value })} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-xl font-mono text-[10px] shadow-sm" placeholder="https://domain.com/thumbnail.jpg" />
+                            </div>
+
+                            <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-blue-500 font-bold shadow-sm" placeholder="Course Title" required />
+                            
+                            <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-blue-500 font-medium text-xs shadow-sm min-h-[100px]" placeholder="Description" required />
+
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-bold text-gray-400 ml-1 uppercase">24h Access Link (Temporary)</label>
+                                <div className="flex gap-2">
+                                    <input value={form.shortenerLink} onChange={e => setForm({...form, shortenerLink: e.target.value})} className="flex-1 p-4 bg-gray-50 border border-gray-100 rounded-xl text-[10px] font-mono shadow-sm" placeholder="Generate link ->" />
+                                    <button type="button" onClick={generateShortLink} disabled={generatingLink} className="px-4 bg-brand/10 text-brand font-bold rounded-xl text-[10px] hover:bg-brand/20 disabled:opacity-50 uppercase tracking-wider">{generatingLink ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Auto Generate'}</button>
+                                </div>
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-bold text-gray-400 ml-1 uppercase">Enrollment Key (Permanent Access)</label>
+                                <input value={form.accessKey} onChange={e => setForm({ ...form, accessKey: e.target.value })} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-xl text-xs font-mono shadow-sm" placeholder="Required for Bot Purchase (e.g. BATCH2025)" />
+                                <p className="text-[9px] text-gray-400 ml-1">Users will receive this key from the bot after payment.</p>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <input value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className="p-4 bg-gray-50 border border-gray-100 rounded-xl text-xs uppercase font-bold shadow-sm" placeholder="Category" required />
+                                <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl border border-gray-100 shadow-sm cursor-pointer" onClick={() => setForm({...form, isPaid: !form.isPaid})}>
+                                    <span className="text-xs font-bold text-gray-400 uppercase">Paid</span>
+                                    <div className={`w-10 h-5 rounded-full relative transition-all ${form.isPaid ? 'bg-blue-600' : 'bg-gray-300'}`}>
+                                        <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${form.isPaid ? 'left-5.5' : 'left-0.5'}`} />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {form.isPaid && (
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-gray-400 ml-1 uppercase">Price</label>
+                                        <input type="number" value={form.price} onChange={e => setForm({ ...form, price: Number(e.target.value) })} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-xl text-xs shadow-sm" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-gray-400 ml-1 uppercase">MRP</label>
+                                        <input type="number" value={form.mrp} onChange={e => setForm({ ...form, mrp: Number(e.target.value) })} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-xl text-xs shadow-sm" />
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-gray-400 ml-1 uppercase">Node Active</label>
+                                    <input value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-xl text-xs shadow-sm" placeholder="Start Date" />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-gray-400 ml-1 uppercase">Node Expiry</label>
+                                    <input value={form.endDate} onChange={e => setForm({ ...form, endDate: e.target.value })} className="w-full p-4 bg-gray-50 border border-gray-100 rounded-xl text-xs shadow-sm" placeholder="End Date" />
+                                </div>
+                            </div>
+
+                            <div className="pt-4">
+                                <button type="submit" className="w-full py-5 bg-[#0056d2] text-white font-black rounded-3xl shadow-xl shadow-blue-100 active:scale-95 transition-all uppercase tracking-[0.2em] text-sm">Commit Sequence</button>
+                            </div>
+                        </form>
+                    </div>
+                 </div>
              )}
              {showUserModal && (
                  <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"><div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl"><div className="flex justify-between items-center mb-6"><h2 className="text-xl font-bold text-gray-800">Create New User</h2><button onClick={() => setShowUserModal(false)} className="p-2 hover:bg-gray-100 rounded-full"><X /></button></div><form onSubmit={handleCreateUser} className="space-y-4"><div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Full Name</label><input value={userForm.name} onChange={e => setUserForm({ ...userForm, name: e.target.value })} className="w-full p-3 border rounded-lg bg-gray-50" required /></div><div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Email</label><input type="email" value={userForm.email} onChange={e => setUserForm({ ...userForm, email: e.target.value })} className="w-full p-3 border rounded-lg bg-gray-50" required /></div><div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Password</label><input type="password" value={userForm.password} onChange={e => setUserForm({ ...userForm, password: e.target.value })} className="w-full p-3 border rounded-lg bg-gray-50" required /></div><div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Role</label><select value={userForm.role} onChange={e => setUserForm({ ...userForm, role: e.target.value as UserRole })} className="w-full p-3 border rounded-lg bg-gray-50"><option value={UserRole.USER}>User</option><option value={UserRole.EDITOR}>Manager</option><option value={UserRole.ADMIN}>Admin</option></select></div><button type="submit" className="w-full py-3 bg-brand text-white font-bold rounded-lg hover:bg-brand-dark shadow-md mt-4">Create User</button></form></div></div>

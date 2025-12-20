@@ -111,7 +111,19 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
   const login = (email: string, pass: string) => {
     const user = users.find(u => (u.email.toLowerCase() === email.toLowerCase() || u.phone === email) && u.password === pass);
     if (user) {
-      setCurrentUser({ ...user, lastLogin: new Date().toISOString() });
+      // Defensive: Ensure all required array/object fields exist (migration for legacy data)
+      const secureUser = {
+          ...user,
+          purchasedCourseIds: user.purchasedCourseIds || [],
+          tempAccess: user.tempAccess || {},
+          generatedNotes: user.generatedNotes || [],
+          examResults: user.examResults || [],
+          savedExamProgress: user.savedExamProgress || [],
+          lastLogin: new Date().toISOString()
+      };
+      setCurrentUser(secureUser);
+      // Update global user list with migrated data
+      setUsers(prev => prev.map(u => u.id === user.id ? secureUser : u));
       return true;
     }
     return false;
@@ -127,7 +139,10 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
         role: UserRole.USER, 
         purchasedCourseIds: [], 
         lastLogin: new Date().toISOString(), 
-        tempAccess: {} 
+        tempAccess: {},
+        generatedNotes: [],
+        examResults: [],
+        savedExamProgress: []
     };
     setUsers(prev => [...prev, newUser]);
     setCurrentUser(newUser);
@@ -147,7 +162,8 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
 
   const enrollCourse = (courseId: string) => {
     if (!currentUser) return;
-    const updated = { ...currentUser, purchasedCourseIds: [...new Set([...currentUser.purchasedCourseIds, courseId])] };
+    const currentPurchased = currentUser.purchasedCourseIds || [];
+    const updated = { ...currentUser, purchasedCourseIds: [...new Set([...currentPurchased, courseId])] };
     setCurrentUser(updated);
     setUsers(prev => prev.map(u => u.id === currentUser.id ? updated : u));
   };
@@ -155,7 +171,8 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
   const grantTempAccess = (courseId: string) => {
     if (!currentUser) return;
     const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-    const updated = { ...currentUser, tempAccess: { ...(currentUser.tempAccess || {}), [courseId]: expiry } };
+    const currentTemp = currentUser.tempAccess || {};
+    const updated = { ...currentUser, tempAccess: { ...currentTemp, [courseId]: expiry } };
     setCurrentUser(updated);
     setUsers(prev => prev.map(u => u.id === currentUser.id ? updated : u));
   };
@@ -176,15 +193,17 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
 
   const saveExamResult = (cId: string, score: number, total: number) => {
     if (!currentUser) return;
+    const currentResults = currentUser.examResults || [];
     const res: ExamResult = { courseId: cId, score, totalQuestions: total, date: new Date().toISOString() };
-    const updated = { ...currentUser, examResults: [...(currentUser.examResults || []), res] };
+    const updated = { ...currentUser, examResults: [...currentResults, res] };
     setCurrentUser(updated);
     setUsers(prev => prev.map(u => u.id === currentUser.id ? updated : u));
   };
 
   const saveExamProgress = (p: ExamProgress) => {
     if (!currentUser) return;
-    const filtered = (currentUser.savedExamProgress || []).filter(item => item.courseId !== p.courseId);
+    const currentProgress = currentUser.savedExamProgress || [];
+    const filtered = currentProgress.filter(item => item.courseId !== p.courseId);
     const updated = { ...currentUser, savedExamProgress: [...filtered, p] };
     setCurrentUser(updated);
     setUsers(prev => prev.map(u => u.id === currentUser.id ? updated : u));
@@ -192,21 +211,24 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
 
   const clearExamProgress = (cId: string) => {
     if (!currentUser) return;
-    const updated = { ...currentUser, savedExamProgress: (currentUser.savedExamProgress || []).filter(p => p.courseId !== cId) };
+    const currentProgress = currentUser.savedExamProgress || [];
+    const updated = { ...currentUser, savedExamProgress: currentProgress.filter(p => p.courseId !== cId) };
     setCurrentUser(updated);
     setUsers(prev => prev.map(u => u.id === currentUser.id ? updated : u));
   };
 
   const saveGeneratedNote = (note: GeneratedNote) => {
     if (!currentUser) return;
-    const updated = { ...currentUser, generatedNotes: [...(currentUser.generatedNotes || []), note] };
+    const currentNotes = currentUser.generatedNotes || [];
+    const updated = { ...currentUser, generatedNotes: [...currentNotes, note] };
     setCurrentUser(updated);
     setUsers(prev => prev.map(u => u.id === currentUser.id ? updated : u));
   };
 
   const deleteGeneratedNote = (id: string) => {
     if (!currentUser) return;
-    const updated = { ...currentUser, generatedNotes: (currentUser.generatedNotes || []).filter(n => n.id !== id) };
+    const currentNotes = currentUser.generatedNotes || [];
+    const updated = { ...currentUser, generatedNotes: currentNotes.filter(n => n.id !== id) };
     setCurrentUser(updated);
     setUsers(prev => prev.map(u => u.id === currentUser.id ? updated : u));
   };

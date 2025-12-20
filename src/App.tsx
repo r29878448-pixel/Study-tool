@@ -99,13 +99,11 @@ const TempAccessHandler = () => {
 
     const handleVerify = () => {
         if (!currentUser) {
-            // Redirect to login if user is not authenticated, preserving the current location to return to
             navigate('/login', { state: { from: location } });
             return;
         }
 
         setStatus('verifying');
-        // Simulate a verification delay (e.g. checking headers or source)
         setTimeout(() => {
             if (id) {
                 grantTempAccess(id);
@@ -114,7 +112,7 @@ const TempAccessHandler = () => {
                     navigate(`/course/${id}`);
                 }, 1500);
             }
-        }, 2000);
+        }, 1500);
     };
 
     return (
@@ -569,25 +567,6 @@ const AdminPanel = () => {
                     </div>
                  </div>
              )}
-             
-             {showUserModal && (
-                 <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                    {/* ... (ShowUserModal logic same as before) ... */}
-                    <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl">
-                        <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-xl font-bold text-gray-800">Create New User</h2>
-                            <button onClick={() => setShowUserModal(false)} className="p-2 hover:bg-gray-100 rounded-full"><X /></button>
-                        </div>
-                        <form onSubmit={handleCreateUser} className="space-y-4">
-                            <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Full Name</label><input value={userForm.name} onChange={e => setUserForm({ ...userForm, name: e.target.value })} className="w-full p-3 border rounded-lg bg-gray-50" required /></div>
-                            <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Email</label><input type="email" value={userForm.email} onChange={e => setUserForm({ ...userForm, email: e.target.value })} className="w-full p-3 border rounded-lg bg-gray-50" required /></div>
-                            <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Password</label><input type="password" value={userForm.password} onChange={e => setUserForm({ ...userForm, password: e.target.value })} className="w-full p-3 border rounded-lg bg-gray-50" required /></div>
-                            <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Role</label><select value={userForm.role} onChange={e => setUserForm({ ...userForm, role: e.target.value as UserRole })} className="w-full p-3 border rounded-lg bg-gray-50"><option value={UserRole.USER}>User</option><option value={UserRole.EDITOR}>Manager</option><option value={UserRole.ADMIN}>Admin</option></select></div>
-                            <button type="submit" className="w-full py-3 bg-brand text-white font-bold rounded-lg hover:bg-brand-dark shadow-md mt-4">Create User</button>
-                        </form>
-                    </div>
-                 </div>
-             )}
 
              {contentTarget && <ContentManager course={contentTarget} onClose={() => setContentTarget(null)} />}
         </div>
@@ -651,7 +630,11 @@ const CourseDetail = () => {
     if (!course) return <Navigate to="/" />;
 
     // --- ACCESS LOGIC ---
-    const isOwner = currentUser && (currentUser.role === UserRole.ADMIN || currentUser.purchasedCourseIds.includes(course.id));
+    // Safe access to array using fallback
+    const isOwner = currentUser && (
+        currentUser.role === UserRole.ADMIN || 
+        (currentUser.purchasedCourseIds || []).includes(course.id)
+    );
     
     // Check temp access validity
     let hasTempAccess = false;
@@ -862,7 +845,7 @@ const SubjectDetail = () => {
     const hasAccess = !course?.isPaid || 
     (currentUser && (
       currentUser.role === UserRole.ADMIN || 
-      currentUser.purchasedCourseIds.includes(courseId) || 
+      (currentUser.purchasedCourseIds || []).includes(courseId) || 
       hasTempAccess
     ));
 

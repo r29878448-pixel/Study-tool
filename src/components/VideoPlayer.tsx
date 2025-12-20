@@ -33,7 +33,7 @@ const getEmbedUrl = (input: string) => {
   if (ytMatch && ytMatch[7]?.length === 11) {
     const videoId = ytMatch[7];
     // Parameters:
-    // fs=0 : Hide full screen button
+    // fs=0 : Hide native full screen button (we use our custom one)
     // modestbranding=1 : Minimize logo
     // rel=0 : Related videos from same channel
     // iv_load_policy=3 : Hide annotations
@@ -188,13 +188,14 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
       containerRef.current.requestFullscreen().catch(err => {
         console.error(`Error attempting to enable fullscreen: ${err.message}`);
       });
-      // Attempt to lock landscape on mobile
+      // Attempt to lock landscape on mobile devices
       if (screen.orientation && 'lock' in screen.orientation) {
         // @ts-ignore
         screen.orientation.lock('landscape').catch(() => {});
       }
     } else {
       document.exitFullscreen();
+      // Unlock orientation
       if (screen.orientation && 'unlock' in screen.orientation) {
         screen.orientation.unlock();
       }
@@ -246,7 +247,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
         onMouseLeave={() => setShowControls(false)}
       >
         {/* Transparent Overlay to block Top-Right YouTube buttons (Share, Watch Later) */}
-        <div className="absolute top-0 right-0 w-40 h-24 z-30 pointer-events-auto" />
+        <div className="absolute top-0 right-0 w-32 h-20 z-30 pointer-events-auto" />
 
         {/* Header Overlay for Embeds */}
         <div className={`absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/80 to-transparent z-40 flex justify-between items-start transition-opacity duration-300 pointer-events-none ${showControls ? 'opacity-100' : 'opacity-0'}`}>
@@ -274,16 +275,14 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
             </div>
         </div>
 
-        {/* Bottom Overlay for Embeds (Custom Fullscreen) */}
-        <div className={`absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent z-40 flex justify-end items-end transition-opacity duration-300 pointer-events-none ${showControls ? 'opacity-100' : 'opacity-0'}`}>
-            <div className="pointer-events-auto">
-                <button 
-                    onClick={toggleFullscreen}
-                    className="p-2 bg-white/10 backdrop-blur-md rounded-full text-white hover:bg-white/20 transition-colors"
-                >
-                    {isFullscreen ? <Minimize className="w-5 h-5"/> : <Maximize className="w-5 h-5" />}
-                </button>
-            </div>
+        {/* Custom Fullscreen Button Bottom Right for Embeds */}
+        <div className={`absolute bottom-0 right-0 p-4 z-40 transition-opacity duration-300 pointer-events-none ${showControls ? 'opacity-100' : 'opacity-0'}`}>
+            <button 
+                onClick={toggleFullscreen}
+                className="p-2 bg-black/60 backdrop-blur-md rounded-lg text-white hover:bg-black/80 transition-colors pointer-events-auto shadow-lg"
+            >
+                {isFullscreen ? <Minimize className="w-5 h-5"/> : <Maximize className="w-5 h-5" />}
+            </button>
         </div>
 
         <iframe 
@@ -334,15 +333,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
                 <ArrowLeft className="w-6 h-6" />
             </button>
          )}
-         <div className="flex-1"></div>
-         <div className="flex gap-2">
-            <button 
-                onClick={toggleFullscreen}
-                className="p-2 bg-white/10 backdrop-blur-md rounded-full text-white hover:bg-white/20 transition-colors"
-            >
-                {isFullscreen ? <Minimize className="w-5 h-5"/> : <Maximize className="w-5 h-5" />}
-            </button>
-         </div>
       </div>
 
       {isLoading && (
@@ -446,6 +436,14 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
                    <Download className="w-5 h-5" />
                 </button>
             )}
+
+            {/* Fullscreen Button - Moved to Bottom Right */}
+            <button 
+                onClick={toggleFullscreen}
+                className="text-white hover:text-brand transition-colors"
+            >
+                {isFullscreen ? <Minimize className="w-5 h-5"/> : <Maximize className="w-5 h-5" />}
+            </button>
           </div>
         </div>
       </div>

@@ -23,11 +23,12 @@ declare var process: { env: { API_KEY: string } };
 
 const Banner = () => (
   <div className="bg-[#fff9e6] px-5 py-3.5 flex items-center justify-between text-[11px] font-semibold text-gray-700 border-b border-yellow-100">
-    <span>Completion % depends on lecture and DPP progress!</span>
+    <span>Complete video lectures to earn XP!</span>
     <X className="w-3.5 h-3.5 text-gray-400" />
   </div>
 );
 
+// XP Calculation Logic: 50 XP per correct exam answer (score)
 const XPBadge = ({ xp = 0 }) => (
   <div className="flex items-center gap-1.5 bg-gray-100/80 px-3 py-1.5 rounded-full border border-gray-200">
     <div className="w-5 h-5 bg-[#c5d8f1] rounded-md flex items-center justify-center text-[9px] font-black text-[#4a6da7]">XP</div>
@@ -47,6 +48,8 @@ const STHeader = () => {
     { label: 'Batches', path: '/courses' },
     { label: 'My Study', path: '/my-courses' },
   ];
+
+  const totalXP = (currentUser?.examResults || []).reduce((acc, curr) => acc + (curr.score * 50), 0);
 
   return (
     <header className="fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-100 flex items-center justify-between px-5 z-50 lg:px-10">
@@ -68,6 +71,7 @@ const STHeader = () => {
         </nav>
       </div>
       <div className="flex items-center gap-4">
+        <XPBadge xp={totalXP} />
         <button className="p-2 text-gray-400 relative transition-colors hover:bg-gray-50 rounded-full"><Bell className="w-6 h-6" /></button>
         <Link to="/profile" className="w-9 h-9 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center transition-transform active:scale-90 hover:shadow-md">
             {currentUser ? <span className="font-bold text-[#0056d2]">{currentUser.name.charAt(0)}</span> : <User className="w-5 h-5 text-gray-400" />}
@@ -453,33 +457,11 @@ const AdminPanel = () => {
     const [selectedUser, setSelectedUser] = useState<any | null>(null);
     const [settingsForm, setSettingsForm] = useState<AppSettings>(settings);
     const [courseToAddId, setCourseToAddId] = useState('');
-    const [form, setForm] = useState({ 
-        title: '', description: '', image: '', category: '', 
-        price: 0, mrp: 0, isPaid: false, 
-        shortenerLink: '', telegramLink: '', startDate: '', 
-        endDate: '', isNew: true 
-    });
+    const [form, setForm] = useState({ title: '', description: '', image: '', category: '', price: 0, mrp: 0, isPaid: false, shortenerLink: '', telegramLink: '', startDate: '', endDate: '', isNew: true });
     const [generatingLink, setGeneratingLink] = useState(false);
 
     useEffect(() => { setSettingsForm(settings); }, [settings]);
-    useEffect(() => { 
-        if (editing) { 
-            setForm({ 
-                title: editing.title, description: editing.description, image: editing.image, 
-                category: editing.category, price: editing.price, mrp: editing.mrp, 
-                isPaid: !!editing.isPaid, 
-                shortenerLink: editing.shortenerLink || '', telegramLink: editing.telegramLink || '', 
-                startDate: editing.startDate || '', endDate: editing.endDate || '', isNew: editing.isNew ?? true 
-            }); 
-        } else {
-            setForm({ 
-                title: '', description: '', image: '', category: '', 
-                price: 0, mrp: 0, isPaid: false, 
-                shortenerLink: '', telegramLink: '', startDate: '', 
-                endDate: '', isNew: true 
-            }); 
-        }
-    }, [editing, showModal]);
+    useEffect(() => { if (editing) { setForm({ title: editing.title, description: editing.description, image: editing.image, category: editing.category, price: editing.price, mrp: editing.mrp, isPaid: !!editing.isPaid, shortenerLink: editing.shortenerLink || '', telegramLink: editing.telegramLink || '', startDate: editing.startDate || '', endDate: editing.endDate || '', isNew: editing.isNew ?? true }); } else setForm({ title: '', description: '', image: '', category: '', price: 0, mrp: 0, isPaid: false, shortenerLink: '', telegramLink: '', startDate: '', endDate: '', isNew: true }); }, [editing, showModal]);
 
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -499,7 +481,6 @@ const AdminPanel = () => {
     const generateShortLink = async () => { 
         if(!editing) { alert("Save batch first."); return; } 
         setGeneratingLink(true); 
-        // Use window.location.origin to support various hosting environments automatically
         const longUrl = `${window.location.origin}/temp-access/${editing.id}`; 
         const apiBase = settings.linkShortenerApiUrl || 'https://vplink.in/api'; 
         const apiKey = settings.linkShortenerApiKey || '320f263d298979dc11826b8e2574610ba0cc5d6b'; 
@@ -738,6 +719,10 @@ const CourseDetail = () => {
         if (expiryDate > new Date()) { hasTempAccess = true; tempExpiry = expiryDate; }
     }
     const hasAccess = !course.isPaid || isOwner || hasTempAccess;
+    
+    // Calculate Total XP from exams for the badge
+    const totalXP = (currentUser?.examResults || []).reduce((acc, curr) => acc + (curr.score * 50), 0);
+
     useEffect(() => {
         if (!hasTempAccess || !tempExpiry) return;
         const interval = setInterval(() => {
@@ -774,7 +759,8 @@ const CourseDetail = () => {
                     </div>
                     <div className="flex items-center gap-4">
                         {hasTempAccess && timeLeft && (<div className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 border border-red-100 rounded-lg animate-pulse"><TimerIcon className="w-4 h-4 text-red-500" /><span className="text-xs font-bold text-red-600 font-mono">{timeLeft}</span></div>)}
-                        <XPBadge /><Bell className="w-6 h-6 text-gray-600" /><MoreVertical className="w-6 h-6 text-gray-600" />
+                        <XPBadge xp={totalXP} />
+                        <Bell className="w-6 h-6 text-gray-600" /><MoreVertical className="w-6 h-6 text-gray-600" />
                     </div>
                 </div>
                 <div className="max-w-7xl mx-auto"><div className="flex px-6 gap-8 overflow-x-auto no-scrollbar">{(['Subjects', 'Description'] as const).map(tab => (<button key={tab} onClick={() => setActiveTab(tab)} className={`pb-3 text-sm font-black whitespace-nowrap transition-all border-b-4 ${activeTab === tab ? 'text-[#0056d2] border-[#0056d2]' : 'text-gray-400 border-transparent'}`}>{tab}</button>))}</div></div>
@@ -799,7 +785,11 @@ const CourseDetail = () => {
                         {(course.subjects || []).map((sub) => (
                             <div key={sub.id} onClick={() => hasAccess && navigate(`/course/${course.id}/subject/${sub.id}`)} className="bg-white border border-gray-100 rounded-[35px] p-6 flex items-center gap-6 shadow-sm active:scale-[0.98] transition-all hover:border-blue-200 hover:shadow-md cursor-pointer h-full">
                                 <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-[#0056d2] font-black text-xl border border-blue-100 shadow-inner shrink-0">{sub.iconText}</div>
-                                <div className="flex-1 min-w-0"><h3 className="font-black text-gray-800 text-lg leading-tight mb-2 truncate">{sub.title}</h3><div className="flex items-center gap-5 mt-3"><div className="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden shadow-inner"><div className="h-full bg-[#0056d2] w-[0%]"></div></div><span className="text-[12px] font-black text-gray-400">0%</span></div></div>
+                                <div className="flex-1 min-w-0">
+                                    <h3 className="font-black text-gray-800 text-lg leading-tight mb-2 truncate">{sub.title}</h3>
+                                    {/* Removed Progress Bar as requested */}
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{sub.chapters.length} Chapters</p>
+                                </div>
                                 {hasAccess ? <ChevronRight className="w-6 h-6 text-gray-300" /> : <Lock className="w-5 h-5 text-gray-400" />}
                             </div>
                         ))}
@@ -834,12 +824,15 @@ const SubjectDetail = () => {
     const hasAccess = !course?.isPaid || (currentUser && (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.EDITOR || (currentUser.purchasedCourseIds || []).includes(courseId) || hasTempAccess));
     if (!hasAccess) return <Navigate to={`/course/${courseId}`} />;
 
+    // Calculate XP
+    const totalXP = (currentUser?.examResults || []).reduce((acc, curr) => acc + (curr.score * 50), 0);
+
     return (
         <div className="pb-24 pt-0 min-h-screen bg-white">
             <div className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
                 <div className="flex items-center justify-between p-4 px-6 max-w-7xl mx-auto">
                     <div className="flex items-center gap-5"><button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-50 rounded-full transition-colors"><ArrowLeft className="w-6 h-6 text-gray-800" /></button><h1 className="text-xl font-black text-gray-800 tracking-tight">{subject.title}</h1></div>
-                    <div className="flex items-center gap-4"><button className="text-[#0056d2] p-2.5 rounded-2xl hover:bg-blue-50 border border-blue-100 transition-all active:scale-90"><Sparkles className="w-6 h-6" /></button><XPBadge /></div>
+                    <div className="flex items-center gap-4"><button className="text-[#0056d2] p-2.5 rounded-2xl hover:bg-blue-50 border border-blue-100 transition-all active:scale-90"><Sparkles className="w-6 h-6" /></button><XPBadge xp={totalXP} /></div>
                 </div>
                 <div className="max-w-7xl mx-auto"><div className="flex px-6 gap-10">{(['Chapters', 'Study Material'] as const).map(t => (<button key={t} onClick={() => setTab(t === 'Chapters' ? 'Chapters' : 'Notes')} className={`pb-4 text-sm font-black border-b-4 transition-all ${tab === (t === 'Chapters' ? 'Chapters' : 'Notes') ? 'text-[#0056d2] border-[#0056d2]' : 'text-gray-400 border-transparent'}`}>{t}</button>))}</div></div>
             </div>

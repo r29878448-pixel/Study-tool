@@ -516,7 +516,12 @@ const AdminPanel = () => {
                             </div>
 
                             <div className="space-y-1">
-                                <label className="text-[10px] font-bold text-gray-400 ml-1 uppercase">Verification Shortlink (24h Access)</label>
+                                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">Enrollment Key (Permanent Access)</label>
+                                <input value={form.accessKey} onChange={e => setForm({ ...form, accessKey: e.target.value })} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-md font-mono text-xs shadow-sm focus:border-blue-500 outline-none" placeholder="e.g. BATCH2025" />
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">Verification Shortlink (24h Access)</label>
                                 <div className="flex gap-2">
                                     <input value={form.shortenerLink} onChange={e => setForm({...form, shortenerLink: e.target.value})} className="flex-1 p-3 bg-gray-50 border border-gray-200 rounded-md text-[10px] font-mono focus:border-blue-500 outline-none" placeholder="Internal Redirect URL..." />
                                     <button type="button" onClick={generateShortLink} disabled={generatingLink} className="px-4 bg-blue-50 text-blue-600 font-bold rounded-md text-[10px] hover:bg-blue-100 transition-colors border border-blue-100">{generatingLink ? '...' : 'Generate'}</button>

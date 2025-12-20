@@ -1,8 +1,7 @@
-
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import Plyr from 'plyr';
-import 'plyr/dist/plyr.css'; // Ensure CSS is imported if your setup supports it, otherwise rely on index.html link
-import { ArrowLeft, Lock, Bookmark, Download } from './Icons';
+import 'plyr/dist/plyr.css';
+import { ArrowLeft, Lock, Bookmark, Download, SkipBack, SkipForward, Play, Pause, Settings } from './Icons';
 
 interface VideoPlayerProps {
   src: string;
@@ -52,23 +51,56 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<Plyr | null>(null);
+  const clickTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTapRef = useRef<number>(0);
+  const [skipFeedback, setSkipFeedback] = useState<{ side: 'left' | 'right' } | null>(null);
 
   const isDirectFile = src.startsWith('blob:') || /\.(mp4|webm|ogg|mov|m4v)($|\?)/i.test(src);
   const isEmbed = !isDirectFile;
   const displayUrl = isEmbed ? getEmbedUrl(src) : src;
 
+  // Double tap handler logic
+  const handleTap = useCallback((e: React.MouseEvent | React.TouchEvent, side: 'left' | 'right') => {
+    // Prevent default to stop standard click/touch interactions on the overlay if needed
+    // e.preventDefault(); 
+    
+    const now = Date.now();
+    const timeDiff = now - lastTapRef.current;
+    
+    if (timeDiff < 300) {
+      // Double Tap Detected
+      if (clickTimeoutRef.current) clearTimeout(clickTimeoutRef.current);
+      lastTapRef.current = 0; // Reset
+
+      if (side === 'left') {
+        playerRef.current?.rewind(10);
+        setSkipFeedback({ side: 'left' });
+      } else {
+        playerRef.current?.forward(10);
+        setSkipFeedback({ side: 'right' });
+      }
+
+      // Hide feedback animation after a delay
+      setTimeout(() => setSkipFeedback(null), 600);
+    } else {
+      // Single Tap Candidate
+      lastTapRef.current = now;
+      clickTimeoutRef.current = setTimeout(() => {
+        // Single tap action - Toggle Play/Pause
+        playerRef.current?.togglePlay();
+      }, 300);
+    }
+  }, []);
+
   useEffect(() => {
     if (!containerRef.current || isLocked) return;
 
-    // 1. Clean up previous instance
     if (playerRef.current) {
       playerRef.current.destroy();
       playerRef.current = null;
     }
 
-    // 2. Determine target element
     let target: HTMLElement | null = null;
-    
     if (isEmbed) {
        target = containerRef.current.querySelector('.plyr__video-embed');
     } else {
@@ -77,21 +109,22 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
     if (!target) return;
 
-    // 3. Initialize Plyr
     const player = new Plyr(target, {
       controls: [
-        'play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'captions', 'settings', 'pip', 'airplay', 'fullscreen'
+        'play-large', 'play', 'progress', 'current-time', 'duration', 'mute', 'volume', 'captions', 'settings', 'pip', 'airplay', 'fullscreen'
       ],
       settings: ['captions', 'quality', 'speed'],
       speed: { selected: 1, options: [0.5, 0.75, 1, 1.25, 1.5, 2] },
+      quality: { default: 720, options: [4320, 2880, 2160, 1440, 1080, 720, 576, 480, 360, 240] },
       autoplay: false,
-      hideControls: true, // Auto hide controls
+      hideControls: true,
       resetOnEnd: true,
+      clickToPlay: false, // Disable default click to play to handle double tap manually
+      fullscreen: { enabled: true, fallback: true, iosNative: true }, // Enhance mobile fullscreen
     });
 
     playerRef.current = player;
 
-    // 4. Event Listeners
     player.on('ended', () => {
       if (onEnded) onEnded();
     });
@@ -108,7 +141,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       }
     });
 
-    // Cleanup function
     return () => {
       if (playerRef.current) {
         playerRef.current.destroy();
@@ -139,8 +171,42 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
   return (
     <div className={`relative w-full bg-black rounded-xl overflow-hidden shadow-2xl group ${className || 'aspect-video'}`} ref={containerRef}>
-      {/* Custom Header Overlay */}
-      <div className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/70 to-transparent z-20 flex justify-between items-start opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+      
+      {/* Custom Tap Zones for Mobile-like Seek */}
+      <div className="absolute inset-0 z-10 flex flex-row pointer-events-auto">
+          {/* Left Zone (Rewind) */}
+          <div 
+            className="w-[35%] h-full cursor-pointer hover:bg-white/5 transition-colors"
+            onClick={(e) => handleTap(e, 'left')}
+            onTouchEnd={(e) => handleTap(e, 'left')}
+          ></div>
+          
+          {/* Center Zone (Passthrough/Play) */}
+          <div 
+            className="flex-1 h-full cursor-pointer"
+            onClick={() => playerRef.current?.togglePlay()}
+          ></div>
+
+          {/* Right Zone (Forward) */}
+          <div 
+            className="w-[35%] h-full cursor-pointer hover:bg-white/5 transition-colors"
+            onClick={(e) => handleTap(e, 'right')}
+            onTouchEnd={(e) => handleTap(e, 'right')}
+          ></div>
+      </div>
+
+      {/* Skip Animation Feedback */}
+      {skipFeedback && (
+        <div className={`absolute top-1/2 -translate-y-1/2 z-20 flex flex-col items-center justify-center pointer-events-none text-white/90 animate-ping ${skipFeedback.side === 'left' ? 'left-1/4' : 'right-1/4'}`}>
+            <div className="bg-black/40 backdrop-blur-md rounded-full p-4 mb-2">
+                {skipFeedback.side === 'left' ? <SkipBack className="w-8 h-8" fill="white" /> : <SkipForward className="w-8 h-8" fill="white" />}
+            </div>
+            <span className="text-xs font-bold font-mono">10s</span>
+        </div>
+      )}
+
+      {/* Header Overlay */}
+      <div className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/70 to-transparent z-30 flex justify-between items-start opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
         <div className="pointer-events-auto">
             {onBack && (
             <button 

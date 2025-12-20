@@ -595,7 +595,9 @@ const AdminPanel = () => {
 };
 
 const CourseListing = () => {
-    const { courses } = useStore();
+    const { courses, currentUser } = useStore();
+
+    if (!currentUser) return <Navigate to="/login" />;
 
     return (
         <div className="pb-24 pt-20 px-5 min-h-screen bg-[#f8fafc]">

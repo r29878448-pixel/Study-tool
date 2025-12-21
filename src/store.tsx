@@ -32,13 +32,9 @@ interface StoreContextType {
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
-/** 
- * VERSION 4.0 
- * This will force all browsers to clear "Project 45" data.
- */
-const CURRENT_STORAGE_VERSION = '4.0'; 
+// BUMPED VERSION TO FORCE CLEAR OLD DEMO DATA
+const CURRENT_STORAGE_VERSION = '5.0'; 
 
-// NO DEMO DATA ALLOWED HERE
 const INITIAL_COURSES: Course[] = [];
 
 const INITIAL_SETTINGS: AppSettings = {
@@ -68,11 +64,10 @@ const DEFAULT_ADMIN: User = {
 };
 
 export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
-  // CRITICAL: Wipe old demo data on version mismatch
   useEffect(() => {
     const savedVersion = localStorage.getItem('st_version');
     if (savedVersion !== CURRENT_STORAGE_VERSION) {
-      localStorage.clear(); // Complete nuclear wipe of demo data
+      localStorage.clear();
       localStorage.setItem('st_version', CURRENT_STORAGE_VERSION);
       window.location.reload(); 
     }
@@ -98,14 +93,13 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
     return saved ? JSON.parse(saved) : INITIAL_SETTINGS;
   });
 
-  // Save to LocalStorage
   useEffect(() => { localStorage.setItem('st_users', JSON.stringify(users)); }, [users]);
   useEffect(() => { localStorage.setItem('st_currentUser', JSON.stringify(currentUser)); }, [currentUser]);
   useEffect(() => { localStorage.setItem('st_courses', JSON.stringify(courses)); }, [courses]);
   useEffect(() => { localStorage.setItem('st_settings', JSON.stringify(settings)); }, [settings]);
 
   const clearAllData = () => {
-    if (confirm("This will delete EVERYTHING and reset the app. Are you sure?")) {
+    if (confirm("Nuclear reset will delete all your batches. Sure?")) {
         localStorage.clear();
         window.location.reload();
     }

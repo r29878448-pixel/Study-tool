@@ -1,3 +1,4 @@
+
 import React, { useRef, useState, useEffect } from 'react';
 import { 
   Play, Pause, Volume2, VolumeX, Maximize, Minimize, Settings, Download, Lock, Loader2, ArrowLeft, Bookmark
@@ -31,8 +32,6 @@ const getEmbedUrl = (input: string) => {
   const ytMatch = input.match(/^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/);
   if (ytMatch && ytMatch[7]?.length === 11) {
     const videoId = ytMatch[7];
-    // Parameters to minimize branding: modestbranding=1 (hides logo in control bar), rel=0 (related videos from same channel)
-    // Note: showinfo=0 is deprecated, modestbranding is the modern standard.
     return `https://www.youtube.com/embed/${videoId}?autoplay=0&controls=1&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&enablejsapi=1&fs=1`;
   }
 
@@ -71,8 +70,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
   const [isLoading, setIsLoading] = useState(false);
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const isDirectFile = /\.(mp4|webm|ogg|mov|m4v)($|\?)/i.test(src);
-  const isEmbed = !isDirectFile;
+  // Check if it's a direct file or an embed
+  const isDirectFile = /\.(mp4|webm|ogg|mov|m4v|m3u8|mpd)($|\?)/i.test(src) || src.startsWith('blob:') || src.startsWith('data:');
+  const isEmbed = !isDirectFile && (src.includes('youtube.com') || src.includes('youtu.be') || src.includes('vimeo.com') || src.includes('google.com/drive') || src.includes('<iframe'));
   const displayUrl = isEmbed ? getEmbedUrl(src) : src;
 
   useEffect(() => {
@@ -233,7 +233,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
         onMouseMove={handleMouseMove}
         onMouseLeave={() => setShowControls(false)}
       >
-        {/* Header Overlay for Embeds */}
         <div className={`absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/80 to-transparent z-40 flex justify-between items-start transition-opacity duration-300 pointer-events-none ${showControls ? 'opacity-100' : 'opacity-0'}`}>
             <div className="pointer-events-auto">
             {onBack && !isFullscreen && (
@@ -247,15 +246,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
             </div>
             
             <div className="flex gap-2 pointer-events-auto">
-                {onDownload && (
-                    <button 
-                        onClick={onDownload}
-                        className="p-2 bg-white/10 backdrop-blur-md rounded-full text-white hover:bg-white/20 transition-colors"
-                        title="Save to Offline Library"
-                    >
-                        <Bookmark className="w-5 h-5" />
-                    </button>
-                )}
                 <button 
                     onClick={toggleFullscreen}
                     className="p-2 bg-white/10 backdrop-blur-md rounded-full text-white hover:bg-white/20 transition-colors"
@@ -276,7 +266,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
     );
   }
 
-  // Native Player
+  // Native Player (Direct URL or direct file)
   return (
     <div 
       ref={containerRef}
@@ -303,7 +293,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
         playsInline
       />
       
-      {/* Top Controls Overlay */}
+      {/* Controls Overlay */}
       <div className={`absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/80 to-transparent z-30 flex justify-between items-start transition-opacity duration-300 ${showControls || !isPlaying ? 'opacity-100' : 'opacity-0'}`}>
          {onBack && !isFullscreen && (
             <button 
@@ -313,15 +303,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
                 <ArrowLeft className="w-6 h-6" />
             </button>
          )}
-         <div className="flex-1"></div>
-         <div className="flex gap-2">
-            <button 
-                onClick={toggleFullscreen}
-                className="p-2 bg-white/10 backdrop-blur-md rounded-full text-white hover:bg-white/20 transition-colors"
-            >
-                {isFullscreen ? <Minimize className="w-5 h-5"/> : <Maximize className="w-5 h-5" />}
-            </button>
-         </div>
       </div>
 
       {isLoading && (
@@ -341,7 +322,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
         </div>
       )}
 
-      {/* Bottom Controls */}
       <div className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-4 transition-opacity duration-300 z-20 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
         <div className="flex items-center gap-3 mb-2">
            <span className="text-white text-xs font-mono">{formatTime(currentTime)}</span>
@@ -351,19 +331,19 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
               max={duration || 100} 
               value={currentTime} 
               onChange={handleSeek}
-              className="flex-1 h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-brand [&::-webkit-slider-thumb]:rounded-full hover:[&::-webkit-slider-thumb]:scale-125 transition-all"
+              className="flex-1 h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer"
            />
            <span className="text-white text-xs font-mono">{formatTime(duration)}</span>
         </div>
 
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-             <button onClick={togglePlay} className="text-white hover:text-brand transition-colors">
+             <button onClick={togglePlay} className="text-white">
                {isPlaying ? <Pause className="w-6 h-6" fill="currentColor" /> : <Play className="w-6 h-6" fill="currentColor" />}
              </button>
              
              <div className="flex items-center gap-2 group/volume">
-               <button onClick={toggleMute} className="text-white hover:text-gray-300">
+               <button onClick={toggleMute} className="text-white">
                  {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
                </button>
                <input 
@@ -375,56 +355,27 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
                    if(videoRef.current) videoRef.current.volume = val;
                    setIsMuted(val === 0);
                  }}
-                 className="w-0 overflow-hidden group-hover/volume:w-20 transition-all h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2 [&::-webkit-slider-thumb]:h-2 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full"
+                 className="w-0 overflow-hidden group-hover/volume:w-20 transition-all h-1 bg-gray-600 rounded-lg"
                />
              </div>
           </div>
 
           <div className="flex items-center gap-4">
-            {/* Speed Control */}
             <div className="relative">
-              <button 
-                onClick={() => setShowSpeedMenu(!showSpeedMenu)}
-                className="text-white text-xs font-bold border border-white/30 px-2 py-1 rounded hover:bg-white/20"
-              >
+              <button onClick={() => setShowSpeedMenu(!showSpeedMenu)} className="text-white text-xs font-bold border border-white/30 px-2 py-1 rounded">
                 {playbackSpeed}x
               </button>
               {showSpeedMenu && (
                  <div className="absolute bottom-full mb-2 right-0 bg-black/90 text-white rounded-lg shadow-xl overflow-hidden min-w-[80px] text-sm">
                    {[0.5, 0.75, 1, 1.25, 1.5, 2].map(speed => (
-                     <button 
-                       key={speed}
-                       onClick={() => handleSpeedChange(speed)}
-                       className={`block w-full text-left px-4 py-2 hover:bg-white/20 ${playbackSpeed === speed ? 'text-brand' : ''}`}
-                     >
-                       {speed}x
-                     </button>
+                     <button key={speed} onClick={() => handleSpeedChange(speed)} className={`block w-full text-left px-4 py-2 hover:bg-white/20 ${playbackSpeed === speed ? 'text-brand' : ''}`}>{speed}x</button>
                    ))}
                  </div>
               )}
             </div>
-
-            {/* Bookmark */}
-            {onBookmark && (
-                <button 
-                  onClick={() => onBookmark(currentTime)}
-                  className="text-white hover:text-brand transition-colors"
-                  title="Add Bookmark"
-                >
-                   <Bookmark className="w-5 h-5" />
-                </button>
-            )}
-
-            {/* Download */}
-            {onDownload && (
-                <button 
-                  onClick={onDownload}
-                  className="text-white hover:text-brand transition-colors"
-                  title="Download to Phone"
-                >
-                   <Download className="w-5 h-5" />
-                </button>
-            )}
+            <button onClick={toggleFullscreen} className="text-white">
+                {isFullscreen ? <Minimize className="w-5 h-5"/> : <Maximize className="w-5 h-5" />}
+            </button>
           </div>
         </div>
       </div>

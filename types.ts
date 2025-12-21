@@ -21,6 +21,16 @@ export interface ExamProgress {
   isAiGenerated: boolean;
 }
 
+export interface GeneratedNote {
+  id: string;
+  videoId: string;
+  videoTitle: string;
+  subjectName: string;
+  content: string;
+  createdAt: string;
+  syllabusYear: string;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -33,6 +43,7 @@ export interface User {
   examResults?: ExamResult[];
   tempAccess?: Record<string, string>;
   savedExamProgress?: ExamProgress[];
+  generatedNotes?: GeneratedNote[];
 }
 
 export interface Video {
@@ -42,12 +53,14 @@ export interface Video {
   duration: string;
   date?: string;
   type?: 'lecture' | 'dpp' | 'note';
+  thumbnail?: string;
 }
 
 export interface Chapter {
   id: string;
   title: string;
   videos: Video[];
+  image?: string;
 }
 
 export interface Subject {
@@ -78,10 +91,9 @@ export interface Course {
   description: string;
   image: string;
   category: string;
-  subjects: Subject[]; // Core refactor: Course -> Subjects -> Chapters
+  subjects: Subject[]; 
   createdAt: string;
   isPaid?: boolean;
-  accessKey?: string;
   shortenerLink?: string;
   telegramLink?: string;
   exams?: Exam[];
@@ -99,4 +111,5 @@ export interface AppSettings {
   razorpayKey: string;
   linkShortenerApiUrl?: string;
   linkShortenerApiKey?: string;
+  botUrl?: string;
 }

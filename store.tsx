@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, Course, AppSettings, UserRole, ExamResult, ExamProgress } from './types';
+import { User, Course, AppSettings, UserRole, ExamResult, ExamProgress, GeneratedNote } from './types';
 
 interface StoreContextType {
   currentUser: User | null;
@@ -9,105 +9,74 @@ interface StoreContextType {
   settings: AppSettings;
   login: (email: string, pass: string) => boolean;
   signup: (name: string, email: string, phone: string, pass: string) => void;
+  createUser: (user: User) => void;
   logout: () => void;
   addCourse: (course: Course) => void;
   updateCourse: (course: Course) => void;
   deleteCourse: (id: string) => void;
+  duplicateCourse: (id: string) => void;
   enrollCourse: (courseId: string) => void;
   grantTempAccess: (courseId: string) => void;
+  adminEnrollUser: (userId: string, courseId: string) => void;
+  adminRevokeUser: (userId: string, courseId: string) => void;
   updateSettings: (settings: AppSettings) => void;
   updateUser: (data: Partial<User>) => void;
+  manageUserRole: (userId: string, role: UserRole) => void; 
   saveExamResult: (courseId: string, score: number, totalQuestions: number) => void;
   saveExamProgress: (progress: ExamProgress) => void;
   clearExamProgress: (courseId: string) => void;
+  saveGeneratedNote: (note: GeneratedNote) => void;
+  deleteGeneratedNote: (id: string) => void;
   toggleTheme: () => void;
+  clearAllData: () => void;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
-const INITIAL_COURSES: Course[] = [
-  {
-    id: 'batch-hope',
-    title: 'Hope (Backlog Series)',
-    mrp: 0,
-    price: 0,
-    description: 'Complete backlog cover for Class 10 students.',
-    image: 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&q=80&w=800',
-    category: 'Class 10',
-    createdAt: new Date().toISOString(),
-    isPaid: false,
-    isNew: true,
-    startDate: '07 Jul 2024',
-    endDate: '31 Mar 2026',
-    subjects: [
-      {
-        id: 'sub-chem',
-        title: 'Chemistry',
-        iconText: 'Ch',
-        chapters: [
-          {
-            id: 'ch-01',
-            title: 'Chemical Reaction and Equation',
-            videos: [
-              { id: 'v1', title: 'Lecture 01: Chemical Reaction and Equation : Live Experiments', filename: 'https://www.w3schools.com/html/mov_bbb.mp4', duration: '6:16:16', date: '7 JUL', type: 'lecture' },
-              { id: 'n1', title: 'Class Notes || Hope (Backlog Series)', filename: '#', duration: 'PDF', date: '7 JUL', type: 'note' }
-            ]
-          }
-        ]
-      },
-      { id: 'sub-bio', title: 'Biology', iconText: 'Bi', chapters: [] },
-      { id: 'sub-eng', title: 'English', iconText: 'En', chapters: [] },
-      { id: 'sub-sst', title: 'SST', iconText: 'Ss', chapters: [] },
-      { id: 'sub-math', title: 'Mathematics', iconText: 'Ma', chapters: [] },
-      { id: 'sub-phy', title: 'Physics', iconText: 'Ph', chapters: [] }
-    ]
-  },
-  {
-    id: 'batch-python',
-    title: 'Advanced Python Mastery',
-    mrp: 2999,
-    price: 999,
-    description: 'Master Python from Basics to Advanced concepts with Projects.',
-    image: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&q=80&w=800',
-    category: 'Programming',
-    createdAt: new Date().toISOString(),
-    isPaid: true,
-    isNew: true,
-    startDate: '01 Jan 2025',
-    endDate: '31 Dec 2025',
-    accessKey: 'PY_2025',
-    subjects: [
-      {
-        id: 'sub-py-core',
-        title: 'Core Python',
-        iconText: 'Py',
-        chapters: [
-          {
-            id: 'ch-intro',
-            title: 'Foundations of Programming',
-            videos: [
-              { id: 'v2', title: 'Python Installation & Setup', filename: 'https://www.w3schools.com/html/mov_bbb.mp4', duration: '12:45', date: '1 JAN', type: 'lecture' }
-            ]
-          }
-        ]
-      }
-    ]
-  }
-];
+// Bumped version to ensure existing users get a clean purged state
+const CURRENT_STORAGE_VERSION = '9.0'; 
+
+const INITIAL_COURSES: Course[] = []; // No demo data
 
 const INITIAL_SETTINGS: AppSettings = {
-  appName: 'Study Tool',
+  appName: 'Study Portal',
   adminEmail: 'admin@studytool.com',
   supportPhone: '+91 00000 00000',
   razorpayKey: 'rzp_test_study',
   theme: 'light',
-  uiColor: '#0056d2'
+  uiColor: '#0056d2',
+  botUrl: '',
+  linkShortenerApiUrl: '',
+  linkShortenerApiKey: ''
+};
+
+const DEFAULT_ADMIN: User = { 
+  id: 'admin', 
+  name: 'Master Admin', 
+  email: 'admin@gmail.com', 
+  phone: '0000000000', 
+  password: 'admin', 
+  role: UserRole.ADMIN, 
+  purchasedCourseIds: [], 
+  tempAccess: {},
+  generatedNotes: [],
+  examResults: [],
+  savedExamProgress: []
 };
 
 export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
+  useEffect(() => {
+    const savedVersion = localStorage.getItem('st_version');
+    if (savedVersion !== CURRENT_STORAGE_VERSION) {
+      localStorage.clear();
+      localStorage.setItem('st_version', CURRENT_STORAGE_VERSION);
+      window.location.reload(); 
+    }
+  }, []);
+
   const [users, setUsers] = useState<User[]>(() => {
     const saved = localStorage.getItem('st_users');
-    return saved ? JSON.parse(saved) : [{ id: 'admin', name: 'Master Admin', email: 'admin@gmail.com', phone: '0000000000', password: 'admin', role: UserRole.ADMIN, purchasedCourseIds: [], tempAccess: {} }];
+    return saved ? JSON.parse(saved) : [DEFAULT_ADMIN];
   });
 
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
@@ -130,31 +99,65 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
   useEffect(() => { localStorage.setItem('st_courses', JSON.stringify(courses)); }, [courses]);
   useEffect(() => { localStorage.setItem('st_settings', JSON.stringify(settings)); }, [settings]);
 
+  const clearAllData = () => {
+    if (confirm("Reset will delete all your data permanently. Proceed?")) {
+        localStorage.clear();
+        window.location.reload();
+    }
+  };
+
   const login = (email: string, pass: string) => {
     const user = users.find(u => (u.email.toLowerCase() === email.toLowerCase() || u.phone === email) && u.password === pass);
     if (user) {
-      setCurrentUser({ ...user, lastLogin: new Date().toISOString() });
+      const secureUser = { ...user, lastLogin: new Date().toISOString() };
+      setCurrentUser(secureUser);
       return true;
     }
     return false;
   };
 
   const signup = (name: string, email: string, phone: string, pass: string) => {
-    const newUser: User = { id: Date.now().toString(), name, email, phone, password: pass, role: UserRole.USER, purchasedCourseIds: [], lastLogin: new Date().toISOString(), tempAccess: {} };
-    setUsers([...users, newUser]);
+    const newUser: User = { 
+        id: Date.now().toString(), name, email, phone, password: pass, 
+        role: UserRole.USER, purchasedCourseIds: [], lastLogin: new Date().toISOString(), 
+        tempAccess: {}, generatedNotes: [], examResults: [], savedExamProgress: []
+    };
+    setUsers(prev => [...prev, newUser]);
     setCurrentUser(newUser);
   };
 
+  const createUser = (user: User) => setUsers(prev => [...prev, user]);
   const logout = () => setCurrentUser(null);
-  const addCourse = (c: Course) => setCourses([...courses, c]);
-  const updateCourse = (uc: Course) => setCourses(courses.map(c => c.id === uc.id ? uc : c));
-  const deleteCourse = (id: string) => setCourses(courses.filter(c => c.id !== id));
+  const addCourse = (c: Course) => setCourses(prev => [...prev, c]);
+  const updateCourse = (uc: Course) => setCourses(prev => prev.map(c => c.id === uc.id ? uc : c));
+  const deleteCourse = (id: string) => setCourses(prev => prev.filter(c => c.id !== id));
+  
+  const duplicateCourse = (id: string) => {
+    const original = courses.find(c => c.id === id);
+    if (original) {
+      const copy: Course = {
+        ...original,
+        id: Date.now().toString(),
+        title: `${original.title} (Copy)`,
+        createdAt: new Date().toISOString()
+      };
+      setCourses(prev => [...prev, copy]);
+    }
+  };
 
   const enrollCourse = (courseId: string) => {
     if (!currentUser) return;
-    const updated = { ...currentUser, purchasedCourseIds: [...new Set([...currentUser.purchasedCourseIds, courseId])] };
+    const updated = { ...currentUser, purchasedCourseIds: [...new Set([...(currentUser.purchasedCourseIds || []), courseId])] };
     setCurrentUser(updated);
-    setUsers(users.map(u => u.id === currentUser.id ? updated : u));
+    setUsers(prev => prev.map(u => u.id === currentUser.id ? updated : u));
+  };
+
+  const adminEnrollUser = (userId: string, courseId: string) => {
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, purchasedCourseIds: [...new Set([...(u.purchasedCourseIds || []), courseId])] } : u));
+  };
+
+  const adminRevokeUser = (userId: string, courseId: string) => {
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, purchasedCourseIds: (u.purchasedCourseIds || []).filter(id => id !== courseId) } : u));
   };
 
   const grantTempAccess = (courseId: string) => {
@@ -162,17 +165,21 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
     const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
     const updated = { ...currentUser, tempAccess: { ...(currentUser.tempAccess || {}), [courseId]: expiry } };
     setCurrentUser(updated);
-    setUsers(users.map(u => u.id === currentUser.id ? updated : u));
+    setUsers(prev => prev.map(u => u.id === currentUser.id ? updated : u));
   };
 
   const updateSettings = (s: AppSettings) => setSettings(s);
-  const toggleTheme = () => setSettings({ ...settings, theme: settings.theme === 'dark' ? 'light' : 'dark' });
+  const toggleTheme = () => setSettings(prev => ({ ...prev, theme: prev.theme === 'dark' ? 'light' : 'dark' }));
 
   const updateUser = (data: Partial<User>) => {
     if (!currentUser) return;
     const updated = { ...currentUser, ...data };
     setCurrentUser(updated);
-    setUsers(users.map(u => u.id === currentUser.id ? updated : u));
+    setUsers(prev => prev.map(u => u.id === currentUser.id ? updated : u));
+  };
+
+  const manageUserRole = (userId: string, role: UserRole) => {
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, role } : u));
   };
 
   const saveExamResult = (cId: string, score: number, total: number) => {
@@ -180,7 +187,7 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
     const res: ExamResult = { courseId: cId, score, totalQuestions: total, date: new Date().toISOString() };
     const updated = { ...currentUser, examResults: [...(currentUser.examResults || []), res] };
     setCurrentUser(updated);
-    setUsers(users.map(u => u.id === currentUser.id ? updated : u));
+    setUsers(prev => prev.map(u => u.id === currentUser.id ? updated : u));
   };
 
   const saveExamProgress = (p: ExamProgress) => {
@@ -188,21 +195,36 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
     const filtered = (currentUser.savedExamProgress || []).filter(item => item.courseId !== p.courseId);
     const updated = { ...currentUser, savedExamProgress: [...filtered, p] };
     setCurrentUser(updated);
-    setUsers(users.map(u => u.id === currentUser.id ? updated : u));
+    setUsers(prev => prev.map(u => u.id === currentUser.id ? updated : u));
   };
 
   const clearExamProgress = (cId: string) => {
     if (!currentUser) return;
     const updated = { ...currentUser, savedExamProgress: (currentUser.savedExamProgress || []).filter(p => p.courseId !== cId) };
     setCurrentUser(updated);
-    setUsers(users.map(u => u.id === currentUser.id ? updated : u));
+    setUsers(prev => prev.map(u => u.id === currentUser.id ? updated : u));
+  };
+
+  const saveGeneratedNote = (note: GeneratedNote) => {
+    if (!currentUser) return;
+    const updated = { ...currentUser, generatedNotes: [...(currentUser.generatedNotes || []), note] };
+    setCurrentUser(updated);
+    setUsers(prev => prev.map(u => u.id === currentUser.id ? updated : u));
+  };
+
+  const deleteGeneratedNote = (id: string) => {
+    if (!currentUser) return;
+    const updated = { ...currentUser, generatedNotes: (currentUser.generatedNotes || []).filter(n => n.id !== id) };
+    setCurrentUser(updated);
+    setUsers(prev => prev.map(u => u.id === currentUser.id ? updated : u));
   };
 
   return (
     <StoreContext.Provider value={{
-      currentUser, users, courses, settings, login, signup, logout,
-      addCourse, updateCourse, deleteCourse, enrollCourse, grantTempAccess,
-      updateSettings, updateUser, saveExamResult, saveExamProgress, clearExamProgress, toggleTheme
+      currentUser, users, courses, settings, login, signup, createUser, logout,
+      addCourse, updateCourse, deleteCourse, duplicateCourse, enrollCourse, grantTempAccess, adminEnrollUser, adminRevokeUser,
+      updateSettings, updateUser, manageUserRole, saveExamResult, saveExamProgress, clearExamProgress, 
+      saveGeneratedNote, deleteGeneratedNote, toggleTheme, clearAllData
     }}>
       {children}
     </StoreContext.Provider>

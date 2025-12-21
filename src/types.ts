@@ -44,7 +44,6 @@ export interface User {
   tempAccess?: Record<string, string>;
   savedExamProgress?: ExamProgress[];
   generatedNotes?: GeneratedNote[];
-  isDemo?: boolean;
 }
 
 export interface Video {

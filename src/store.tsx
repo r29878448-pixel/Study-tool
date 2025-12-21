@@ -14,6 +14,7 @@ interface StoreContextType {
   addCourse: (course: Course) => void;
   updateCourse: (course: Course) => void;
   deleteCourse: (id: string) => void;
+  duplicateCourse: (id: string) => void;
   enrollCourse: (courseId: string) => void;
   grantTempAccess: (courseId: string) => void;
   adminEnrollUser: (userId: string, courseId: string) => void;
@@ -32,9 +33,10 @@ interface StoreContextType {
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
-const CURRENT_STORAGE_VERSION = '6.0'; 
+// Bumped version to ensure existing users get a clean purged state
+const CURRENT_STORAGE_VERSION = '8.0'; 
 
-const INITIAL_COURSES: Course[] = []; // No demo data as requested
+const INITIAL_COURSES: Course[] = []; // Zero demo data
 
 const INITIAL_SETTINGS: AppSettings = {
   appName: 'Study Portal',
@@ -48,6 +50,7 @@ const INITIAL_SETTINGS: AppSettings = {
   linkShortenerApiKey: ''
 };
 
+// Standard Admin remains for access
 const DEFAULT_ADMIN: User = { 
   id: 'admin', 
   name: 'Master Admin', 
@@ -129,6 +132,19 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
   const addCourse = (c: Course) => setCourses(prev => [...prev, c]);
   const updateCourse = (uc: Course) => setCourses(prev => prev.map(c => c.id === uc.id ? uc : c));
   const deleteCourse = (id: string) => setCourses(prev => prev.filter(c => c.id !== id));
+  
+  const duplicateCourse = (id: string) => {
+    const original = courses.find(c => c.id === id);
+    if (original) {
+      const copy: Course = {
+        ...original,
+        id: Date.now().toString(),
+        title: `${original.title} (Copy)`,
+        createdAt: new Date().toISOString()
+      };
+      setCourses(prev => [...prev, copy]);
+    }
+  };
 
   const enrollCourse = (courseId: string) => {
     if (!currentUser) return;
@@ -207,7 +223,7 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
   return (
     <StoreContext.Provider value={{
       currentUser, users, courses, settings, login, signup, createUser, logout,
-      addCourse, updateCourse, deleteCourse, enrollCourse, grantTempAccess, adminEnrollUser, adminRevokeUser,
+      addCourse, updateCourse, deleteCourse, duplicateCourse, enrollCourse, grantTempAccess, adminEnrollUser, adminRevokeUser,
       updateSettings, updateUser, manageUserRole, saveExamResult, saveExamProgress, clearExamProgress, 
       saveGeneratedNote, deleteGeneratedNote, toggleTheme, clearAllData
     }}>

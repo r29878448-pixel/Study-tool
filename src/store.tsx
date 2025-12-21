@@ -8,7 +8,6 @@ interface StoreContextType {
   courses: Course[];
   settings: AppSettings;
   login: (email: string, pass: string) => boolean;
-  loginAsDemo: () => void;
   signup: (name: string, email: string, phone: string, pass: string) => void;
   createUser: (user: User) => void;
   logout: () => void;
@@ -28,11 +27,12 @@ interface StoreContextType {
   saveGeneratedNote: (note: GeneratedNote) => void;
   deleteGeneratedNote: (id: string) => void;
   toggleTheme: () => void;
+  clearAllData: () => void;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
-// Initialize with empty array so only Admin added courses appear
+// 1. COMPLETELY EMPTY INITIAL DATA
 const INITIAL_COURSES: Course[] = [];
 
 const INITIAL_SETTINGS: AppSettings = {
@@ -47,10 +47,24 @@ const INITIAL_SETTINGS: AppSettings = {
   linkShortenerApiKey: ''
 };
 
+const DEFAULT_ADMIN: User = { 
+  id: 'admin', 
+  name: 'Master Admin', 
+  email: 'admin@gmail.com', 
+  phone: '0000000000', 
+  password: 'admin', 
+  role: UserRole.ADMIN, 
+  purchasedCourseIds: [], 
+  tempAccess: {},
+  generatedNotes: [],
+  examResults: [],
+  savedExamProgress: []
+};
+
 export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
   const [users, setUsers] = useState<User[]>(() => {
     const saved = localStorage.getItem('st_users');
-    return saved ? JSON.parse(saved) : [{ id: 'admin', name: 'Master Admin', email: 'admin@gmail.com', phone: '0000000000', password: 'admin', role: UserRole.ADMIN, purchasedCourseIds: [], tempAccess: {} }];
+    return saved ? JSON.parse(saved) : [DEFAULT_ADMIN];
   });
 
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
@@ -60,17 +74,7 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
 
   const [courses, setCourses] = useState<Course[]>(() => {
     const saved = localStorage.getItem('st_courses');
-    const parsed: Course[] = saved ? JSON.parse(saved) : INITIAL_COURSES;
-    return parsed.map(c => ({
-        ...c,
-        subjects: (c.subjects || []).map(s => ({
-            ...s,
-            chapters: (s.chapters || []).map(chap => ({
-                ...chap,
-                videos: chap.videos || []
-            }))
-        }))
-    }));
+    return saved ? JSON.parse(saved) : INITIAL_COURSES;
   });
 
   const [settings, setSettings] = useState<AppSettings>(() => {
@@ -78,43 +82,23 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
     return saved ? JSON.parse(saved) : INITIAL_SETTINGS;
   });
 
-  // Persistence Effects - only save if NOT in demo mode
-  useEffect(() => { 
-    if (!currentUser?.isDemo) {
-        localStorage.setItem('st_users', JSON.stringify(users)); 
-    }
-  }, [users, currentUser]);
+  // Persistence Effects
+  useEffect(() => { localStorage.setItem('st_users', JSON.stringify(users)); }, [users]);
+  useEffect(() => { localStorage.setItem('st_currentUser', JSON.stringify(currentUser)); }, [currentUser]);
+  useEffect(() => { localStorage.setItem('st_courses', JSON.stringify(courses)); }, [courses]);
+  useEffect(() => { localStorage.setItem('st_settings', JSON.stringify(settings)); }, [settings]);
 
-  useEffect(() => { 
-    if (!currentUser?.isDemo) {
-        localStorage.setItem('st_currentUser', JSON.stringify(currentUser)); 
+  const clearAllData = () => {
+    if (confirm("This will PERMANENTLY delete all courses and users and reset the app. Continue?")) {
+        localStorage.clear();
+        window.location.reload();
     }
-  }, [currentUser]);
-
-  useEffect(() => { 
-    if (!currentUser?.isDemo) {
-        localStorage.setItem('st_courses', JSON.stringify(courses)); 
-    }
-  }, [courses, currentUser]);
-
-  useEffect(() => { 
-    if (!currentUser?.isDemo) {
-        localStorage.setItem('st_settings', JSON.stringify(settings)); 
-    }
-  }, [settings, currentUser]);
+  };
 
   const login = (email: string, pass: string) => {
     const user = users.find(u => (u.email.toLowerCase() === email.toLowerCase() || u.phone === email) && u.password === pass);
     if (user) {
-      const secureUser = {
-          ...user,
-          purchasedCourseIds: user.purchasedCourseIds || [],
-          tempAccess: user.tempAccess || {},
-          generatedNotes: user.generatedNotes || [],
-          examResults: user.examResults || [],
-          savedExamProgress: user.savedExamProgress || [],
-          lastLogin: new Date().toISOString()
-      };
+      const secureUser = { ...user, lastLogin: new Date().toISOString() };
       setCurrentUser(secureUser);
       setUsers(prev => prev.map(u => u.id === user.id ? secureUser : u));
       return true;
@@ -122,90 +106,41 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
     return false;
   };
 
-  const loginAsDemo = () => {
-    const demoUser: User = {
-        id: 'demo-admin-id',
-        name: 'Demo Administrator',
-        email: 'demo@admin.com',
-        phone: '0000000000',
-        role: UserRole.ADMIN,
-        purchasedCourseIds: [],
-        tempAccess: {},
-        generatedNotes: [],
-        examResults: [],
-        savedExamProgress: [],
-        lastLogin: new Date().toISOString(),
-        isDemo: true
-    };
-    setCurrentUser(demoUser);
-    // Add demo user to list temporarily so they appear in user management lists
-    setUsers(prev => [...prev, demoUser]);
-  };
-
   const signup = (name: string, email: string, phone: string, pass: string) => {
     const newUser: User = { 
-        id: Date.now().toString(), 
-        name, 
-        email, 
-        phone, 
-        password: pass, 
-        role: UserRole.USER, 
-        purchasedCourseIds: [], 
-        lastLogin: new Date().toISOString(), 
-        tempAccess: {},
-        generatedNotes: [],
-        examResults: [],
-        savedExamProgress: []
+        id: Date.now().toString(), name, email, phone, password: pass, 
+        role: UserRole.USER, purchasedCourseIds: [], lastLogin: new Date().toISOString(), 
+        tempAccess: {}, generatedNotes: [], examResults: [], savedExamProgress: []
     };
     setUsers(prev => [...prev, newUser]);
     setCurrentUser(newUser);
   };
 
-  const createUser = (user: User) => {
-    setUsers(prev => [...prev, user]);
-  };
-
+  const createUser = (user: User) => setUsers(prev => [...prev, user]);
   const logout = () => setCurrentUser(null);
-  
   const addCourse = (c: Course) => setCourses(prev => [...prev, c]);
-  
   const updateCourse = (uc: Course) => setCourses(prev => prev.map(c => c.id === uc.id ? uc : c));
-  
   const deleteCourse = (id: string) => setCourses(prev => prev.filter(c => c.id !== id));
 
   const enrollCourse = (courseId: string) => {
     if (!currentUser) return;
-    const currentPurchased = currentUser.purchasedCourseIds || [];
-    const updated = { ...currentUser, purchasedCourseIds: [...new Set([...currentPurchased, courseId])] };
+    const updated = { ...currentUser, purchasedCourseIds: [...new Set([...(currentUser.purchasedCourseIds || []), courseId])] };
     setCurrentUser(updated);
     setUsers(prev => prev.map(u => u.id === currentUser.id ? updated : u));
   };
 
   const adminEnrollUser = (userId: string, courseId: string) => {
-    setUsers(prev => prev.map(u => {
-        if (u.id === userId) {
-            const current = u.purchasedCourseIds || [];
-            if (current.includes(courseId)) return u;
-            return { ...u, purchasedCourseIds: [...current, courseId] };
-        }
-        return u;
-    }));
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, purchasedCourseIds: [...new Set([...(u.purchasedCourseIds || []), courseId])] } : u));
   };
 
   const adminRevokeUser = (userId: string, courseId: string) => {
-    setUsers(prev => prev.map(u => {
-        if (u.id === userId) {
-            return { ...u, purchasedCourseIds: (u.purchasedCourseIds || []).filter(id => id !== courseId) };
-        }
-        return u;
-    }));
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, purchasedCourseIds: (u.purchasedCourseIds || []).filter(id => id !== courseId) } : u));
   };
 
   const grantTempAccess = (courseId: string) => {
     if (!currentUser) return;
     const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-    const currentTemp = currentUser.tempAccess || {};
-    const updated = { ...currentUser, tempAccess: { ...currentTemp, [courseId]: expiry } };
+    const updated = { ...currentUser, tempAccess: { ...(currentUser.tempAccess || {}), [courseId]: expiry } };
     setCurrentUser(updated);
     setUsers(prev => prev.map(u => u.id === currentUser.id ? updated : u));
   };
@@ -226,17 +161,15 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
 
   const saveExamResult = (cId: string, score: number, total: number) => {
     if (!currentUser) return;
-    const currentResults = currentUser.examResults || [];
     const res: ExamResult = { courseId: cId, score, totalQuestions: total, date: new Date().toISOString() };
-    const updated = { ...currentUser, examResults: [...currentResults, res] };
+    const updated = { ...currentUser, examResults: [...(currentUser.examResults || []), res] };
     setCurrentUser(updated);
     setUsers(prev => prev.map(u => u.id === currentUser.id ? updated : u));
   };
 
   const saveExamProgress = (p: ExamProgress) => {
     if (!currentUser) return;
-    const currentProgress = currentUser.savedExamProgress || [];
-    const filtered = currentProgress.filter(item => item.courseId !== p.courseId);
+    const filtered = (currentUser.savedExamProgress || []).filter(item => item.courseId !== p.courseId);
     const updated = { ...currentUser, savedExamProgress: [...filtered, p] };
     setCurrentUser(updated);
     setUsers(prev => prev.map(u => u.id === currentUser.id ? updated : u));
@@ -244,34 +177,31 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
 
   const clearExamProgress = (cId: string) => {
     if (!currentUser) return;
-    const currentProgress = currentUser.savedExamProgress || [];
-    const updated = { ...currentUser, savedExamProgress: currentProgress.filter(p => p.courseId !== cId) };
+    const updated = { ...currentUser, savedExamProgress: (currentUser.savedExamProgress || []).filter(p => p.courseId !== cId) };
     setCurrentUser(updated);
     setUsers(prev => prev.map(u => u.id === currentUser.id ? updated : u));
   };
 
   const saveGeneratedNote = (note: GeneratedNote) => {
     if (!currentUser) return;
-    const currentNotes = currentUser.generatedNotes || [];
-    const updated = { ...currentUser, generatedNotes: [...currentNotes, note] };
+    const updated = { ...currentUser, generatedNotes: [...(currentUser.generatedNotes || []), note] };
     setCurrentUser(updated);
     setUsers(prev => prev.map(u => u.id === currentUser.id ? updated : u));
   };
 
   const deleteGeneratedNote = (id: string) => {
     if (!currentUser) return;
-    const currentNotes = currentUser.generatedNotes || [];
-    const updated = { ...currentUser, generatedNotes: currentNotes.filter(n => n.id !== id) };
+    const updated = { ...currentUser, generatedNotes: (currentUser.generatedNotes || []).filter(n => n.id !== id) };
     setCurrentUser(updated);
     setUsers(prev => prev.map(u => u.id === currentUser.id ? updated : u));
   };
 
   return (
     <StoreContext.Provider value={{
-      currentUser, users, courses, settings, login, loginAsDemo, signup, createUser, logout,
+      currentUser, users, courses, settings, login, signup, createUser, logout,
       addCourse, updateCourse, deleteCourse, enrollCourse, grantTempAccess, adminEnrollUser, adminRevokeUser,
       updateSettings, updateUser, manageUserRole, saveExamResult, saveExamProgress, clearExamProgress, 
-      saveGeneratedNote, deleteGeneratedNote, toggleTheme
+      saveGeneratedNote, deleteGeneratedNote, toggleTheme, clearAllData
     }}>
       {children}
     </StoreContext.Provider>

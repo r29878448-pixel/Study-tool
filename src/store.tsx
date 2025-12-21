@@ -32,10 +32,9 @@ interface StoreContextType {
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
-// BUMPED VERSION TO FORCE CLEAR OLD DEMO DATA
-const CURRENT_STORAGE_VERSION = '5.0'; 
+const CURRENT_STORAGE_VERSION = '6.0'; 
 
-const INITIAL_COURSES: Course[] = [];
+const INITIAL_COURSES: Course[] = []; // No demo data as requested
 
 const INITIAL_SETTINGS: AppSettings = {
   appName: 'Study Portal',
@@ -99,7 +98,7 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
   useEffect(() => { localStorage.setItem('st_settings', JSON.stringify(settings)); }, [settings]);
 
   const clearAllData = () => {
-    if (confirm("Nuclear reset will delete all your batches. Sure?")) {
+    if (confirm("Reset will delete all your data permanently. Proceed?")) {
         localStorage.clear();
         window.location.reload();
     }

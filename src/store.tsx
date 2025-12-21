@@ -32,39 +32,8 @@ interface StoreContextType {
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
-const INITIAL_COURSES: Course[] = [
-  {
-    id: 'batch-project45',
-    title: 'Project 45 10th',
-    mrp: 4999,
-    price: 0,
-    description: 'The Ultimate Class 10 Batch by Project 45. Comprehensive coverage of Science, Mathematics, and Social Science with video lectures, notes, and DPPs.',
-    image: 'https://images.unsplash.com/photo-1633516362506-6f7f6311802e?q=80&w=2070&auto=format&fit=crop', 
-    category: 'Class 10',
-    createdAt: new Date().toISOString(),
-    isPaid: false,
-    isNew: true,
-    startDate: '01 Apr 2024',
-    endDate: '31 Mar 2025',
-    subjects: [
-      {
-        id: 'sub-sci',
-        title: 'Science',
-        iconText: 'Sc',
-        chapters: [
-          {
-            id: 'ch-sci-01',
-            title: 'Chemical Reactions and Equations',
-            videos: [
-              { id: 'v-sci-01', title: 'Lecture 1: Introduction & Balancing', filename: 'https://www.youtube.com/embed/k3rRrl9J2F4', duration: '45:00', date: 'TODAY', type: 'lecture' },
-              { id: 'n-sci-01', title: 'Chapter Notes', filename: '#', duration: 'PDF', date: 'TODAY', type: 'note' }
-            ]
-          }
-        ]
-      }
-    ]
-  }
-];
+// Initialize with empty array so only Admin added courses appear
+const INITIAL_COURSES: Course[] = [];
 
 const INITIAL_SETTINGS: AppSettings = {
   appName: 'Study Portal',
@@ -73,9 +42,9 @@ const INITIAL_SETTINGS: AppSettings = {
   razorpayKey: 'rzp_test_study',
   theme: 'light',
   uiColor: '#0056d2',
-  botUrl: 'https://t.me/rk_payment_bot',
-  linkShortenerApiUrl: 'https://vplink.in/api',
-  linkShortenerApiKey: '320f263d298979dc11826b8e2574610ba0cc5d6b'
+  botUrl: '',
+  linkShortenerApiUrl: '',
+  linkShortenerApiKey: ''
 };
 
 export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {

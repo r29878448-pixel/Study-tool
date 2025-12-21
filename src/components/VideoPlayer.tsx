@@ -187,14 +187,13 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
     try {
       if (!document.fullscreenElement) {
         await containerRef.current.requestFullscreen();
-        // Attempt to lock to landscape
+        // Attempt to lock to landscape on mobile devices
         if (screen.orientation && 'lock' in screen.orientation) {
           try {
              // @ts-ignore
              await screen.orientation.lock('landscape');
           } catch(e) {
-             // Orientation lock failed (not supported on some devices)
-             console.log("Orientation lock not supported");
+             console.log("Orientation lock not supported or denied");
           }
         }
       } else {
@@ -281,7 +280,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, poster, isLocked, onProg
             </div>
         </div>
 
-        {/* Custom Fullscreen Button Bottom Right for Embeds - EXACTLY AS REQUESTED */}
+        {/* Custom Fullscreen Button Bottom Right for Embeds - Placed in bottom right as requested */}
         <div className={`absolute bottom-0 right-0 p-3 z-40 transition-opacity duration-300 pointer-events-none ${showControls ? 'opacity-100' : 'opacity-0'}`}>
             <button 
                 onClick={toggleFullscreen}

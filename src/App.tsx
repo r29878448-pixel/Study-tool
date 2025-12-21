@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useRef } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, Link, useNavigate, useParams } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Navigate, useLocation, Link, useNavigate, useParams } from 'react-router-dom';
 import { StoreProvider, useStore } from './store';
 import { 
   Home, BookOpen, User, Search, PlayCircle, Lock, 
@@ -9,7 +9,7 @@ import {
   Video as VideoIcon, Sparkles, Send, Smartphone, List, Globe, Bell, 
   ChevronRight, MoreVertical, MessageCircle, FileText, Calendar, MessageSquare, Eye,
   RotateCcw, ImageIcon, Key, Clock, Shield, LogOut, Download, Save, Timer as TimerIcon, AlertCircle, Link as LinkIcon,
-  Upload, Folder, CreditCard
+  Upload, Folder, CreditCard, Copy
 } from './components/Icons';
 import VideoPlayer from './components/VideoPlayer';
 import ChatBot from './components/ChatBot';
@@ -99,7 +99,7 @@ const TempAccessHandler = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const [status, setStatus] = useState<'idle' | 'verifying' | 'success'>('idle');
-    const courseName = courses.find(c => c.id === id)?.title || "Premium Batch";
+    const courseName = courses.find(c => c.id === id)?.title || "Batch";
 
     useEffect(() => { if (currentUser && id && status === 'idle') handleVerify(); }, [currentUser, id]);
 
@@ -115,15 +115,13 @@ const TempAccessHandler = () => {
                 <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-6">
                     {status === 'verifying' ? <Loader2 className="w-10 h-10 text-[#0056d2] animate-spin" /> : status === 'success' ? <CheckCircle className="w-10 h-10 text-green-500" /> : <Shield className="w-10 h-10 text-[#0056d2]" />}
                 </div>
-                <h2 className="text-2xl font-black text-gray-800 mb-2">{status === 'verifying' ? 'Verifying Link...' : status === 'success' ? 'Access Granted!' : 'Security Check'}</h2>
-                <p className="text-gray-500 text-sm font-medium mb-8 leading-relaxed">{status === 'verifying' ? 'Validating your temporary access token...' : status === 'success' ? 'Redirecting you to the batch content.' : `Access "${courseName}" for 24 hours.`}</p>
-                {status === 'idle' && <button onClick={handleVerify} className="w-full py-4 bg-[#0056d2] text-white font-bold rounded-2xl shadow-lg">Verify Now</button>}
+                <h2 className="text-2xl font-black text-gray-800 mb-2">{status === 'verifying' ? 'Verifying Access...' : status === 'success' ? 'Access Granted!' : 'Security Check'}</h2>
+                <p className="text-gray-500 text-sm font-medium mb-8 leading-relaxed">{status === 'verifying' ? 'Validating your temporary access token...' : status === 'success' ? 'Redirecting you to the batch content.' : `Claiming 24h access to: ${courseName}`}</p>
+                {status === 'idle' && <button onClick={handleVerify} className="w-full py-4 bg-[#0056d2] text-white font-bold rounded-2xl shadow-lg">Confirm Access</button>}
             </div>
         </div>
     );
 };
-
-// --- CONTENT MANAGER COMPONENT ---
 
 const ContentManager = ({ course, onClose }: { course: Course, onClose: () => void }) => {
     const { updateCourse } = useStore();
@@ -132,50 +130,26 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
     const [activeChapterId, setActiveChapterId] = useState<string | null>(null);
     const [editingVideo, setEditingVideo] = useState<{chapId: string, vid: Video} | null>(null);
 
-    const handleSave = () => {
-        updateCourse({ ...course, subjects });
-        onClose();
-    };
+    const handleSave = () => { updateCourse({ ...course, subjects }); onClose(); };
 
     const addSubject = () => {
-        const title = prompt('Subject Title (e.g. Chemistry):');
-        const iconText = prompt('Icon Text (e.g. Ch):') || 'Su';
+        const title = prompt('Subject Name:');
+        const iconText = prompt('Icon Letter (e.g. A):') || 'Su';
         if (title) setSubjects([...subjects, { id: Date.now().toString(), title, iconText, chapters: [] }]);
     };
 
     const addChapter = (sId: string) => {
-        const title = prompt('Chapter Title:');
-        if (title) {
-            setSubjects(subjects.map(s => s.id === sId ? { ...s, chapters: [...s.chapters, { id: Date.now().toString(), title, videos: [] }] } : s));
-        }
+        const title = prompt('Chapter Name:');
+        if (title) setSubjects(subjects.map(s => s.id === sId ? { ...s, chapters: [...s.chapters, { id: Date.now().toString(), title, videos: [] }] } : s));
     };
 
     const addVideo = (sId: string, cId: string) => {
         const title = prompt('Content Title:');
         const url = prompt('Stream Link:');
-        const dur = prompt('Duration (e.g. 1:20:00):') || '10:00';
+        const dur = prompt('Duration (e.g. 10:00):') || '10:00';
         const typeInput = prompt('Type (lecture/note/dpp):') || 'lecture';
         const type = (['lecture', 'note', 'dpp'].includes(typeInput) ? typeInput : 'lecture') as 'lecture' | 'note' | 'dpp';
-        
-        if (title && url) {
-            setSubjects(subjects.map(s => s.id === sId ? { 
-                ...s, 
-                chapters: s.chapters.map(c => c.id === cId ? { 
-                    ...c, 
-                    videos: [...c.videos, { id: Date.now().toString(), title, filename: url, duration: dur, type, date: 'TODAY' }] 
-                } : c)
-            } : s));
-        }
-    };
-
-    const updateVideoData = () => {
-        if (!editingVideo || !activeSubjectId) return;
-        const { chapId, vid } = editingVideo;
-        setSubjects(subjects.map(s => s.id === activeSubjectId ? {
-            ...s,
-            chapters: s.chapters.map(c => c.id === chapId ? { ...c, videos: c.videos.map(v => v.id === vid.id ? vid : v) } : c)
-        } : s));
-        setEditingVideo(null);
+        if (title && url) setSubjects(subjects.map(s => s.id === sId ? { ...s, chapters: s.chapters.map(c => c.id === cId ? { ...c, videos: [...c.videos, { id: Date.now().toString(), title, filename: url, duration: dur, type, date: 'TODAY' }] } : c) } : s));
     };
 
     const activeSubject = subjects.find(s => s.id === activeSubjectId);
@@ -191,54 +165,20 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
                     </h2>
                     <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X /></button>
                 </div>
-
-                <div className="flex items-center gap-2 mb-4 text-xs font-bold text-gray-400 overflow-x-auto no-scrollbar">
-                    <button onClick={() => { setActiveSubjectId(null); setActiveChapterId(null); }} className={!activeSubjectId ? 'text-blue-600' : ''}>ROOT</button>
-                    {activeSubject && (
-                      <>
-                        <ChevronRight className="w-3 h-3" />
-                        <button onClick={() => setActiveChapterId(null)} className={activeSubjectId && !activeChapterId ? 'text-blue-600' : ''}>{activeSubject.title.toUpperCase()}</button>
-                      </>
-                    )}
-                    {activeChapter && (
-                        <>
-                            <ChevronRight className="w-3 h-3" />
-                            <span className="text-blue-600">{activeChapter.title.toUpperCase()}</span>
-                        </>
-                    )}
-                </div>
-                
                 <div className="flex-1 overflow-y-auto space-y-4 no-scrollbar">
-                    {editingVideo ? (
-                        <div className="space-y-4 bg-gray-50 p-6 rounded-2xl animate-fade-in">
-                            <h3 className="font-bold text-gray-700">Edit Node Data</h3>
-                            <input value={editingVideo.vid.title} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, title: e.target.value}})} className="w-full p-3 border rounded-xl" placeholder="Title" />
-                            <input value={editingVideo.vid.filename} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, filename: e.target.value}})} className="w-full p-3 border rounded-xl" placeholder="URL" />
-                            <input value={editingVideo.vid.duration} onChange={e => setEditingVideo({...editingVideo, vid: {...editingVideo.vid, duration: e.target.value}})} className="w-full p-3 border rounded-xl" placeholder="Duration" />
-                            <div className="flex gap-2">
-                                <button onClick={() => setEditingVideo(null)} className="flex-1 py-2 text-gray-500 font-bold bg-white border rounded-xl">Cancel</button>
-                                <button onClick={updateVideoData} className="flex-1 py-2 bg-[#0056d2] text-white font-bold rounded-xl">Save Node</button>
-                            </div>
-                        </div>
-                    ) : activeChapterId && activeSubjectId ? (
+                    {activeChapterId && activeSubjectId ? (
                         <div className="space-y-3">
-                            <button onClick={() => addVideo(activeSubjectId, activeChapterId)} className="w-full py-4 border-2 border-dashed border-blue-100 rounded-2xl text-blue-600 font-bold hover:bg-blue-50 transition-all">+ Add Chapter Content</button>
+                            <button onClick={() => addVideo(activeSubjectId, activeChapterId)} className="w-full py-4 border-2 border-dashed border-blue-100 rounded-2xl text-blue-600 font-bold hover:bg-blue-50 transition-all">+ Add Content</button>
                             {activeChapter?.videos.map(vid => (
                                 <div key={vid.id} className="p-4 bg-gray-50 border border-gray-100 rounded-2xl flex justify-between items-center">
-                                    <div className="truncate pr-4">
-                                        <p className="text-sm font-bold text-gray-800 truncate">{vid.title}</p>
-                                        <p className="text-[10px] text-blue-500 font-bold uppercase">{vid.type} • {vid.duration}</p>
-                                    </div>
-                                    <div className="flex gap-1">
-                                        <button onClick={() => setEditingVideo({chapId: activeChapterId, vid})} className="p-2 text-gray-400 hover:text-blue-500"><Edit className="w-4 h-4" /></button>
-                                        <button onClick={() => setSubjects(subjects.map(s => s.id === activeSubjectId ? {...s, chapters: s.chapters.map(c => c.id === activeChapterId ? {...c, videos: c.videos.filter(v => v.id !== vid.id)} : c)} : s))} className="text-red-500 p-2"><Trash2 className="w-4 h-4" /></button>
-                                    </div>
+                                    <div className="truncate pr-4"><p className="text-sm font-bold text-gray-800 truncate">{vid.title}</p></div>
+                                    <button onClick={() => setSubjects(subjects.map(s => s.id === activeSubjectId ? {...s, chapters: s.chapters.map(c => c.id === activeChapterId ? {...c, videos: c.videos.filter(v => v.id !== vid.id)} : c)} : s))} className="text-red-500 p-2"><Trash2 className="w-4 h-4" /></button>
                                 </div>
                             ))}
                         </div>
                     ) : activeSubjectId ? (
                         <div className="space-y-3">
-                            <button onClick={() => addChapter(activeSubjectId)} className="w-full py-4 border-2 border-dashed border-blue-100 rounded-2xl text-blue-600 font-bold hover:bg-blue-50 transition-all">+ Add New Chapter</button>
+                            <button onClick={() => addChapter(activeSubjectId)} className="w-full py-4 border-2 border-dashed border-blue-100 rounded-2xl text-blue-600 font-bold hover:bg-blue-50 transition-all">+ Add Chapter</button>
                             {activeSubject?.chapters.map(chap => (
                                 <div key={chap.id} className="p-4 bg-white border border-gray-100 rounded-2xl flex justify-between items-center shadow-sm">
                                     <button onClick={() => setActiveChapterId(chap.id)} className="flex-1 text-left font-bold text-gray-700">{chap.title}</button>
@@ -248,7 +188,7 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
                         </div>
                     ) : (
                         <div className="space-y-3">
-                            <button onClick={addSubject} className="w-full py-4 border-2 border-dashed border-blue-100 rounded-2xl text-blue-600 font-bold hover:bg-blue-50 transition-all">+ Add Subject wise Column</button>
+                            <button onClick={addSubject} className="w-full py-4 border-2 border-dashed border-blue-100 rounded-2xl text-blue-600 font-bold hover:bg-blue-50 transition-all">+ Add Subject</button>
                             {subjects.map(sub => (
                                 <div key={sub.id} className="p-5 bg-white border border-gray-100 rounded-2xl flex justify-between items-center shadow-sm group">
                                     <button onClick={() => setActiveSubjectId(sub.id)} className="flex items-center gap-4 flex-1 text-left">
@@ -261,45 +201,48 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
                         </div>
                     )}
                 </div>
-                
                 <div className="mt-6 pt-6 border-t flex gap-3">
-                    <button onClick={onClose} className="flex-1 py-4 text-gray-500 font-bold hover:bg-gray-50 rounded-2xl transition-colors">Discard</button>
-                    <button onClick={handleSave} className="flex-1 py-4 bg-[#0056d2] text-white font-bold rounded-2xl shadow-lg active:scale-95 transition-all">Commit Changes</button>
+                    <button onClick={onClose} className="flex-1 py-4 text-gray-500 font-bold hover:bg-gray-50 rounded-2xl transition-colors">Close</button>
+                    <button onClick={handleSave} className="flex-1 py-4 bg-[#0056d2] text-white font-bold rounded-2xl shadow-lg transition-all">Save Changes</button>
                 </div>
             </div>
         </div>
     );
 };
 
-// --- ADMIN PANEL ---
-
 const AdminPanel = () => {
-    const { currentUser, courses, settings, addCourse, updateCourse, deleteCourse, users, manageUserRole, createUser, updateSettings, adminEnrollUser, adminRevokeUser, clearAllData } = useStore();
-    const [tab, setTab] = useState<'batches' | 'users' | 'settings'>('batches');
+    const { currentUser, courses, settings, addCourse, updateCourse, deleteCourse, updateSettings, clearAllData } = useStore();
+    const [tab, setTab] = useState<'batches' | 'settings'>('batches');
     const [showModal, setShowModal] = useState(false);
     const [editing, setEditing] = useState<Course | null>(null);
     const [contentTarget, setContentTarget] = useState<Course | null>(null);
     const [settingsForm, setSettingsForm] = useState<AppSettings>(settings);
-    const [form, setForm] = useState({ title: '', description: '', image: '', category: '', price: 0, mrp: 0, isPaid: false, shortenerLink: '', telegramLink: '', startDate: '', endDate: '', isNew: true });
+    const [form, setForm] = useState({ title: '', description: '', image: '', category: '', price: 0, mrp: 0, isPaid: false, startDate: '', endDate: '' });
 
     useEffect(() => { setSettingsForm(settings); }, [settings]);
-    useEffect(() => { if (editing) { setForm({ title: editing.title, description: editing.description, image: editing.image, category: editing.category, price: editing.price, mrp: editing.mrp, isPaid: !!editing.isPaid, shortenerLink: editing.shortenerLink || '', telegramLink: editing.telegramLink || '', startDate: editing.startDate || '', endDate: editing.endDate || '', isNew: editing.isNew ?? true }); } else setForm({ title: '', description: '', image: '', category: '', price: 0, mrp: 0, isPaid: false, shortenerLink: '', telegramLink: '', startDate: '', endDate: '', isNew: true }); }, [editing, showModal]);
+    useEffect(() => { if (editing) setForm({ title: editing.title, description: editing.description, image: editing.image, category: editing.category, price: editing.price, mrp: editing.mrp, isPaid: !!editing.isPaid, startDate: editing.startDate || '', endDate: editing.endDate || '' }); else setForm({ title: '', description: '', image: '', category: '', price: 0, mrp: 0, isPaid: false, startDate: '', endDate: '' }); }, [editing, showModal]);
 
-    if (!currentUser || (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.EDITOR)) return <Navigate to="/" />;
+    if (!currentUser || currentUser.role !== UserRole.ADMIN) return <Navigate to="/" />;
     
     const handleSaveCourse = (e: React.FormEvent) => { e.preventDefault(); const data: Course = { ...(editing || { id: Date.now().toString(), subjects: [], createdAt: new Date().toISOString() }), ...form }; if (editing) updateCourse(data); else addCourse(data); setShowModal(false); };
-    const handleSaveSettings = (e: React.FormEvent) => { e.preventDefault(); updateSettings(settingsForm); alert("System configurations updated."); };
+    const handleSaveSettings = (e: React.FormEvent) => { e.preventDefault(); updateSettings(settingsForm); alert("Settings updated locally."); };
     
+    const copyBatchCode = () => {
+        const json = JSON.stringify(courses, null, 2);
+        navigator.clipboard.writeText(json);
+        alert("Batch Data copied to clipboard! Send this to developer to make it permanent for all users.");
+    };
+
     return (
         <div className="pb-24 pt-24 px-4 min-h-screen bg-[#f8fafc]">
              <div className="max-w-6xl mx-auto">
                  <div className="flex bg-white p-1.5 rounded-lg shadow-sm border border-gray-200 mb-8 max-w-md">
-                    {(['batches', 'users', 'settings'] as const).map(t => (<button key={t} onClick={() => setTab(t)} className={`flex-1 py-2 font-bold capitalize transition-all rounded-md text-xs ${tab === t ? 'bg-[#0056d2] text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>{t}</button>))}
+                    {(['batches', 'settings'] as const).map(t => (<button key={t} onClick={() => setTab(t)} className={`flex-1 py-2 font-bold capitalize transition-all rounded-md text-xs ${tab === t ? 'bg-[#0056d2] text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>{t}</button>))}
                  </div>
 
                  {tab === 'batches' && (
                      <div className="space-y-4">
-                         <button onClick={() => { setEditing(null); setShowModal(true); }} className="w-full py-10 bg-white border-2 border-dashed border-blue-200 rounded-xl text-[#0056d2] font-bold flex flex-col items-center justify-center gap-2 hover:bg-blue-50 transition-all"><Plus className="w-8 h-8" /><span>INITIALIZE NEW BATCH</span></button>
+                         <button onClick={() => { setEditing(null); setShowModal(true); }} className="w-full py-10 bg-white border-2 border-dashed border-blue-200 rounded-xl text-[#0056d2] font-bold flex flex-col items-center justify-center gap-2 hover:bg-blue-50 transition-all"><Plus className="w-8 h-8" /><span>ADD NEW BATCH</span></button>
                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                              {courses.map(c => (
                                  <div key={c.id} className="bg-white p-4 rounded-lg flex flex-col gap-4 border border-gray-200 shadow-sm">
@@ -307,34 +250,28 @@ const AdminPanel = () => {
                                          <img src={c.image} className="w-16 h-16 rounded-lg object-cover border border-gray-100" />
                                          <div className="flex-1 min-w-0"><h3 className="font-bold text-gray-800 text-sm truncate">{c.title}</h3><p className="text-[10px] text-blue-600 font-bold uppercase tracking-widest">{c.category}</p></div>
                                      </div>
-                                     <div className="flex gap-2 w-full"><button onClick={() => setContentTarget(c)} className="flex-1 py-2 bg-[#0056d2] text-white rounded-md font-bold text-[10px]">EDIT CONTENT</button><button onClick={() => { setEditing(c); setShowModal(true); }} className="p-2 bg-gray-50 text-gray-500 rounded-md"><Edit className="w-4 h-4" /></button><button onClick={() => deleteCourse(c.id)} className="p-2 bg-red-50 text-red-400 rounded-md"><Trash2 className="w-4 h-4" /></button></div>
+                                     <div className="flex gap-2 w-full"><button onClick={() => setContentTarget(c)} className="flex-1 py-2 bg-[#0056d2] text-white rounded-md font-bold text-[10px]">CONTENT</button><button onClick={() => { setEditing(c); setShowModal(true); }} className="p-2 bg-gray-50 text-gray-500 rounded-md"><Edit className="w-4 h-4" /></button><button onClick={() => deleteCourse(c.id)} className="p-2 bg-red-50 text-red-400 rounded-md"><Trash2 className="w-4 h-4" /></button></div>
                                  </div>
                              ))}
                          </div>
                      </div>
                  )}
 
-                 {tab === 'users' && (
-                    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden divide-y divide-gray-100">
-                        {users.map(u => (<div key={u.id} className="p-4 flex justify-between items-center"><div className="flex-1 min-w-0 pr-4"><p className="font-bold text-gray-800 truncate">{u.name}</p><p className="text-xs text-gray-500 truncate">{u.email}</p></div><div className="flex items-center gap-2"><select value={u.role} onChange={(e) => manageUserRole(u.id, e.target.value as UserRole)} className="text-xs font-bold px-3 py-2 bg-gray-100 rounded-md"><option value={UserRole.USER}>User</option><option value={UserRole.EDITOR}>Editor</option><option value={UserRole.ADMIN}>Admin</option></select></div></div>))}
-                    </div>
-                 )}
-
                  {tab === 'settings' && (
                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
-                        <h2 className="text-xl font-bold text-gray-800 mb-6">Portal Configuration</h2>
+                        <h2 className="text-xl font-bold text-gray-800 mb-6">Portal Config</h2>
                         <form onSubmit={handleSaveSettings} className="space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-2"><label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Application Name</label><input value={settingsForm.appName} onChange={e => setSettingsForm({...settingsForm, appName: e.target.value})} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-md font-bold text-sm" /></div>
-                            </div>
-                            <button type="submit" className="w-full py-3 bg-[#0056d2] text-white font-black rounded-md shadow-md text-sm uppercase">Commit Changes</button>
+                            <div className="space-y-2"><label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Portal Name</label><input value={settingsForm.appName} onChange={e => setSettingsForm({...settingsForm, appName: e.target.value})} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-md font-bold text-sm" /></div>
+                            <button type="submit" className="w-full py-3 bg-[#0056d2] text-white font-black rounded-md shadow-md text-sm uppercase">Save Name</button>
                         </form>
-                        
-                        <div className="mt-12 pt-8 border-t border-gray-100">
-                            <h3 className="text-red-600 font-bold mb-2">Danger Zone</h3>
-                            <p className="text-xs text-gray-500 mb-4">Use this to wipe all local data and reset the application.</p>
-                            <button onClick={clearAllData} className="flex items-center gap-2 px-6 py-3 bg-red-50 text-red-600 border border-red-200 rounded-xl font-bold text-sm hover:bg-red-600 hover:text-white transition-all">
-                                <RotateCcw className="w-4 h-4" /> Reset Application Data
+                        <div className="mt-12 pt-8 border-t border-gray-100 space-y-4">
+                            <h3 className="text-blue-600 font-bold">Production Tools</h3>
+                            <button onClick={copyBatchCode} className="flex items-center gap-2 px-6 py-3 bg-blue-50 text-blue-600 border border-blue-200 rounded-xl font-bold text-sm hover:bg-blue-600 hover:text-white transition-all w-full justify-center">
+                                <Copy className="w-4 h-4" /> Copy All Batch Data for Production
+                            </button>
+                            <h3 className="text-red-600 font-bold">System Reset</h3>
+                            <button onClick={clearAllData} className="flex items-center gap-2 px-6 py-3 bg-red-50 text-red-600 border border-red-200 rounded-xl font-bold text-sm hover:bg-red-600 hover:text-white transition-all w-full justify-center">
+                                <RotateCcw className="w-4 h-4" /> Force Factory Reset (Clear Demo Data)
                             </button>
                         </div>
                     </div>
@@ -344,28 +281,22 @@ const AdminPanel = () => {
              {showModal && (
                  <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
                     <div className="bg-white w-full max-w-lg rounded-lg p-6 shadow-2xl max-h-[90vh] overflow-y-auto border border-gray-200">
-                        <div className="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
-                            <h2 className="text-xl font-bold text-gray-800">{editing ? 'Configure Batch' : 'Initialize New Batch'}</h2>
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-xl font-bold text-gray-800">{editing ? 'Edit Batch' : 'Add Batch'}</h2>
                             <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-full"><X className="w-5 h-5 text-gray-500" /></button>
                         </div>
                         <form onSubmit={handleSaveCourse} className="space-y-4">
-                            <div className="space-y-1">
-                                <label className="text-[10px] font-bold text-gray-400 uppercase">Image URL</label>
-                                <input value={form.image} onChange={e => setForm({ ...form, image: e.target.value })} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-md font-mono text-[10px]" placeholder="https://domain.com/image.jpg" />
-                            </div>
-                            <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-md font-bold" placeholder="Batch Title" required />
+                            <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-md font-bold" placeholder="Batch Name" required />
+                            <input value={form.image} onChange={e => setForm({ ...form, image: e.target.value })} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-md text-xs" placeholder="Image URL" />
                             <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-md text-xs min-h-[80px]" placeholder="Description" required />
                             <div className="grid grid-cols-2 gap-4">
                                 <input value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className="p-3 bg-gray-50 border border-gray-200 rounded-md text-xs uppercase font-bold" placeholder="Category" required />
                                 <div className="flex items-center justify-between px-3 py-3 bg-gray-50 rounded-md border border-gray-200 cursor-pointer" onClick={() => setForm({...form, isPaid: !form.isPaid})}>
-                                    <span className="text-xs font-bold text-gray-500 uppercase">Paid Batch</span>
+                                    <span className="text-xs font-bold text-gray-500">Paid</span>
                                     <div className={`w-9 h-5 rounded-full relative transition-all ${form.isPaid ? 'bg-blue-600' : 'bg-gray-300'}`}><div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${form.isPaid ? 'left-4.5' : 'left-0.5'}`} /></div>
                                 </div>
                             </div>
-                            <div className="pt-4 flex gap-3">
-                                <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-3 text-gray-500 font-bold border border-gray-200 rounded-md text-sm">Cancel</button>
-                                <button type="submit" className="flex-1 py-3 bg-[#0056d2] text-white font-bold rounded-md shadow-md text-sm uppercase">Save Batch</button>
-                            </div>
+                            <button type="submit" className="w-full py-3 bg-[#0056d2] text-white font-bold rounded-md shadow-md text-sm uppercase">Save Batch</button>
                         </form>
                     </div>
                  </div>
@@ -375,19 +306,20 @@ const AdminPanel = () => {
     );
 };
 
-// --- CORE USER VIEWS ---
-
 const CourseListing = () => {
     const { courses } = useStore();
     return (
         <div className="pb-24 pt-20 px-5 min-h-screen bg-[#f8fafc]">
             <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {courses.length === 0 ? (
-                    <div className="col-span-full text-center py-20 text-gray-400 uppercase font-black tracking-widest text-xs">No active batches. Please add some as Admin.</div>
+                    <div className="col-span-full flex flex-col items-center justify-center py-32 text-gray-400">
+                        <BookOpen className="w-16 h-16 mb-4 opacity-20" />
+                        <p className="uppercase font-black tracking-widest text-xs">Waiting for admin to upload content.</p>
+                    </div>
                 ) : courses.map(c => (
-                    <div key={c.id} className="bg-white rounded-[40px] overflow-hidden border border-gray-100 shadow-sm flex flex-col">
+                    <div key={c.id} className="bg-white rounded-[40px] overflow-hidden border border-gray-100 shadow-sm flex flex-col hover:shadow-lg transition-all">
                         <div className="p-7 font-black text-gray-800 text-lg truncate">{c.title}</div>
-                        <div className="px-7"><img src={c.image} className="w-full aspect-video object-cover rounded-[30px]" /></div>
+                        <div className="px-7"><img src={c.image} className="w-full aspect-video object-cover rounded-[30px]" alt={c.title} /></div>
                         <div className="p-7 flex-1 flex flex-col justify-end"><Link to={`/course/${c.id}`} className="w-full py-4 bg-[#0056d2] text-white text-center text-sm font-black rounded-2xl shadow-xl shadow-blue-200 uppercase tracking-widest">Let's Study</Link></div>
                     </div>
                 ))}
@@ -400,7 +332,7 @@ const CourseDetail = () => {
     const { id } = useParams<{id: string}>();
     const { courses } = useStore();
     const navigate = useNavigate();
-    const [activeTab, setActiveTab] = useState<'Description' | 'Subjects' | 'Resources' | 'Tests'>('Subjects');
+    const [activeTab, setActiveTab] = useState<'Subjects' | 'Description'>('Subjects');
 
     const course = courses.find(c => c.id === id);
     if (!course) return <Navigate to="/" />;
@@ -411,33 +343,27 @@ const CourseDetail = () => {
                 <div className="flex items-center justify-between p-4 px-6">
                     <div className="flex items-center gap-5">
                         <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-50 rounded-full transition-colors"><ArrowLeft className="w-6 h-6 text-gray-800" /></button>
-                        <h1 className="text-xl font-black text-gray-800 truncate max-w-[180px] tracking-tight">{course.title}</h1>
-                    </div>
-                    <div className="flex items-center gap-4">
-                        <XPBadge />
-                        <Bell className="w-6 h-6 text-gray-600" />
+                        <h1 className="text-xl font-black text-gray-800 truncate tracking-tight">{course.title}</h1>
                     </div>
                 </div>
-                
                 <div className="flex px-6 gap-8 overflow-x-auto no-scrollbar">
-                    {(['Description', 'Subjects', 'Resources', 'Tests'] as const).map(tab => (
-                        <button key={tab} onClick={() => setActiveTab(tab)} className={`pb-3 text-sm font-black whitespace-nowrap transition-all border-b-4 ${activeTab === tab ? 'text-[#0056d2] border-[#0056d2]' : 'text-gray-400 border-transparent'}`}>
+                    {(['Subjects', 'Description'] as const).map(tab => (
+                        <button key={tab} onClick={() => setActiveTab(tab)} className={`pb-3 text-sm font-black transition-all border-b-4 ${activeTab === tab ? 'text-[#0056d2] border-[#0056d2]' : 'text-gray-400 border-transparent'}`}>
                             {tab}
                         </button>
                     ))}
                 </div>
             </div>
-            <Banner />
             <div className="p-6">
                 {activeTab === 'Subjects' && (
                     <div className="space-y-5">
                         {(course.subjects || []).map((sub) => (
-                            <div key={sub.id} onClick={() => navigate(`/course/${course.id}/subject/${sub.id}`)} className="bg-white border border-gray-100 rounded-[35px] p-6 flex items-center gap-6 shadow-sm active:scale-[0.98] transition-all hover:border-[#0056d2]/30 hover:shadow-md cursor-pointer">
-                                <div className="w-16 h-16 bg-[#0056d2]/5 rounded-2xl flex items-center justify-center text-[#0056d2] font-black text-xl border border-[#0056d2]/10 shadow-inner">{sub.iconText}</div>
+                            <div key={sub.id} onClick={() => navigate(`/course/${course.id}/subject/${sub.id}`)} className="bg-white border border-gray-100 rounded-[35px] p-6 flex items-center gap-6 shadow-sm active:scale-[0.98] transition-all hover:border-[#0056d2]/30 cursor-pointer">
+                                <div className="w-16 h-16 bg-[#0056d2]/5 rounded-2xl flex items-center justify-center text-[#0056d2] font-black text-xl">{sub.iconText}</div>
                                 <div className="flex-1">
-                                    <h3 className="font-black text-gray-800 text-lg leading-tight mb-2">{sub.title}</h3>
+                                    <h3 className="font-black text-gray-800 text-lg leading-tight">{sub.title}</h3>
                                     <div className="flex items-center gap-5 mt-3">
-                                        <div className="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden shadow-inner"><div className="h-full bg-[#0056d2] w-[0%]"></div></div>
+                                        <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden"><div className="h-full bg-[#0056d2] w-[0%]"></div></div>
                                         <span className="text-[12px] font-black text-gray-400">0%</span>
                                     </div>
                                 </div>
@@ -447,23 +373,9 @@ const CourseDetail = () => {
                     </div>
                 )}
                 {activeTab === 'Description' && (
-                    <div className="space-y-8 animate-fade-in">
-                        <div className="relative group">
-                             <img src={course.image} className="w-full h-56 object-cover rounded-[50px] shadow-2xl" alt="" />
-                             <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent rounded-[50px]"></div>
-                        </div>
-                        <div>
-                            <h2 className="text-3xl font-black text-gray-800 mb-4 tracking-tight">{course.title}</h2>
-                            <p className="text-gray-500 text-base leading-relaxed font-medium">{course.description}</p>
-                        </div>
-                    </div>
-                )}
-                {activeTab === 'Tests' && (
-                    <div className="space-y-4">
-                        <button onClick={() => navigate(`/exam/${course.id}`)} className="w-full p-8 bg-blue-50 border-2 border-dashed border-blue-200 rounded-[40px] text-[#0056d2] font-black flex flex-col items-center gap-4 hover:bg-blue-100 transition-all">
-                            <Sparkles className="w-10 h-10" />
-                            <span className="text-lg">START AI ASSESSMENT</span>
-                        </button>
+                    <div className="space-y-8">
+                        <img src={course.image} className="w-full h-56 object-cover rounded-[50px] shadow-2xl" alt="" />
+                        <p className="text-gray-500 text-base leading-relaxed font-medium">{course.description}</p>
                     </div>
                 )}
             </div>
@@ -475,104 +387,41 @@ const SubjectDetail = () => {
     const { courseId, subjectId } = useParams<{courseId: string, subjectId: string}>();
     const { courses } = useStore();
     const navigate = useNavigate();
-    const [tab, setTab] = useState<'Chapters' | 'Notes'>('Chapters');
-    const [filter, setFilter] = useState('All');
-    const [generatingNotes, setGeneratingNotes] = useState(false);
-    const [notes, setNotes] = useState<string | null>(null);
-    
     const course = courses.find(c => c.id === courseId);
     const subject = course?.subjects.find(s => s.id === subjectId);
     if (!subject || !courseId) return <Navigate to="/" />;
 
-    const handleGenerateNotes = async () => {
-        setGeneratingNotes(true);
-        try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-            const prompt = `Generate highly concise educational summary for "${subject.title}" based on these chapter topics: ${subject.chapters.map(c => c.title).join(', ')}. Use professional teaching tone.`;
-            const response = await ai.models.generateContent({ 
-                model: 'gemini-3-flash-preview', 
-                contents: prompt 
-            });
-            setNotes(response.text || "Neural downlink failure. Could not synthesize data.");
-        } catch (e) { alert("AI sync failed. Check terminal."); } finally { setGeneratingNotes(false); }
-    };
-
     return (
         <div className="pb-24 pt-0 min-h-screen bg-white">
             <div className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
-                <div className="flex items-center justify-between p-4 px-6">
-                    <div className="flex items-center gap-5">
-                        <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-50 rounded-full transition-colors"><ArrowLeft className="w-6 h-6 text-gray-800" /></button>
-                        <h1 className="text-xl font-black text-gray-800 tracking-tight">{subject.title}</h1>
-                    </div>
-                    <div className="flex items-center gap-4">
-                        <button onClick={handleGenerateNotes} className="text-[#0056d2] p-2.5 rounded-2xl hover:bg-[#0056d2]/5 border border-[#0056d2]/10 transition-all active:scale-90">
-                          {generatingNotes ? <Loader2 className="w-6 h-6 animate-spin" /> : <Sparkles className="w-6 h-6" />}
-                        </button>
-                        <XPBadge />
-                    </div>
-                </div>
-                <div className="flex px-6 gap-10">
-                    {(['Chapters', 'Material'] as const).map(t => (
-                        <button key={t} onClick={() => setTab(t === 'Chapters' ? 'Chapters' : 'Notes')} className={`pb-4 text-sm font-black border-b-4 transition-all ${tab === (t === 'Chapters' ? 'Chapters' : 'Notes') ? 'text-[#0056d2] border-[#0056d2]' : 'text-gray-400 border-transparent'}`}>{t}</button>
-                    ))}
+                <div className="flex items-center gap-5 p-4 px-6">
+                    <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-50 rounded-full transition-colors"><ArrowLeft className="w-6 h-6 text-gray-800" /></button>
+                    <h1 className="text-xl font-black text-gray-800">{subject.title}</h1>
                 </div>
             </div>
-
-            <div className="p-6 space-y-8 pb-32">
-                {tab === 'Chapters' ? (
-                  subject.chapters.length === 0 ? (
-                    <div className="text-center py-32 opacity-30 italic font-black uppercase text-[10px] tracking-widest">No chapters added yet</div>
-                  ) : (
-                    subject.chapters.map((chap, idx) => (
-                        <div key={chap.id} onClick={() => setTab('Notes')} className="bg-white border border-gray-100 rounded-[40px] p-8 shadow-sm flex justify-between items-center active:scale-[0.98] transition-all hover:border-[#0056d2]/20 cursor-pointer">
+            <div className="p-6 space-y-4">
+                {subject.chapters.map((chap, idx) => (
+                    <div key={chap.id} className="bg-white border border-gray-100 rounded-[40px] p-8 shadow-sm space-y-4">
+                        <div className="flex justify-between items-center">
                             <div>
-                                <span className="inline-block bg-[#0056d2]/5 text-[#0056d2] text-[10px] font-black px-3 py-1.5 rounded-xl mb-3 border border-[#0056d2]/10 uppercase tracking-[0.2em] shadow-sm">UNIT - {String(idx+1).padStart(2, '0')}</span>
-                                <h3 className="font-black text-gray-800 text-xl mb-2 tracking-tight leading-tight">{chap.title}</h3>
-                                <p className="text-[11px] text-gray-400 font-black uppercase tracking-[0.3em]">{chap.videos.length} SEQUENCES</p>
+                                <span className="text-[#0056d2] text-[10px] font-black uppercase tracking-widest">Chapter {idx + 1}</span>
+                                <h3 className="font-black text-gray-800 text-xl">{chap.title}</h3>
                             </div>
-                            <div className="w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-300"><ChevronRight className="w-7 h-7" /></div>
                         </div>
-                    ))
-                  )
-                ) : (
-                  <div className="space-y-6">
-                    <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
-                      {(['All', 'Lectures', 'Notes', 'DPPs'] as const).map(f => (
-                        <button key={f} onClick={() => setFilter(f)} className={`px-6 py-2.5 rounded-full text-xs font-black whitespace-nowrap transition-all uppercase tracking-widest border-2 ${filter === f ? 'bg-[#333] border-[#333] text-white shadow-lg' : 'bg-white border-gray-100 text-gray-400 hover:border-gray-200'}`}>{f}</button>
-                      ))}
+                        <div className="space-y-3">
+                            {chap.videos.map(v => (
+                                <button key={v.id} onClick={() => navigate(`/watch/${courseId}`)} className="w-full p-4 bg-gray-50 rounded-2xl flex items-center gap-4 hover:bg-[#0056d2]/5 transition-all text-left">
+                                    <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center text-[#0056d2] shadow-sm"><Play className="w-4 h-4" /></div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-bold text-gray-800 truncate">{v.title}</p>
+                                        <p className="text-[10px] text-gray-400 font-bold uppercase">{v.duration}</p>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
                     </div>
-                    <div className="space-y-4">
-                    {subject.chapters.flatMap(c => c.videos).filter(v => filter === 'All' || (filter === 'Lectures' && v.type === 'lecture') || (filter === 'Notes' && v.type === 'note') || (filter === 'DPPs' && v.type === 'dpp')).map(v => (
-                      <div key={v.id} className="bg-white border border-gray-100 rounded-[35px] p-5 shadow-sm flex gap-5 animate-slide-up group">
-                        <div className="w-28 aspect-video bg-gray-50 rounded-2xl overflow-hidden shrink-0 flex items-center justify-center border border-gray-100 shadow-inner">
-                          <PlayCircle className="w-8 h-8 text-[#0056d2]/20 group-hover:text-[#0056d2] transition-colors" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.3em] mb-1.5">{v.type?.toUpperCase()} • {v.date}</p>
-                          <h4 className="text-sm font-black text-gray-800 line-clamp-2 leading-tight tracking-tight mb-3 group-hover:text-[#0056d2] transition-colors">{v.title}</h4>
-                          <button onClick={() => navigate(`/watch/${courseId}`)} className="flex items-center gap-2 px-4 py-2 bg-[#0056d2]/5 text-[#0056d2] rounded-xl text-[10px] font-black hover:bg-[#0056d2] hover:text-white transition-all shadow-sm active:scale-95 uppercase tracking-widest border border-[#0056d2]/5">
-                            <PlayCircle className="w-4 h-4" /> Watch
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                    </div>
-                  </div>
-                )}
+                ))}
             </div>
-
-            {notes && (
-                <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-xl flex items-center justify-center p-4 animate-fade-in" onClick={() => setNotes(null)}>
-                    <div className="bg-white w-full max-w-lg max-h-[85vh] rounded-[50px] p-10 overflow-y-auto shadow-2xl animate-slide-up relative border border-white/20" onClick={e => e.stopPropagation()}>
-                        <div className="flex justify-between items-center mb-8 sticky top-0 bg-white/80 backdrop-blur pb-4">
-                            <h2 className="text-2xl font-black flex items-center gap-3 tracking-tight"><Sparkles className="w-7 h-7 text-[#0056d2]" /> Neural Summary</h2>
-                            <button onClick={() => setNotes(null)} className="p-2 hover:bg-gray-50 rounded-full transition-colors"><X className="text-gray-400" /></button>
-                        </div>
-                        <div className="prose prose-sm text-gray-600 leading-relaxed whitespace-pre-wrap font-medium text-lg">{notes}</div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };
@@ -585,7 +434,7 @@ const WatchPage = () => {
     const [activeVideo, setActiveVideo] = useState<Video | null>(null);
 
     useEffect(() => {
-        if (course && course.subjects.length > 0 && course.subjects[0].chapters.length > 0 && course.subjects[0].chapters[0].videos.length > 0) {
+        if (course?.subjects?.[0]?.chapters?.[0]?.videos?.[0]) {
             setActiveVideo(course.subjects[0].chapters[0].videos[0]);
         }
     }, [course]);
@@ -596,48 +445,23 @@ const WatchPage = () => {
         <div className="min-h-screen bg-black text-white flex flex-col">
             <div className="p-4 flex items-center gap-4 bg-gray-900 border-b border-white/10">
                 <button onClick={() => navigate(-1)} className="p-2 hover:bg-white/10 rounded-full transition-colors"><ArrowLeft className="w-6 h-6" /></button>
-                <h1 className="text-lg font-bold truncate">{activeVideo?.title || course.title}</h1>
+                <h1 className="text-lg font-bold truncate">{activeVideo?.title || "Watching"}</h1>
             </div>
-            
             <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
                 <div className="flex-1 bg-black flex items-center justify-center p-4">
-                    {activeVideo ? (
-                        <VideoPlayer 
-                            src={activeVideo.filename} 
-                            title={activeVideo.title}
-                            onBack={() => navigate(-1)}
-                            className="w-full max-w-5xl shadow-2xl"
-                        />
-                    ) : (
-                        <div className="text-gray-500">No content available</div>
-                    )}
+                    {activeVideo ? <VideoPlayer src={activeVideo.filename} title={activeVideo.title} onBack={() => navigate(-1)} className="w-full max-w-5xl shadow-2xl" /> : <div className="text-gray-500">Video error.</div>}
                 </div>
-                
-                <div className="w-full lg:w-96 bg-gray-900 overflow-y-auto border-l border-white/10 p-6 no-scrollbar">
-                    <h3 className="font-bold mb-6 text-gray-400 uppercase text-xs tracking-widest">Playlist</h3>
+                <div className="w-full lg:w-96 bg-gray-900 overflow-y-auto border-l border-white/10 p-6">
+                    <h3 className="font-bold mb-6 text-gray-400 uppercase text-xs tracking-widest">Course Menu</h3>
                     <div className="space-y-6">
                         {course.subjects.map(sub => (
-                            <div key={sub.id} className="space-y-3">
-                                <h4 className="text-sm font-black text-[#0056d2] uppercase tracking-wider">{sub.title}</h4>
-                                {sub.chapters.map(chap => (
-                                    <div key={chap.id} className="space-y-2">
-                                        <p className="text-[10px] font-bold text-gray-500 uppercase ml-2">{chap.title}</p>
-                                        {chap.videos.map(v => (
-                                            <button 
-                                                key={v.id} 
-                                                onClick={() => setActiveVideo(v)}
-                                                className={`w-full p-4 rounded-2xl flex items-center gap-4 transition-all ${activeVideo?.id === v.id ? 'bg-[#0056d2]/20 border border-[#0056d2]/30' : 'hover:bg-white/5 border border-transparent'}`}
-                                            >
-                                                <div className="w-10 h-10 rounded-lg bg-gray-800 flex items-center justify-center shrink-0">
-                                                    <PlayCircle className={`w-6 h-6 ${activeVideo?.id === v.id ? 'text-[#0056d2]' : 'text-gray-600'}`} />
-                                                </div>
-                                                <div className="text-left truncate">
-                                                    <p className={`text-xs font-bold truncate ${activeVideo?.id === v.id ? 'text-white' : 'text-gray-400'}`}>{v.title}</p>
-                                                    <p className="text-[9px] text-gray-600 font-bold">{v.duration}</p>
-                                                </div>
-                                            </button>
-                                        ))}
-                                    </div>
+                            <div key={sub.id} className="space-y-2">
+                                <p className="text-[10px] font-black text-[#0056d2] uppercase">{sub.title}</p>
+                                {sub.chapters.flatMap(c => c.videos).map(v => (
+                                    <button key={v.id} onClick={() => setActiveVideo(v)} className={`w-full p-4 rounded-2xl flex items-center gap-4 transition-all ${activeVideo?.id === v.id ? 'bg-[#0056d2]/20 border border-[#0056d2]/30' : 'hover:bg-white/5 border border-transparent'}`}>
+                                        <PlayCircle className={`w-5 h-5 ${activeVideo?.id === v.id ? 'text-[#0056d2]' : 'text-gray-600'}`} />
+                                        <p className={`text-xs font-bold truncate ${activeVideo?.id === v.id ? 'text-white' : 'text-gray-400'}`}>{v.title}</p>
+                                    </button>
                                 ))}
                             </div>
                         ))}
@@ -654,20 +478,13 @@ const Profile = () => {
     return (
         <div className="pb-24 pt-24 px-6 min-h-screen bg-[#f8fafc]">
             <div className="max-w-2xl mx-auto space-y-8">
-                <div className="bg-white rounded-[60px] p-12 shadow-sm border border-gray-100 relative overflow-hidden text-center">
-                    <div className="w-32 h-32 rounded-[45px] bg-[#0056d2] flex items-center justify-center text-white text-5xl font-black shadow-2xl mx-auto mb-8 border-4 border-white">
-                        {currentUser.name.charAt(0)}
-                    </div>
-                    <h2 className="text-4xl font-black text-gray-800 tracking-tighter uppercase mb-2">{currentUser.name}</h2>
-                    <p className="text-[#0056d2] font-black text-xs uppercase tracking-[0.4em] bg-[#0056d2]/5 px-6 py-2 rounded-full inline-block mb-10 shadow-inner">{currentUser.role} IDENTITY</p>
-                    <div className="mt-6 space-y-4 text-center">
-                        <div className="p-6 bg-gray-50 rounded-[35px] text-gray-500 font-bold border border-gray-100/50 shadow-inner inline-block w-full">{currentUser.email}</div>
-                    </div>
-                    <button onClick={logout} className="mt-14 w-full py-6 text-red-500 font-black bg-red-50 rounded-[30px] shadow-xl shadow-red-100 active:scale-95 transition-all uppercase tracking-[0.4em] text-xs">DISCONNECT</button>
+                <div className="bg-white rounded-[60px] p-12 shadow-sm border border-gray-100 text-center">
+                    <div className="w-32 h-32 rounded-[45px] bg-[#0056d2] flex items-center justify-center text-white text-5xl font-black shadow-2xl mx-auto mb-8">{currentUser.name.charAt(0)}</div>
+                    <h2 className="text-4xl font-black text-gray-800 uppercase mb-2">{currentUser.name}</h2>
+                    <p className="text-[#0056d2] font-black text-xs uppercase tracking-[0.4em] bg-blue-50 px-6 py-2 rounded-full inline-block mb-10">{currentUser.role} Account</p>
+                    <button onClick={logout} className="w-full py-6 text-red-500 font-black bg-red-50 rounded-[30px] shadow-xl shadow-red-100 active:scale-95 transition-all uppercase tracking-[0.4em] text-xs">Disconnect Session</button>
                 </div>
-                {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.EDITOR) && (
-                    <Link to="/admin" className="block w-full py-8 bg-gradient-to-r from-[#0056d2] to-[#003ea1] text-white rounded-[50px] text-center font-black shadow-2xl uppercase tracking-[0.3em] text-xl active:scale-95 transition-transform">ADMIN PANEL</Link>
-                )}
+                {currentUser.role === UserRole.ADMIN && <Link to="/admin" className="block w-full py-8 bg-gradient-to-r from-[#0056d2] to-[#003ea1] text-white rounded-[50px] text-center font-black shadow-2xl uppercase tracking-[0.3em] text-xl active:scale-95 transition-transform">Control Grid</Link>}
             </div>
         </div>
     );
@@ -682,20 +499,20 @@ const Login = () => {
     useEffect(() => { if (currentUser) navigate('/'); }, [currentUser, navigate]);
 
     return (
-        <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-[#0056d2] relative overflow-hidden">
-            <div className="text-center mb-14 relative z-10">
+        <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-[#0056d2]">
+            <div className="text-center mb-14">
               <div className="w-24 h-24 bg-white rounded-[40px] flex items-center justify-center mx-auto mb-6 text-[#0056d2] text-4xl font-black shadow-2xl">S</div>
-              <h1 className="text-3xl font-black text-white italic tracking-tighter uppercase drop-shadow-xl">Study Tool</h1>
+              <h1 className="text-3xl font-black text-white italic tracking-tighter uppercase">Study Portal</h1>
             </div>
-            <div className="bg-white p-12 rounded-[70px] w-full max-w-md shadow-2xl animate-fade-in relative z-10 border border-white/20">
-                <h2 className="text-4xl font-black text-gray-800 mb-12 text-center uppercase tracking-tighter italic">Identity</h2>
-                <form onSubmit={e => { e.preventDefault(); if(isS) signup(f.name, f.email, '', f.pass); else if (!login(f.email, f.pass)) alert('Login failed. Check credentials.'); }} className="space-y-5">
-                    {isS && <input className="w-full p-6 bg-gray-50 rounded-3xl outline-none font-black border-2 border-transparent focus:border-[#0056d2]/20 transition-all shadow-inner" placeholder="NAME" value={f.name} onChange={e => setF({...f, name: e.target.value})} required />}
-                    <input className="w-full p-6 bg-gray-50 rounded-3xl outline-none font-black border-2 border-transparent focus:border-[#0056d2]/20 transition-all shadow-inner" placeholder="EMAIL" value={f.email} onChange={e => setF({...f, email: e.target.value})} required />
-                    <input className="w-full p-6 bg-gray-50 rounded-3xl outline-none font-black border-2 border-transparent focus:border-[#0056d2]/20 transition-all shadow-inner" type="password" placeholder="PASSWORD" value={f.pass} onChange={e => setF({...f, pass: e.target.value})} required />
-                    <button className="w-full py-6 bg-[#0056d2] text-white font-black rounded-[35px] shadow-2xl shadow-blue-200 uppercase tracking-[0.3em] text-xl active:scale-95 transition-all mt-8">Initialize</button>
+            <div className="bg-white p-12 rounded-[70px] w-full max-w-md shadow-2xl">
+                <h2 className="text-2xl font-black text-gray-800 mb-12 text-center uppercase">Identity</h2>
+                <form onSubmit={e => { e.preventDefault(); if(isS) signup(f.name, f.email, '', f.pass); else if (!login(f.email, f.pass)) alert('Login failed.'); }} className="space-y-5">
+                    {isS && <input className="w-full p-6 bg-gray-50 rounded-3xl outline-none font-bold" placeholder="Full Name" value={f.name} onChange={e => setF({...f, name: e.target.value})} required />}
+                    <input className="w-full p-6 bg-gray-50 rounded-3xl outline-none font-bold" placeholder="Email" value={f.email} onChange={e => setF({...f, email: e.target.value})} required />
+                    <input className="w-full p-6 bg-gray-50 rounded-3xl outline-none font-bold" type="password" placeholder="Password" value={f.pass} onChange={e => setF({...f, pass: e.target.value})} required />
+                    <button className="w-full py-6 bg-[#0056d2] text-white font-black rounded-[35px] shadow-2xl shadow-blue-200 uppercase tracking-widest mt-8">Initialize</button>
                 </form>
-                <button onClick={() => setIsS(!isS)} className="w-full mt-12 text-[10px] text-[#0056d2] font-black uppercase tracking-[0.5em] text-center">{isS ? '< Back to Login' : 'Create New Identity >'}</button>
+                <button onClick={() => setIsS(!isS)} className="w-full mt-12 text-[10px] text-[#0056d2] font-black uppercase text-center">{isS ? '< Back to Login' : 'Create New Account >'}</button>
             </div>
         </div>
     );

@@ -32,7 +32,10 @@ interface StoreContextType {
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
-// 1. COMPLETELY EMPTY INITIAL DATA
+// Increment this version number to force-reset all users' local data (clears demo data)
+const CURRENT_STORAGE_VERSION = '3.0'; 
+
+// START WITH ZERO DEMO DATA
 const INITIAL_COURSES: Course[] = [];
 
 const INITIAL_SETTINGS: AppSettings = {
@@ -62,6 +65,20 @@ const DEFAULT_ADMIN: User = {
 };
 
 export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
+  // FORCE RESET LOGIC FOR OLD DEMO DATA
+  useEffect(() => {
+    const savedVersion = localStorage.getItem('st_version');
+    if (savedVersion !== CURRENT_STORAGE_VERSION) {
+      // Wipe old keys to remove "Project 45" or "Hope" demo data
+      localStorage.removeItem('st_courses');
+      localStorage.removeItem('st_users');
+      localStorage.removeItem('st_currentUser');
+      localStorage.removeItem('st_settings');
+      localStorage.setItem('st_version', CURRENT_STORAGE_VERSION);
+      window.location.reload(); // Refresh to apply clean state
+    }
+  }, []);
+
   const [users, setUsers] = useState<User[]>(() => {
     const saved = localStorage.getItem('st_users');
     return saved ? JSON.parse(saved) : [DEFAULT_ADMIN];
@@ -89,7 +106,7 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
   useEffect(() => { localStorage.setItem('st_settings', JSON.stringify(settings)); }, [settings]);
 
   const clearAllData = () => {
-    if (confirm("This will PERMANENTLY delete all courses and users and reset the app. Continue?")) {
+    if (confirm("Permanently wipe all batches and reset app?")) {
         localStorage.clear();
         window.location.reload();
     }

@@ -32,10 +32,13 @@ interface StoreContextType {
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
-// Increment this version number to force-reset all users' local data (clears demo data)
-const CURRENT_STORAGE_VERSION = '3.0'; 
+/** 
+ * VERSION 4.0 
+ * This will force all browsers to clear "Project 45" data.
+ */
+const CURRENT_STORAGE_VERSION = '4.0'; 
 
-// START WITH ZERO DEMO DATA
+// NO DEMO DATA ALLOWED HERE
 const INITIAL_COURSES: Course[] = [];
 
 const INITIAL_SETTINGS: AppSettings = {
@@ -65,17 +68,13 @@ const DEFAULT_ADMIN: User = {
 };
 
 export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
-  // FORCE RESET LOGIC FOR OLD DEMO DATA
+  // CRITICAL: Wipe old demo data on version mismatch
   useEffect(() => {
     const savedVersion = localStorage.getItem('st_version');
     if (savedVersion !== CURRENT_STORAGE_VERSION) {
-      // Wipe old keys to remove "Project 45" or "Hope" demo data
-      localStorage.removeItem('st_courses');
-      localStorage.removeItem('st_users');
-      localStorage.removeItem('st_currentUser');
-      localStorage.removeItem('st_settings');
+      localStorage.clear(); // Complete nuclear wipe of demo data
       localStorage.setItem('st_version', CURRENT_STORAGE_VERSION);
-      window.location.reload(); // Refresh to apply clean state
+      window.location.reload(); 
     }
   }, []);
 
@@ -99,14 +98,14 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
     return saved ? JSON.parse(saved) : INITIAL_SETTINGS;
   });
 
-  // Persistence Effects
+  // Save to LocalStorage
   useEffect(() => { localStorage.setItem('st_users', JSON.stringify(users)); }, [users]);
   useEffect(() => { localStorage.setItem('st_currentUser', JSON.stringify(currentUser)); }, [currentUser]);
   useEffect(() => { localStorage.setItem('st_courses', JSON.stringify(courses)); }, [courses]);
   useEffect(() => { localStorage.setItem('st_settings', JSON.stringify(settings)); }, [settings]);
 
   const clearAllData = () => {
-    if (confirm("Permanently wipe all batches and reset app?")) {
+    if (confirm("This will delete EVERYTHING and reset the app. Are you sure?")) {
         localStorage.clear();
         window.location.reload();
     }
@@ -117,7 +116,6 @@ export const StoreProvider = ({ children }: { children?: React.ReactNode }) => {
     if (user) {
       const secureUser = { ...user, lastLogin: new Date().toISOString() };
       setCurrentUser(secureUser);
-      setUsers(prev => prev.map(u => u.id === user.id ? secureUser : u));
       return true;
     }
     return false;

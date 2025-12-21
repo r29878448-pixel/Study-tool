@@ -8,7 +8,7 @@ import {
   Mic, Image, Youtube, Link, Globe, Timer, ClipboardList, AlertCircle, Code, Clock, Eye, Smartphone,
   Key, Copy, ExternalLink, Bot, Brain, Loader2, List, Wand2, ArrowLeft, Video, Bookmark, Sparkles, Send, RotateCcw,
   Bell, Calendar, MessageSquare, Image as ImageIcon, Folder, FileVideo, Link as LinkIcon,
-  SkipBack, SkipForward, PictureInPicture
+  SkipBack, SkipForward, PictureInPicture, TrendingUp
 } from 'lucide-react';
 
 const CloudDownload = DownloadCloud;
@@ -22,5 +22,5 @@ export {
   Mic, Image, Youtube, Link, Globe, Timer, ClipboardList, AlertCircle, Code, Clock, Eye, Smartphone,
   Key, Copy, ExternalLink, Bot, Brain, Loader2, List, Wand2, ArrowLeft, Video, Bookmark, Sparkles, Send, RotateCcw,
   Bell, Calendar, MessageSquare, ImageIcon, Folder, FileVideo, LinkIcon,
-  SkipBack, SkipForward, PictureInPicture
+  SkipBack, SkipForward, PictureInPicture, TrendingUp
 };

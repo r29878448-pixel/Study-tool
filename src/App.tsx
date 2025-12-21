@@ -8,13 +8,13 @@ import {
   CheckCircle, ExternalLink, Play, Bot, Brain, Loader2, ArrowLeft, 
   Video as VideoIcon, Sparkles, Send, Smartphone, List, Globe, Bell, 
   ChevronRight, MoreVertical, MessageCircle, FileText, Calendar, MessageSquare, Eye,
-  RotateCcw, ImageIcon, Copy, Shield, Upload, Link as LinkIcon, Key, Clock, Download
+  RotateCcw, ImageIcon, Copy, Shield, Upload, Link as LinkIcon, Key, Clock, Download, Users, TrendingUp
 } from './components/Icons';
 import VideoPlayer from './components/VideoPlayer';
 import ChatBot from './components/ChatBot';
 import ExamMode from './components/ExamMode';
 import { GoogleGenAI } from "@google/genai";
-import { Course, Chapter, Video, UserRole, Subject, AppSettings } from './types';
+import { Course, Chapter, Video, UserRole, Subject, AppSettings, User as UserType } from './types';
 
 // --- HELPER FOR IMAGE UPLOAD ---
 const handleImageUpload = (file: File): Promise<string> => {
@@ -237,18 +237,20 @@ const ContentManager = ({ course, onClose }: { course: Course, onClose: () => vo
 // --- ADMIN CONTROL PANEL ---
 
 const AdminPanel = () => {
-    const { currentUser, courses, settings, addCourse, updateCourse, deleteCourse, updateSettings, clearAllData } = useStore();
-    const [tab, setTab] = useState<'batches' | 'access' | 'settings'>('batches');
+    const { currentUser, courses, settings, addCourse, updateCourse, deleteCourse, updateSettings, clearAllData, users, manageUserRole } = useStore();
+    const [tab, setTab] = useState<'batches' | 'users' | 'settings'>('batches');
     const [showModal, setShowModal] = useState(false);
     const [editing, setEditing] = useState<Course | null>(null);
     const [contentTarget, setContentTarget] = useState<Course | null>(null);
     const [settingsForm, setSettingsForm] = useState<AppSettings>(settings);
     const [form, setForm] = useState({ title: '', description: '', image: '', category: '', price: 0, mrp: 0, isPaid: false, startDate: '', endDate: '' });
+    const [searchUser, setSearchUser] = useState('');
 
     useEffect(() => { setSettingsForm(settings); }, [settings]);
     useEffect(() => { if (editing) setForm({ title: editing.title, description: editing.description, image: editing.image, category: editing.category, price: editing.price, mrp: editing.mrp, isPaid: !!editing.isPaid, startDate: editing.startDate || '', endDate: editing.endDate || '' }); else setForm({ title: '', description: '', image: '', category: '', price: 0, mrp: 0, isPaid: false, startDate: '', endDate: '' }); }, [editing, showModal]);
 
-    if (!currentUser || currentUser.role !== UserRole.ADMIN) return <Navigate to="/" />;
+    const isAllowed = currentUser?.role === UserRole.ADMIN || currentUser?.role === UserRole.EDITOR;
+    if (!currentUser || !isAllowed) return <Navigate to="/" />;
     
     const handleSaveCourse = (e: React.FormEvent) => { e.preventDefault(); const data: Course = { ...(editing || { id: Date.now().toString(), subjects: [], createdAt: new Date().toISOString() }), ...form }; if (editing) updateCourse(data); else addCourse(data); setShowModal(false); };
     
@@ -262,20 +264,22 @@ const AdminPanel = () => {
     const copyTempLink = (id: string) => {
         const link = `${window.location.origin}/#/temp-access/${id}`;
         navigator.clipboard.writeText(link);
-        alert("24h Access Link Copied! Send this to your student.");
+        alert("24h Access Link Copied!");
     };
 
     const copyProductionData = () => {
         const json = JSON.stringify(courses, null, 2);
         navigator.clipboard.writeText(json);
-        alert("Batch Data copied to clipboard! Share this with dev to save permanently.");
+        alert("Batch Data copied! Send this to the developer.");
     };
+
+    const filteredUsers = users.filter(u => u.name.toLowerCase().includes(searchUser.toLowerCase()) || u.email.toLowerCase().includes(searchUser.toLowerCase()));
 
     return (
         <div className="pb-24 pt-24 px-4 min-h-screen bg-[#f8fafc]">
              <div className="max-w-6xl mx-auto">
                  <div className="flex bg-white p-1.5 rounded-2xl shadow-sm border border-gray-100 mb-8 max-w-lg mx-auto overflow-hidden">
-                    {(['batches', 'access', 'settings'] as const).map(t => (
+                    {(['batches', 'users', 'settings'] as const).map(t => (
                         <button key={t} onClick={() => setTab(t)} className={`flex-1 py-3 font-bold capitalize transition-all rounded-xl text-xs ${tab === t ? 'bg-[#0056d2] text-white shadow-md' : 'text-gray-400 hover:bg-gray-50'}`}>
                             {t}
                         </button>
@@ -300,8 +304,9 @@ const AdminPanel = () => {
                                             <p className="text-[10px] text-blue-600 font-bold uppercase tracking-[0.2em]">{c.category}</p>
                                          </div>
                                      </div>
-                                     <div className="flex gap-3 w-full">
-                                        <button onClick={() => setContentTarget(c)} className="flex-1 py-3 bg-[#0056d2] text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-100 active:scale-95 transition-all">CONTENT</button>
+                                     <div className="flex gap-2 w-full">
+                                        <button onClick={() => setContentTarget(c)} className="flex-1 py-3 bg-[#0056d2] text-white rounded-2xl font-black text-[10px] uppercase tracking-widest active:scale-95 transition-all">CONTENT</button>
+                                        <button onClick={() => copyTempLink(c.id)} className="p-3 bg-blue-50 text-blue-600 rounded-2xl hover:bg-blue-600 hover:text-white transition-all" title="Temp Access Link"><LinkIcon className="w-5 h-5" /></button>
                                         <button onClick={() => { setEditing(c); setShowModal(true); }} className="p-3 bg-gray-50 text-gray-400 rounded-2xl hover:text-blue-500 transition-colors"><Edit className="w-5 h-5" /></button>
                                         <button onClick={() => deleteCourse(c.id)} className="p-3 bg-red-50 text-red-400 rounded-2xl hover:bg-red-500 hover:text-white transition-all"><Trash2 className="w-5 h-5" /></button>
                                      </div>
@@ -311,44 +316,90 @@ const AdminPanel = () => {
                      </div>
                  )}
 
-                 {tab === 'access' && (
-                    <div className="bg-white rounded-[50px] p-10 border border-gray-100 shadow-sm animate-fade-in">
-                        <h2 className="text-2xl font-black text-gray-800 mb-8 uppercase tracking-tight italic">Temporary Access Generator</h2>
-                        <div className="space-y-4">
-                            {courses.map(c => (
-                                <div key={c.id} className="flex items-center justify-between p-6 bg-gray-50 rounded-[35px] border border-gray-100">
-                                    <div className="flex items-center gap-5">
-                                        <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-blue-600 font-bold shadow-sm">{c.title.charAt(0)}</div>
-                                        <span className="font-bold text-gray-800">{c.title}</span>
+                 {tab === 'users' && (
+                    <div className="space-y-6 animate-fade-in">
+                        <div className="flex flex-col md:flex-row gap-4 items-center justify-between mb-8">
+                            <h2 className="text-2xl font-black text-gray-800 italic uppercase tracking-tight">Community Control</h2>
+                            <div className="relative w-full md:w-80">
+                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                <input value={searchUser} onChange={e => setSearchUser(e.target.value)} placeholder="Search by name or email..." className="w-full pl-12 pr-4 py-3 bg-white border border-gray-100 rounded-2xl text-sm font-bold shadow-sm" />
+                            </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {filteredUsers.map(u => {
+                                const latestResult = u.examResults?.[u.examResults.length - 1];
+                                const totalXP = (u.examResults || []).reduce((acc, curr) => acc + (curr.score * 50), 0);
+                                return (
+                                    <div key={u.id} className="bg-white p-6 rounded-[40px] border border-gray-100 shadow-sm hover:shadow-md transition-all flex flex-col gap-6">
+                                        <div className="flex justify-between items-start">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 font-black text-xl">{u.name.charAt(0)}</div>
+                                                <div className="min-w-0">
+                                                    <h3 className="font-black text-gray-800 text-sm truncate uppercase">{u.name}</h3>
+                                                    <p className="text-[10px] text-gray-400 font-bold truncate">{u.email}</p>
+                                                </div>
+                                            </div>
+                                            <select 
+                                                value={u.role} 
+                                                onChange={(e) => manageUserRole(u.id, e.target.value as UserRole)}
+                                                className="text-[10px] font-black bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100 uppercase tracking-widest outline-none text-blue-600"
+                                            >
+                                                <option value={UserRole.USER}>User</option>
+                                                <option value={UserRole.EDITOR}>Manager</option>
+                                                <option value={UserRole.ADMIN}>Admin</option>
+                                            </select>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="bg-gray-50 p-4 rounded-3xl">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <TrendingUp className="w-3 h-3 text-blue-500" />
+                                                    <span className="text-[9px] font-black text-gray-400 uppercase">Latest Mock</span>
+                                                </div>
+                                                <p className="text-sm font-black text-gray-800">{latestResult ? `${latestResult.score}/${latestResult.totalQuestions}` : 'N/A'}</p>
+                                            </div>
+                                            <div className="bg-gray-50 p-4 rounded-3xl">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <Sparkles className="w-3 h-3 text-yellow-500" />
+                                                    <span className="text-[9px] font-black text-gray-400 uppercase">Power Rank</span>
+                                                </div>
+                                                <p className="text-sm font-black text-gray-800">{totalXP} XP</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-3">
+                                            <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                                                <div className="h-full bg-blue-600" style={{ width: `${Math.min((totalXP / 1000) * 100, 100)}%` }}></div>
+                                            </div>
+                                            <span className="text-[9px] font-black text-gray-400 uppercase">Lvl {Math.floor(totalXP/200)}</span>
+                                        </div>
                                     </div>
-                                    <button onClick={() => copyTempLink(c.id)} className="flex items-center gap-3 px-6 py-3 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest active:scale-95 transition-all">
-                                        <Copy className="w-4 h-4" /> Copy Access Link
-                                    </button>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
                  )}
 
-                 {tab === 'settings' && (
+                 {tab === 'settings' && currentUser.role === UserRole.ADMIN && (
                     <div className="bg-white rounded-[50px] p-10 border border-gray-100 shadow-sm">
-                        <h2 className="text-2xl font-black text-gray-800 mb-8 uppercase tracking-tight italic">Master Config</h2>
+                        <h2 className="text-2xl font-black text-gray-800 mb-8 uppercase tracking-tight italic">System Hardware</h2>
                         <div className="space-y-6">
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Portal Name</label>
                                 <input value={settingsForm.appName} onChange={e => setSettingsForm({...settingsForm, appName: e.target.value})} className="w-full p-5 bg-gray-50 border border-gray-100 rounded-[25px] font-black text-gray-800" />
                             </div>
-                            <button onClick={() => { updateSettings(settingsForm); alert("Branding Updated!"); }} className="w-full py-5 bg-[#0056d2] text-white font-black rounded-3xl shadow-xl shadow-blue-100 uppercase tracking-[0.2em] text-xs">Save Settings</button>
+                            <button onClick={() => { updateSettings(settingsForm); alert("System Reloaded!"); }} className="w-full py-5 bg-[#0056d2] text-white font-black rounded-3xl shadow-xl shadow-blue-100 uppercase tracking-[0.2em] text-xs">Commit Portal Config</button>
                             
                             <div className="mt-12 pt-8 border-t border-gray-50 space-y-4">
-                                <h3 className="text-blue-600 font-black uppercase tracking-widest text-[10px]">Data Migration</h3>
+                                <h3 className="text-blue-600 font-black uppercase tracking-widest text-[10px]">Data Stream Backup</h3>
                                 <button onClick={copyProductionData} className="w-full flex items-center justify-center gap-3 py-5 bg-blue-50 text-blue-600 border border-blue-100 rounded-3xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all shadow-sm">
-                                    <Download className="w-5 h-5" /> Copy Data Code for Deployment
+                                    <Download className="w-5 h-5" /> Export Batch JSON Code
                                 </button>
                                 
-                                <h3 className="text-red-600 font-black uppercase tracking-widest text-[10px] pt-4">Emergency</h3>
+                                <h3 className="text-red-600 font-black uppercase tracking-widest text-[10px] pt-4">Nuclear Option</h3>
                                 <button onClick={clearAllData} className="w-full flex items-center justify-center gap-3 py-5 bg-red-50 text-red-500 border border-red-100 rounded-3xl font-black text-[10px] uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all shadow-sm">
-                                    <RotateCcw className="w-5 h-5" /> Nuclear Reset (Clear All Data)
+                                    <RotateCcw className="w-5 h-5" /> Factory Reset (Wipe All)
                                 </button>
                             </div>
                         </div>
@@ -605,7 +656,7 @@ const Profile = () => {
                     <p className="text-[#0056d2] font-black text-xs uppercase tracking-[0.4em] bg-blue-50 px-8 py-3 rounded-full inline-block mb-12 shadow-inner">{currentUser.role} Account</p>
                     <button onClick={logout} className="w-full py-8 text-red-500 font-black bg-red-50 rounded-[40px] shadow-xl shadow-red-100 active:scale-95 transition-all uppercase tracking-[0.4em] text-xs">Disconnect Session</button>
                 </div>
-                {currentUser.role === UserRole.ADMIN && <Link to="/admin" className="block w-full py-10 bg-gradient-to-r from-[#0056d2] to-[#003ea1] text-white rounded-[60px] text-center font-black shadow-2xl shadow-blue-200 uppercase tracking-[0.4em] text-xl active:scale-95 transition-transform italic">Open Master Control</Link>}
+                {(currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.EDITOR) && <Link to="/admin" className="block w-full py-10 bg-gradient-to-r from-[#0056d2] to-[#003ea1] text-white rounded-[60px] text-center font-black shadow-2xl shadow-blue-200 uppercase tracking-[0.4em] text-xl active:scale-95 transition-transform italic">Open Master Control</Link>}
             </div>
         </div>
     );
